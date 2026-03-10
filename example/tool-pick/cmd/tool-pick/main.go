@@ -11,7 +11,6 @@ import (
 	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
-	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick"
@@ -35,9 +34,9 @@ func main() {
 	}
 
 	// Create model client
-	modelClient := openai.NewClient(&model.ChatModelConfig{
-		ModelName: defaultModelName,
-		APIKey:    apiKey,
+	modelClient, _ := openai.NewClient(&openai.Config{
+		Model:  defaultModelName,
+		APIKey: apiKey,
 	})
 
 	// Create base toolkit with tool groups

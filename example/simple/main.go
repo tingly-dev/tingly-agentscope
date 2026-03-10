@@ -9,7 +9,6 @@ import (
 	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
-	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
 	"github.com/tingly-dev/tingly-agentscope/pkg/pipeline"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
@@ -41,9 +40,9 @@ func example1() {
 		return
 	}
 
-	modelClient := openai.NewClient(&model.ChatModelConfig{
-		ModelName: "gpt-4o-mini",
-		APIKey:    apiKey,
+	modelClient, _ := openai.NewClient(&openai.Config{
+		Model:  "gpt-4o-mini",
+		APIKey: apiKey,
 	})
 
 	// Create a ReActAgent
@@ -83,9 +82,9 @@ func example2() {
 		return
 	}
 
-	modelClient := openai.NewClient(&model.ChatModelConfig{
-		ModelName: "gpt-4o-mini",
-		APIKey:    apiKey,
+	modelClient, _ := openai.NewClient(&openai.Config{
+		Model:  "gpt-4o-mini",
+		APIKey: apiKey,
 	})
 
 	// Create a toolkit
@@ -140,9 +139,9 @@ func example3() {
 		return
 	}
 
-	modelClient := openai.NewClient(&model.ChatModelConfig{
-		ModelName: "gpt-4o-mini",
-		APIKey:    apiKey,
+	modelClient, _ := openai.NewClient(&openai.Config{
+		Model:  "gpt-4o-mini",
+		APIKey: apiKey,
 	})
 
 	// Create two agents
@@ -194,9 +193,9 @@ func example4() {
 		return
 	}
 
-	modelClient := openai.NewClient(&model.ChatModelConfig{
-		ModelName: "gpt-4o-mini",
-		APIKey:    apiKey,
+	modelClient, _ := openai.NewClient(&openai.Config{
+		Model:  "gpt-4o-mini",
+		APIKey: apiKey,
 	})
 
 	// Create multiple agents

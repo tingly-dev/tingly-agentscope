@@ -20,6 +20,27 @@ type SDKAdapter struct {
 	streaming bool
 }
 
+// Client is an alias for SDKAdapter for convenience.
+type Client = SDKAdapter
+
+// Config is an alias for SDKConfig for convenience.
+type Config = SDKConfig
+
+// NewClient creates a new Client (alias for NewSDKAdapter).
+func NewClient(cfg *Config) (*Client, error) {
+	return NewSDKAdapter(cfg)
+}
+
+// NewClientFromChatModelConfig creates a Client from model.ChatModelConfig for backward compatibility.
+func NewClientFromChatModelConfig(cfg *model.ChatModelConfig) (*Client, error) {
+	return NewSDKAdapter(&SDKConfig{
+		APIKey:  cfg.APIKey,
+		BaseURL: cfg.BaseURL,
+		Model:   cfg.ModelName,
+		Stream:  cfg.Stream,
+	})
+}
+
 // NewSDKAdapter creates a new adapter that implements model.ChatModel using the SDK client.
 func NewSDKAdapter(cfg *SDKConfig) (*SDKAdapter, error) {
 	client, err := NewSDKClient(cfg)
