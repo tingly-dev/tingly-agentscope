@@ -4,7 +4,7 @@ An autonomous AI agent **loop controller** based on the [Ralph pattern](https://
 
 ## Install
 ```
-go install github.com/tingly-dev/tingly-scope/app/tingly-loop@latest
+go install github.com/tingly-dev/tingly-agentscope/app/tingly-loop@latest
 ```
 
 ## Architecture
@@ -34,7 +34,23 @@ go build -o tingly-loop .
 
 ## Usage
 
-### Basic Usage (claude CLI agent - like ralph)
+### Spec-Driven Workflow (Recommended)
+
+```bash
+# 1. Create a spec from your feature description
+tingly-loop spec "Add user authentication with email and password"
+
+# 2. (Optional) Run discussion to refine requirements
+tingly-loop run --spec docs/spec/20260220-add-user-authentication.md
+
+# 3. Generate tasks.json from the spec
+tingly-loop generate
+
+# 4. Run the loop to implement tasks
+tingly-loop run
+```
+
+### Basic Usage (direct implementation)
 
 ```bash
 # In a project directory with docs/loop/tasks.json
@@ -62,32 +78,56 @@ tingly-loop run --agent subprocess --agent-binary ./my-agent --agent-arg "--flag
 ### CLI Commands
 
 ```bash
+# Create a spec document from a feature description
+tingly-loop spec "<feature description>" [options]
+
+# Generate tasks.json from a spec document
+tingly-loop generate [options]
+
 # Run the loop
 tingly-loop run [options]
 
 # Show status without running
 tingly-loop status [options]
 
-# Interactively create tasks.json
+# Interactively create tasks.json (manual)
 tingly-loop init [options]
+```
 
-# Generate tasks.json from description using AI
-tingly-loop generate "<feature description>" [options]
+### Spec Workflow Commands
+
+```bash
+# Step 1: Create spec
+tingly-loop spec "Add user authentication"
+# → Creates docs/spec/20260220-add-user-authentication.md
+
+# Step 2: (Optional) Discuss requirements
+tingly-loop run --spec docs/spec/20260220-add-user-authentication.md
+# → Agent asks questions, you can edit the spec between iterations
+
+# Step 3: Generate tasks
+tingly-loop generate
+# → Uses most recent spec to create docs/loop/tasks.json
+
+# Step 4: Implement
+tingly-loop run
 ```
 
 ### Options
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--tasks, -t` | `docs/loop/tasks.json` | Path to tasks JSON file |
-| `--progress` | `docs/loop/progress.md` | Path to progress log |
-| `--max-iterations, -n` | `10` | Maximum loop iterations |
-| `--agent` | `claude` | Agent type: claude, tingly-code, subprocess |
-| `--agent-binary` | (auto-detect) | Path to agent binary |
-| `--agent-arg` | (none) | Additional args for subprocess (repeatable) |
-| `--config, -c` | (none) | Config file for agent |
-| `--instructions, -i` | (embedded) | Custom instructions for claude agent |
-| `--workdir, -w` | (current dir) | Working directory |
+| Flag                   | Default                 | Description                                    |
+| ---------------------- | ----------------------- | ---------------------------------------------- |
+| `--tasks, -t`          | `docs/loop/tasks.json`  | Path to tasks JSON file                        |
+| `--progress`           | `docs/loop/progress.md` | Path to progress log                           |
+| `--spec`               | (auto-detect)           | Path to spec file (for discussion or generate) |
+| `--skip-spec`          | `false`                 | Skip spec phase, go directly to implementation |
+| `--max-iterations, -n` | `10`                    | Maximum loop iterations                        |
+| `--agent`              | `claude`                | Agent type: claude, tingly-code, subprocess    |
+| `--agent-binary`       | (auto-detect)           | Path to agent binary                           |
+| `--agent-arg`          | (none)                  | Additional args for subprocess (repeatable)    |
+| `--config, -c`         | (none)                  | Config file for agent                          |
+| `--instructions, -i`   | (embedded)              | Custom instructions for claude agent           |
+| `--workdir, -w`        | (current dir)           | Working directory                              |
 
 ## Tasks Format
 
@@ -176,26 +216,53 @@ tingly-loop run --agent subprocess \
 
 ## Example Workflow
 
-1. Create tasks for your feature (`tingly-loop init` or `tingly-loop generate`)
-2. Run `tingly-loop run`
-3. Each iteration:
-   - tingly-loop builds the prompt (tasks + progress)
-   - Agent executes with full tool access
-   - Agent commits changes and updates tasks
-   - tingly-loop checks for completion signal
-4. When all stories pass, loop exits successfully
+### Spec-Driven Workflow (Recommended)
+
+```bash
+# 1. Create a spec from your feature idea
+tingly-loop spec "Add user authentication with email and password"
+# → Creates docs/spec/20260220-add-user-authentication.md
+# → Agent writes initial spec with problem statement and open questions
+
+# 2. Review and optionally discuss the spec
+vim docs/spec/20260220-add-user-authentication.md  # Edit manually if needed
+tingly-loop run --spec docs/spec/20260220-add-user-authentication.md
+# → Agent asks clarifying questions
+# → When ready, agent outputs <discussion-complete/> and generates tasks
+
+# 3. Generate tasks from the spec
+tingly-loop generate
+# → Reads spec and creates docs/loop/tasks.json
+
+# 4. Run the implementation loop
+tingly-loop run
+# → Each iteration implements one story
+# → Agent commits changes and updates tasks
+# → Loop exits when all stories pass
+```
+
+### Quick Workflow (Skip Spec)
+
+```bash
+# 1. Create tasks manually or use init
+tingly-loop init
+# → Interactive prompt to create tasks.json
+
+# 2. Run the loop
+tingly-loop run
+```
 
 ## Comparison with Ralph
 
-| Feature | Ralph | Tingly Loop |
-|---------|-------|-------------|
-| Implementation | Bash script | Go program |
-| Agent Types | claude, amp | claude, tingly-code, subprocess |
-| State Management | File I/O | File I/O + Go structs |
-| Error Handling | Basic | Structured with Go errors |
-| Loop Control | for loop in bash | Go loop controller |
-| Extensibility | Limited | Pluggable Agent interface |
-| Default Paths | `prd.json`, `progress.txt` | `docs/loop/tasks.json`, `docs/loop/progress.md` |
+| Feature          | Ralph                      | Tingly Loop                                     |
+| ---------------- | -------------------------- | ----------------------------------------------- |
+| Implementation   | Bash script                | Go program                                      |
+| Agent Types      | claude, amp                | claude, tingly-code, subprocess                 |
+| State Management | File I/O                   | File I/O + Go structs                           |
+| Error Handling   | Basic                      | Structured with Go errors                       |
+| Loop Control     | for loop in bash           | Go loop controller                              |
+| Extensibility    | Limited                    | Pluggable Agent interface                       |
+| Default Paths    | `prd.json`, `progress.txt` | `docs/loop/tasks.json`, `docs/loop/progress.md` |
 
 ## License
 
