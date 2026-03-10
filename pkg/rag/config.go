@@ -1,7 +1,7 @@
 package rag
 
 import (
-	"github.com/tingly-dev/tingly-scope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 )
 
 // EmbeddingModelConfig defines configuration for embedding models
@@ -35,8 +35,8 @@ func DefaultOpenAIEmbeddingConfig(apiKey string) *EmbeddingModelConfig {
 type ChunkingStrategyType string
 
 const (
-	ChunkingStrategyNone    ChunkingStrategyType = "none"
-	ChunkingStrategyFixed   ChunkingStrategyType = "fixed"
+	ChunkingStrategyNone     ChunkingStrategyType = "none"
+	ChunkingStrategyFixed    ChunkingStrategyType = "fixed"
 	ChunkingStrategySemantic ChunkingStrategyType = "semantic"
 )
 

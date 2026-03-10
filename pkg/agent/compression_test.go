@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 func TestSimpleTokenCounter_CountTokens(t *testing.T) {

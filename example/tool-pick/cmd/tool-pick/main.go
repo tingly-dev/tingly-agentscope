@@ -8,14 +8,14 @@ import (
 	"log"
 	"os"
 
-	"github.com/tingly-dev/tingly-scope/pkg/agent"
-	"github.com/tingly-dev/tingly-scope/pkg/memory"
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/model"
-	"github.com/tingly-dev/tingly-scope/pkg/model/openai"
-	"github.com/tingly-dev/tingly-scope/pkg/tool"
-	"github.com/tingly-dev/tingly-scope/pkg/toolpick"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
+	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
+	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // Constants for configuration defaults

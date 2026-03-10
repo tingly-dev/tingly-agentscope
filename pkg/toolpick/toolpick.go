@@ -1,4 +1,4 @@
-// Package toolpick provides intelligent tool selection for tingly-scope agents.
+// Package toolpick provides intelligent tool selection for tingly-agentscope agents.
 package toolpick
 
 import (
@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tingly-dev/tingly-scope/pkg/embedding"
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/model"
-	"github.com/tingly-dev/tingly-scope/pkg/tool"
-	"github.com/tingly-dev/tingly-scope/pkg/toolpick/cache"
-	"github.com/tingly-dev/tingly-scope/pkg/toolpick/ranking"
-	"github.com/tingly-dev/tingly-scope/pkg/toolpick/selector"
+	"github.com/tingly-dev/tingly-agentscope/pkg/embedding"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
+	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick/cache"
+	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick/ranking"
+	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick/selector"
 )
 
 // configWrapper wraps toolpick.Config for selector use.

@@ -1,4 +1,4 @@
-module github.com/tingly-dev/tingly-scope
+module github.com/tingly-dev/tingly-agentscope
 
 go 1.25.6
 

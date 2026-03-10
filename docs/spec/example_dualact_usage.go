@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tingly-dev/tingly-scope/pkg/agent"
-	"github.com/tingly-dev/tingly-scope/pkg/memory"
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/model"
-	"github.com/tingly-dev/tingly-scope/pkg/model/openai"
-	"github.com/tingly-dev/tingly-scope/pkg/tool"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
+	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // 示例：使用 Dual Act Agent 构建一个代码生成和测试的工作流

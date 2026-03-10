@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package sidecar;
 
-option go_package = "github.com/tingly-dev/tingly-scope/pkg/embedding/sidecar/pb";
+option go_package = "github.com/tingly-dev/tingly-agentscope/pkg/embedding/sidecar/pb";
 
 // LLMService provides embedding and generation capabilities.
 service LLMService {

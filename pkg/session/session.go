@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/tingly-dev/tingly-scope/pkg/module"
+	"github.com/tingly-dev/tingly-agentscope/pkg/module"
 )
 
 // Session is the interface for session persistence

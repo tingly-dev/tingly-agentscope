@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tingly-dev/tingly-scope/pkg/agent"
-	"github.com/tingly-dev/tingly-scope/pkg/memory"
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/plan"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
+	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/plan"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 func main() {
@@ -49,7 +49,7 @@ func exampleLongTermMemory() {
 		log.Fatalf("Failed to add memory: %v", err)
 	}
 
-	_, err = ltm.Add(ctx, "project_info", "Working on tingly-scope project - a Go port of AgentScope", nil)
+	_, err = ltm.Add(ctx, "project_info", "Working on tingly-agentscope project - a Go port of AgentScope", nil)
 	if err != nil {
 		log.Fatalf("Failed to add memory: %v", err)
 	}

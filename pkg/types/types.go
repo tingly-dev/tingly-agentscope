@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/tingly-dev/tingly-scope/pkg/utils"
+	"github.com/tingly-dev/tingly-agentscope/pkg/utils"
 )
 
 // Role represents the message role type

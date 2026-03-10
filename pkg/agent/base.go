@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/tingly-dev/tingly-scope/pkg/formatter"
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/module"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/formatter"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/module"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // HookFunc represents a hook function

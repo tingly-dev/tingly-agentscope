@@ -8,9 +8,10 @@ import (
 
 	"example/tingly-code/config"
 	"example/tingly-code/tools"
-	"github.com/tingly-dev/tingly-scope/pkg/agent"
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+
+	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // DiffAgent creates patch files from git changes

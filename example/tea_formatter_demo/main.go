@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/tingly-dev/tingly-scope/pkg/formatter"
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/formatter"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 func main() {

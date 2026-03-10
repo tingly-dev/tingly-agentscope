@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tingly-dev/tingly-scope/pkg/model"
-	"github.com/tingly-dev/tingly-scope/pkg/tool"
-	"github.com/tingly-dev/tingly-scope/pkg/toolpick"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
+	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick"
 )
 
 // Constants for configuration defaults
@@ -20,7 +20,7 @@ const (
 	defaultMaxSelection  = 10
 	// DefaultCacheDir is the default directory for caching toolpick data.
 	// Can be overridden via TOOLPICK_CACHE_DIR environment variable.
-	defaultCacheDir = "/tmp/tingly-scope/toolpick-cache"
+	defaultCacheDir = "/tmp/tingly-agentscope/toolpick-cache"
 )
 
 func main() {

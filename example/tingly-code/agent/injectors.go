@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 
-	"github.com/tingly-dev/tingly-scope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 )
 
 // AgentInjectors manages all injectors for the agent

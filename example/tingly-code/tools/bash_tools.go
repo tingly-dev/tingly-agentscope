@@ -3,7 +3,7 @@ package tools
 import (
 	"context"
 
-	"github.com/tingly-dev/tingly-scope/pkg/tool"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 )
 
 // Tool descriptions for bash tools

@@ -2,18 +2,18 @@
 
 **Date:** 2026-01-24
 **Source:** https://github.com/agentscope-ai/agentscope
-**Target:** github.com/tingly-dev/tingly-scope
+**Target:** github.com/tingly-dev/tingly-agentscope
 
 ---
 
 ## Executive Summary
 
-| Metric | Python Version | Go Version | Completion |
-|--------|---------------|------------|------------|
-| **Total Modules** | 23 | 9 | **39%** |
-| **Core Modules** | 8 | 8 | **100%** ✅ |
-| **Extension Modules** | 15 | 1 | **7%** |
-| **Total Files** | ~210 | 16 | **8%** |
+| Metric                | Python Version | Go Version | Completion |
+| --------------------- | -------------- | ---------- | ---------- |
+| **Total Modules**     | 23             | 9          | **39%**    |
+| **Core Modules**      | 8              | 8          | **100%** ✅ |
+| **Extension Modules** | 15             | 1          | **7%**     |
+| **Total Files**       | ~210           | 16         | **8%**     |
 
 ---
 
@@ -21,37 +21,37 @@
 
 ### ✅ Fully Migrated (Core Modules)
 
-| Python Module | Go Module | Python Files | Go Files | Status |
-|--------------|-----------|--------------|----------|--------|
-| `agent/` | `agent/` | 10 | 2 | Core agents migrated |
-| `message/` | `message/` | 3 | 3 | ✅ Complete |
-| `model/` | `model/` | 9 | 3 | OpenAI client implemented |
-| `memory/` | `memory/` | 9 | 1 | Basic implementation |
-| `pipeline/` | `pipeline/` | 4 | 1 | ✅ Core patterns done |
-| `tool/` | `tool/` | 9 | 1 | Toolkit implemented |
-| `types/` | `types/` | 4 | 1 | ✅ Core types done |
-| `module/` | `module/` | 1 | 1 | ✅ State module done |
+| Python Module | Go Module   | Python Files | Go Files | Status                    |
+| ------------- | ----------- | ------------ | -------- | ------------------------- |
+| `agent/`      | `agent/`    | 10           | 2        | Core agents migrated      |
+| `message/`    | `message/`  | 3            | 3        | ✅ Complete                |
+| `model/`      | `model/`    | 9            | 3        | OpenAI client implemented |
+| `memory/`     | `memory/`   | 9            | 1        | Basic implementation      |
+| `pipeline/`   | `pipeline/` | 4            | 1        | ✅ Core patterns done      |
+| `tool/`       | `tool/`     | 9            | 1        | Toolkit implemented       |
+| `types/`      | `types/`    | 4            | 1        | ✅ Core types done         |
+| `module/`     | `module/`   | 1            | 1        | ✅ State module done       |
 
 ### ❌ Not Migrated (Extension Modules)
 
-| Python Module | Purpose | Priority |
-|--------------|---------|----------|
-| `embedding/` | Text embeddings for vector search | High |
-| `evaluate/` | Benchmark and evaluation tools | Low |
-| `exception/` | Custom exceptions | Low |
-| `formatter/` | API response formatters | Medium |
-| `hooks/` | Studio integration hooks | Low |
-| `mcp/` | Model Context Protocol client | Medium |
-| `plan/` | Plan notebook and storage | Low |
-| `rag/` | RAG knowledge base with vector stores | High |
-| `session/` | Session persistence | Medium |
-| `token/` | Token counting utilities | Low |
-| `tracing/` | OpenTelemetry tracing | Low |
-| `tts/` | Text-to-Speech models | Low |
-| `tune/` | Model tuning capabilities | Low |
-| `tuner/` | Parameter tuning | Low |
-| `a2a/` | Agent-to-Agent communication | Medium |
-| `_utils/` | Common utilities | Partial |
+| Python Module | Purpose                               | Priority |
+| ------------- | ------------------------------------- | -------- |
+| `embedding/`  | Text embeddings for vector search     | High     |
+| `evaluate/`   | Benchmark and evaluation tools        | Low      |
+| `exception/`  | Custom exceptions                     | Low      |
+| `formatter/`  | API response formatters               | Medium   |
+| `hooks/`      | Studio integration hooks              | Low      |
+| `mcp/`        | Model Context Protocol client         | Medium   |
+| `plan/`       | Plan notebook and storage             | Low      |
+| `rag/`        | RAG knowledge base with vector stores | High     |
+| `session/`    | Session persistence                   | Medium   |
+| `token/`      | Token counting utilities              | Low      |
+| `tracing/`    | OpenTelemetry tracing                 | Low      |
+| `tts/`        | Text-to-Speech models                 | Low      |
+| `tune/`       | Model tuning capabilities             | Low      |
+| `tuner/`      | Parameter tuning                      | Low      |
+| `a2a/`        | Agent-to-Agent communication          | Medium   |
+| `_utils/`     | Common utilities                      | Partial  |
 
 ---
 
@@ -59,67 +59,67 @@
 
 ### Agent Module
 
-| Python File | Go File | Migration Status |
-|-------------|---------|------------------|
-| `_agent_base.py` | `base.go` | ✅ Core base agent |
-| `_react_agent.py` | `react_agent.go` | ✅ ReAct pattern |
-| `_react_agent_base.py` | (in react_agent.go) | ✅ Integrated |
-| `_user_agent.py` | - | ❌ Missing |
-| `_user_input.py` | - | ❌ Missing |
-| `_agent_meta.py` | - | ❌ Missing |
-| `_a2a_agent.py` | - | ❌ Missing |
-| `_utils.py` | (in base.go) | ✅ Partial |
+| Python File            | Go File             | Migration Status  |
+| ---------------------- | ------------------- | ----------------- |
+| `_agent_base.py`       | `base.go`           | ✅ Core base agent |
+| `_react_agent.py`      | `react_agent.go`    | ✅ ReAct pattern   |
+| `_react_agent_base.py` | (in react_agent.go) | ✅ Integrated      |
+| `_user_agent.py`       | -                   | ❌ Missing         |
+| `_user_input.py`       | -                   | ❌ Missing         |
+| `_agent_meta.py`       | -                   | ❌ Missing         |
+| `_a2a_agent.py`        | -                   | ❌ Missing         |
+| `_utils.py`            | (in base.go)        | ✅ Partial         |
 
 ### Message Module
 
-| Python File | Go File | Migration Status |
-|-------------|---------|------------------|
-| `_message_base.py` | `message.go` | ✅ Complete |
-| `_message_block.py` | `blocks.go` | ✅ Complete |
-| (helpers) | `helpers.go` | ✅ Complete |
+| Python File         | Go File      | Migration Status |
+| ------------------- | ------------ | ---------------- |
+| `_message_base.py`  | `message.go` | ✅ Complete       |
+| `_message_block.py` | `blocks.go`  | ✅ Complete       |
+| (helpers)           | `helpers.go` | ✅ Complete       |
 
 ### Model Module
 
-| Python File | Go File | Migration Status |
-|-------------|---------|------------------|
-| `_model_base.py` | `model.go` | ✅ Interface defined |
-| `_model_response.py` | `response_helpers.go` | ✅ Response handling |
-| `_openai_model.py` | `openai/client.go` | ✅ OpenAI implemented |
-| `_anthropic_model.py` | - | ❌ Not implemented |
-| `_dashscope_model.py` | - | ❌ Not implemented |
-| `_gemini_model.py` | - | ❌ Not implemented |
-| `_ollama_model.py` | - | ❌ Not implemented |
-| `_trinity_model.py` | - | ❌ Not implemented |
-| `_model_usage.py` | - | ❌ Missing |
+| Python File           | Go File               | Migration Status     |
+| --------------------- | --------------------- | -------------------- |
+| `_model_base.py`      | `model.go`            | ✅ Interface defined  |
+| `_model_response.py`  | `response_helpers.go` | ✅ Response handling  |
+| `_openai_model.py`    | `openai/client.go`    | ✅ OpenAI implemented |
+| `_anthropic_model.py` | -                     | ❌ Not implemented    |
+| `_dashscope_model.py` | -                     | ❌ Not implemented    |
+| `_gemini_model.py`    | -                     | ❌ Not implemented    |
+| `_ollama_model.py`    | -                     | ❌ Not implemented    |
+| `_trinity_model.py`   | -                     | ❌ Not implemented    |
+| `_model_usage.py`     | -                     | ❌ Missing            |
 
 ### Memory Module
 
-| Python File | Go File | Migration Status |
-|-------------|---------|------------------|
-| `_working_memory/_base.py` | `memory.go` | ⚠️ Partial |
-| `_working_memory/_in_memory_memory.py` | `memory.go` | ✅ History implemented |
-| `_working_memory/_redis_memory.py` | - | ❌ Missing |
-| `_working_memory/_sqlalchemy_memory.py` | - | ❌ Missing |
-| `_long_term_memory/` | - | ❌ Entire submodule missing |
+| Python File                             | Go File     | Migration Status           |
+| --------------------------------------- | ----------- | -------------------------- |
+| `_working_memory/_base.py`              | `memory.go` | ⚠️ Partial                  |
+| `_working_memory/_in_memory_memory.py`  | `memory.go` | ✅ History implemented      |
+| `_working_memory/_redis_memory.py`      | -           | ❌ Missing                  |
+| `_working_memory/_sqlalchemy_memory.py` | -           | ❌ Missing                  |
+| `_long_term_memory/`                    | -           | ❌ Entire submodule missing |
 
 ### Pipeline Module
 
-| Python File | Go File | Migration Status |
-|-------------|---------|------------------|
-| `_class.py` | `pipeline.go` | ✅ Sequential/FanOut done |
-| `_functional.py` | `pipeline.go` | ⚠️ Partial |
-| `_msghub.py` | `pipeline.go` | ✅ MsgHub implemented |
+| Python File      | Go File       | Migration Status         |
+| ---------------- | ------------- | ------------------------ |
+| `_class.py`      | `pipeline.go` | ✅ Sequential/FanOut done |
+| `_functional.py` | `pipeline.go` | ⚠️ Partial                |
+| `_msghub.py`     | `pipeline.go` | ✅ MsgHub implemented     |
 
 ### Tool Module
 
-| Python File | Go File | Migration Status |
-|-------------|---------|------------------|
-| `_toolkit.py` | `toolkit.go` | ✅ Core toolkit |
-| `_types.py` | (in toolkit.go) | ✅ Integrated |
-| `_response.py` | (in toolkit.go) | ✅ Integrated |
-| `_coding/` | - | ❌ Coding tools missing |
-| `_multi_modality/` | - | ❌ Multi-modal tools missing |
-| `_text_file/` | - | ❌ File tools missing |
+| Python File        | Go File         | Migration Status            |
+| ------------------ | --------------- | --------------------------- |
+| `_toolkit.py`      | `toolkit.go`    | ✅ Core toolkit              |
+| `_types.py`        | (in toolkit.go) | ✅ Integrated                |
+| `_response.py`     | (in toolkit.go) | ✅ Integrated                |
+| `_coding/`         | -               | ❌ Coding tools missing      |
+| `_multi_modality/` | -               | ❌ Multi-modal tools missing |
+| `_text_file/`      | -               | ❌ File tools missing        |
 
 ---
 
@@ -206,11 +206,11 @@
 
 ## Code Metrics
 
-| Metric | Python | Go | Note |
-|--------|--------|-----|------|
-| Lines of Code | ~25,000 | ~3,000 | Core architecture complete |
-| Test Files | 50+ | 0 | Tests need to be added |
-| Documentation | Extensive | Minimal | Needs README updates |
+| Metric        | Python    | Go      | Note                       |
+| ------------- | --------- | ------- | -------------------------- |
+| Lines of Code | ~25,000   | ~3,000  | Core architecture complete |
+| Test Files    | 50+       | 0       | Tests need to be added     |
+| Documentation | Extensive | Minimal | Needs README updates       |
 
 ---
 

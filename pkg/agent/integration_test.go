@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tingly-dev/tingly-scope/pkg/memory"
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/model"
-	"github.com/tingly-dev/tingly-scope/pkg/plan"
-	"github.com/tingly-dev/tingly-scope/pkg/tool"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/plan"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // mockModel is a mock implementation of ChatModel for testing

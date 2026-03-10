@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tingly-dev/tingly-scope/pkg/embedding"
-	"github.com/tingly-dev/tingly-scope/pkg/model"
-	"github.com/tingly-dev/tingly-scope/pkg/toolpick/cache"
+	"github.com/tingly-dev/tingly-agentscope/pkg/embedding"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick/cache"
 )
 
 // SemanticSelector selects tools based on semantic embedding similarity.

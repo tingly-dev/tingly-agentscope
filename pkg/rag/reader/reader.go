@@ -3,7 +3,7 @@ package reader
 import (
 	"context"
 
-	"github.com/tingly-dev/tingly-scope/pkg/rag"
+	"github.com/tingly-dev/tingly-agentscope/pkg/rag"
 )
 
 // Reader is the interface for document readers

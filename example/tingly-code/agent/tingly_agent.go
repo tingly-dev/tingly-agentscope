@@ -11,17 +11,17 @@ import (
 	"example/tingly-code/config"
 	"example/tingly-code/tools"
 
-	"github.com/tingly-dev/tingly-scope/pkg/agent"
-	"github.com/tingly-dev/tingly-scope/pkg/formatter"
-	"github.com/tingly-dev/tingly-scope/pkg/memory"
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/model"
-	"github.com/tingly-dev/tingly-scope/pkg/model/anthropic"
-	"github.com/tingly-dev/tingly-scope/pkg/model/openai"
-	"github.com/tingly-dev/tingly-scope/pkg/module"
-	"github.com/tingly-dev/tingly-scope/pkg/session"
-	"github.com/tingly-dev/tingly-scope/pkg/tool"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
+	"github.com/tingly-dev/tingly-agentscope/pkg/formatter"
+	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model/anthropic"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
+	"github.com/tingly-dev/tingly-agentscope/pkg/module"
+	"github.com/tingly-dev/tingly-agentscope/pkg/session"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 //go:embed tingly_agent_prompt.md

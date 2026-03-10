@@ -8,7 +8,7 @@ import (
 
 	"example/tingly-code/tools"
 
-	"github.com/tingly-dev/tingly-scope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 )
 
 // TaskInjector injects task progress into messages

@@ -1,6 +1,6 @@
 package message
 
-import "github.com/tingly-dev/tingly-scope/pkg/types"
+import "github.com/tingly-dev/tingly-agentscope/pkg/types"
 
 // GetToolUseBlocks returns all tool use blocks from the message
 func (m *Msg) GetToolUseBlocks() []*ToolUseBlock {

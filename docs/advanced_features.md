@@ -18,7 +18,7 @@ Persistent memory storage with file backing, allowing agents to remember informa
 
 **Usage:**
 ```go
-import "github.com/tingly-dev/tingly-scope/pkg/memory"
+import "github.com/tingly-dev/tingly-agentscope/pkg/memory"
 
 // Create long-term memory
 config := &memory.LongTermMemoryConfig{
@@ -56,7 +56,7 @@ Automatic memory compression for long conversations, preventing context overflow
 
 **Usage:**
 ```go
-import "github.com/tingly-dev/tingly-scope/pkg/agent"
+import "github.com/tingly-dev/tingly-agentscope/pkg/agent"
 
 // Create compression config
 compression := &agent.CompressionConfig{
@@ -100,7 +100,7 @@ Task planning and decomposition for complex multi-step tasks.
 
 **Usage:**
 ```go
-import "github.com/tingly-dev/tingly-scope/pkg/plan"
+import "github.com/tingly-dev/tingly-agentscope/pkg/plan"
 
 // Create plan notebook
 storage := plan.NewInMemoryPlanStorage()
@@ -198,13 +198,13 @@ pkg/
 
 ## Comparison with Python AgentScope
 
-| Feature | Python AgentScope | Go AgentScope | Status |
-|---------|------------------|---------------|--------|
-| LongTermMemory | ✅ | ✅ | Migrated |
-| Memory Compression | ✅ | ✅ | Migrated |
-| PlanNotebook | ✅ | ✅ | Migrated |
-| TokenCounter | ✅ (multiple) | ⚠️ (simple) | Basic version |
-| Plan Storage | ✅ (in-memory/file) | ⚠️ (in-memory) | In-memory only |
+| Feature            | Python AgentScope  | Go AgentScope | Status         |
+| ------------------ | ------------------ | ------------- | -------------- |
+| LongTermMemory     | ✅                  | ✅             | Migrated       |
+| Memory Compression | ✅                  | ✅             | Migrated       |
+| PlanNotebook       | ✅                  | ✅             | Migrated       |
+| TokenCounter       | ✅ (multiple)       | ⚠️ (simple)    | Basic version  |
+| Plan Storage       | ✅ (in-memory/file) | ⚠️ (in-memory) | In-memory only |
 
 ---
 

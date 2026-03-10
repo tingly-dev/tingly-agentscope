@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"github.com/tingly-dev/tingly-scope/pkg/toolschema"
+	"github.com/tingly-dev/tingly-agentscope/pkg/toolschema"
 )
 
 // Re-export ToolDescriptor and ToolRegistry from toolschema

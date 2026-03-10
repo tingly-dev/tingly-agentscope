@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/tingly-dev/tingly-scope/pkg/rag"
+	"github.com/tingly-dev/tingly-agentscope/pkg/rag"
 )
 
 // MemoryStore implements an in-memory vector store

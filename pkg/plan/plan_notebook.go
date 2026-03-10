@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // Constants for markdown formatting

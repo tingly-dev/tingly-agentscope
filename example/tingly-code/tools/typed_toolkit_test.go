@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/tingly-dev/tingly-scope/pkg/toolschema"
+	"github.com/tingly-dev/tingly-agentscope/pkg/toolschema"
 )
 
 // TestNormalizeStringArrays tests the normalizeStringArrays function

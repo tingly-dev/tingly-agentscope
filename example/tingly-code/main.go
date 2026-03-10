@@ -15,9 +15,9 @@ import (
 	"example/tingly-code/swebench"
 	"example/tingly-code/tools"
 
-	agentpkg "github.com/tingly-dev/tingly-scope/pkg/agent"
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	agentpkg "github.com/tingly-dev/tingly-agentscope/pkg/agent"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 	"github.com/urfave/cli/v2"
 )
 

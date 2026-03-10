@@ -7,11 +7,12 @@
 package pb
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -604,7 +605,7 @@ const file_pkg_embedding_sidecar_pb_sidecar_proto_rawDesc = "" +
 	"\tInitModel\x12\x14.sidecar.InitRequest\x1a\x15.sidecar.InitResponse\x12A\n" +
 	"\bGenerate\x12\x18.sidecar.GenerateRequest\x1a\x19.sidecar.GenerateResponse0\x01\x12B\n" +
 	"\tModelInfo\x12\x19.sidecar.ModelInfoRequest\x1a\x1a.sidecar.ModelInfoResponse\x126\n" +
-	"\x05Embed\x12\x15.sidecar.EmbedRequest\x1a\x16.sidecar.EmbedResponseB=Z;github.com/tingly-dev/tingly-scope/pkg/embedding/sidecar/pbb\x06proto3"
+	"\x05Embed\x12\x15.sidecar.EmbedRequest\x1a\x16.sidecar.EmbedResponseB=Z;github.com/tingly-dev/tingly-agentscope/pkg/embedding/sidecar/pbb\x06proto3"
 
 var (
 	file_pkg_embedding_sidecar_pb_sidecar_proto_rawDescOnce sync.Once

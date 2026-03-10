@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/module"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/module"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // Memory is the interface for agent memory implementations

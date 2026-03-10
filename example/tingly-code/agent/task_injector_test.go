@@ -6,8 +6,8 @@ import (
 
 	"example/tingly-code/tools"
 
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // TestTaskInjector tests the task injector functionality

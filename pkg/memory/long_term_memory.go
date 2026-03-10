@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // LongTermMemoryConfig holds configuration for long-term memory

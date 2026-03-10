@@ -202,9 +202,9 @@ import (
     "fmt"
     "log"
 
-    "github.com/tingly-dev/tingly-scope/pkg/agent"
-    "github.com/tingly-dev/tingly-scope/pkg/message"
-    "github.com/tingly-dev/tingly-scope/pkg/model/openai"
+    "github.com/tingly-dev/tingly-agentscope/pkg/agent"
+    "github.com/tingly-dev/tingly-agentscope/pkg/message"
+    "github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
 )
 
 func main() {

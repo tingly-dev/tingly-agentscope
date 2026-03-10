@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tingly-dev/tingly-scope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 )
 
 // LLMFilterSelector uses LLM-based categorization for tool selection.

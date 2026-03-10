@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // DualActAgent implements a dual-act (human-like + reactive) agent pattern

@@ -1,6 +1,6 @@
 # Tool-Pick Agent
 
-智能工具选择 Agent，基于 AnyTool 的设计理念，为 tingly-scope 框架提供智能工具选择功能。
+智能工具选择 Agent，基于 AnyTool 的设计理念，为 tingly-agentscope 框架提供智能工具选择功能。
 
 ## 核心特性
 
@@ -42,8 +42,8 @@ pkg/toolpick/
 
 ```go
 import (
-    "github.com/tingly-dev/tingly-scope/pkg/tool"
-    "github.com/tingly-dev/tingly-scope/pkg/toolpick"
+    "github.com/tingly-dev/tingly-agentscope/pkg/tool"
+    "github.com/tingly-dev/tingly-agentscope/pkg/toolpick"
 )
 
 // 创建基础工具包
@@ -69,8 +69,8 @@ smartToolkit, err := toolpick.NewToolProvider(baseToolkit, &toolpick.Config{
 
 ```go
 import (
-    "github.com/tingly-dev/tingly-scope/pkg/agent"
-    "github.com/tingly-dev/tingly-scope/pkg/model/openai"
+    "github.com/tingly-dev/tingly-agentscope/pkg/agent"
+    "github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
 )
 
 modelClient := openai.NewClient(&model.ChatModelConfig{
@@ -182,7 +182,7 @@ go run ./cmd/tool-pick/main.go
    - 接口隔离：最小化依赖
 
 2. **DRY (Don't Repeat Yourself)**
-   - 复用 tingly-scope 的工具系统
+   - 复用 tingly-agentscope 的工具系统
    - 统一的接口设计
 
 3. **KISS (Keep It Simple, Stupid)**

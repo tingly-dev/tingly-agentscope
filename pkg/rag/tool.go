@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tingly-dev/tingly-scope/pkg/model"
-	"github.com/tingly-dev/tingly-scope/pkg/tool"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 )
 
 // Ensure SimpleKnowledge implements ToolCallable

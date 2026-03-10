@@ -3,7 +3,7 @@ package store
 import (
 	"context"
 
-	"github.com/tingly-dev/tingly-scope/pkg/rag"
+	"github.com/tingly-dev/tingly-agentscope/pkg/rag"
 )
 
 // Store is the interface for vector storage
@@ -26,9 +26,9 @@ type Store interface {
 
 // SearchOptions represents options for similarity search
 type SearchOptions struct {
-	Limit           int
-	ScoreThreshold  *float64
-	Filter          map[string]any
+	Limit          int
+	ScoreThreshold *float64
+	Filter         map[string]any
 }
 
 // DefaultSearchOptions returns default search options

@@ -1205,7 +1205,7 @@
 
  👤 USER  · 2026-01-27 13:23:48 · replace_file
 
-  Error: failed to write file: open /root/tingly-scope/example/tingly-code/example/main.go: no such file or directory
+  Error: failed to write file: open /root/tingly-agentscope/example/tingly-code/example/main.go: no such file or directory
 
  🤖 ASSISTANT  · 2026-01-27 13:23:55 · tingly
 

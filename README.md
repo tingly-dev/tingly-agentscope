@@ -59,7 +59,7 @@ pkg/
 ## Installation
 
 ```bash
-go get github.com/tingly-dev/tingly-scope
+go get github.com/tingly-dev/tingly-agentscope
 ```
 
 ## Quick Start
@@ -74,12 +74,12 @@ import (
     "fmt"
     "log"
 
-    "github.com/tingly-dev/tingly-scope/pkg/agent"
-    "github.com/tingly-dev/tingly-scope/pkg/message"
-    "github.com/tingly-dev/tingly-scope/pkg/memory"
-    "github.com/tingly-dev/tingly-scope/pkg/model"
-    "github.com/tingly-dev/tingly-scope/pkg/model/openai"
-    "github.com/tingly-dev/tingly-scope/pkg/types"
+    "github.com/tingly-dev/tingly-agentscope/pkg/agent"
+    "github.com/tingly-dev/tingly-agentscope/pkg/message"
+    "github.com/tingly-dev/tingly-agentscope/pkg/memory"
+    "github.com/tingly-dev/tingly-agentscope/pkg/model"
+    "github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
+    "github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 func main() {
@@ -151,7 +151,7 @@ func (w *WeatherTool) Call(ctx context.Context, kwargs map[string]any) (*tool.To
 ### Using Pipelines
 
 ```go
-import "github.com/tingly-dev/tingly-scope/pkg/pipeline"
+import "github.com/tingly-dev/tingly-agentscope/pkg/pipeline"
 
 // Sequential pipeline
 pipe := pipeline.NewSequentialPipeline("process", []agent.Agent{

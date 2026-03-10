@@ -3,8 +3,8 @@ package rag
 import (
 	"encoding/json"
 
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/types"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // Embedding represents a vector embedding
@@ -21,10 +21,10 @@ type DocMetadata struct {
 
 // Document represents a document with its embedding and metadata
 type Document struct {
-	ID       string        `json:"id"`
-	Metadata DocMetadata   `json:"metadata"`
-	Embedding Embedding    `json:"embedding,omitempty"`
-	Score    *float64      `json:"score,omitempty"`
+	ID        string      `json:"id"`
+	Metadata  DocMetadata `json:"metadata"`
+	Embedding Embedding   `json:"embedding,omitempty"`
+	Score     *float64    `json:"score,omitempty"`
 }
 
 // NewDocument creates a new document

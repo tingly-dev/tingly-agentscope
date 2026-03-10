@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/tingly-dev/tingly-scope/pkg/message"
-	"github.com/tingly-dev/tingly-scope/pkg/rag"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/rag"
 )
 
 func TestNewMemoryStore(t *testing.T) {

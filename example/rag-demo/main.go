@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tingly-dev/tingly-scope/pkg/rag"
-	"github.com/tingly-dev/tingly-scope/pkg/rag/embedding"
-	"github.com/tingly-dev/tingly-scope/pkg/rag/reader"
-	"github.com/tingly-dev/tingly-scope/pkg/rag/store"
+	"github.com/tingly-dev/tingly-agentscope/pkg/embedding"
+	"github.com/tingly-dev/tingly-agentscope/pkg/rag"
+	"github.com/tingly-dev/tingly-agentscope/pkg/rag/reader"
+	"github.com/tingly-dev/tingly-agentscope/pkg/rag/store"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 
 	// 1. Create embedding model (using mock for demo)
 	fmt.Println("1. Creating embedding model...")
-	model := embedding.NewMockModel(1536)
+	model := embedding.NewMockProvider(1536)
 	fmt.Printf("   Model: %s (dimension: %d)\n\n", model.ModelName(), model.Dimension())
 
 	// 2. Create vector store

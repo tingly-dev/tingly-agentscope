@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	"github.com/bmatcuk/doublestar"
-	"github.com/tingly-dev/tingly-scope/pkg/tool"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 )
 
 // FileTools holds state for file operations

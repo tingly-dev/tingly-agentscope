@@ -3,9 +3,9 @@ package rag
 import (
 	"context"
 
-	"github.com/tingly-dev/tingly-scope/pkg/embedding"
-	"github.com/tingly-dev/tingly-scope/pkg/model"
-	"github.com/tingly-dev/tingly-scope/pkg/tool"
+	"github.com/tingly-dev/tingly-agentscope/pkg/embedding"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 )
 
 // KnowledgeBase is the interface for RAG knowledge bases

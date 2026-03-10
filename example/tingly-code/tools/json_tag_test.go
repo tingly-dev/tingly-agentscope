@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/tingly-dev/tingly-scope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 )
 
 // TestJSONTagUnmarshal tests that JSON unmarshaling works correctly with snake_case tags

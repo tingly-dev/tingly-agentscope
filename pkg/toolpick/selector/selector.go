@@ -4,7 +4,7 @@ package selector
 import (
 	"context"
 
-	"github.com/tingly-dev/tingly-scope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 )
 
 // Selector selects relevant tools based on task description.

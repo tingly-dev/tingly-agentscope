@@ -1,6 +1,6 @@
 package message
 
-import "github.com/tingly-dev/tingly-scope/pkg/types"
+import "github.com/tingly-dev/tingly-agentscope/pkg/types"
 
 // Text creates a new text block
 func Text(text string) *TextBlock {
