@@ -1,59 +1,104 @@
-# Tingly Scope
+# Tingly AgentScope
 
 > **Tingly.Dev's production-ready multi-agent LLM framework in Go** — An alternative implementation of [AgentScope](https://github.com/agentscope-ai/agentscope) with enhanced features for real-world applications.
 
-Tingly Scope provides a comprehensive framework for building AI agent applications with the following features:
+Tingly AgentScope provides a comprehensive framework for building AI agent applications with the following features:
 
 - **Agent System**: ReActAgent, DualActAgent, UserAgent, and extensible agent base
 - **Message System**: Rich content blocks including text, images, audio, video, and tool calls
 - **Model Integration**: OpenAI and Anthropic API support with streaming
 - **Tool System**: Register and call tools with JSON schema generation
+- **Intelligent Tool Selection**: Semantic, LLM-based, and hybrid tool selection strategies
 - **Pipeline System**: Sequential, fan-out, and loop pipelines
 - **Memory System**: History memory and long-term memory with embedding support
 - **MsgHub**: Message broadcasting between agents
+- **RAG Support**: Document indexing, retrieval, and knowledge base integration
+- **Embedding Providers**: OpenAI and gRPC sidecar embedding support
 - **Formatter**: Console and Tea-based formatters for rich output
 - **Session**: Session management for agent conversations
 - **Hooks**: Pre/post hooks for reply, print, and observe operations
+- **Viewer**: TUI viewer components for interactive applications
 
 ## Project Structure
 
 ```
 pkg/
-├── agent/          # Agent implementations
-│   ├── base.go         # Agent base and interfaces
-│   ├── react_agent.go  # ReActAgent implementation
-│   ├── dualact.go      # DualActAgent implementation
-│   └── user_agent.go   # UserAgent implementation
-├── message/        # Message types and content blocks
-│   ├── message.go      # Core message types
-│   ├── blocks.go       # Content block constructors
-│   └── helpers.go      # Helper methods
-├── model/          # Model interfaces and implementations
-│   ├── model.go        # Core model interfaces
-│   ├── openai/         # OpenAI client
-│   └── anthropic/      # Anthropic client
-├── tool/           # Tool system
-│   ├── toolkit.go      # Toolkit implementation
-│   └── provider.go     # Tool provider interface
-├── pipeline/       # Pipeline and orchestration
-│   └── pipeline.go     # Sequential, fan-out, loop pipelines
-├── memory/         # Memory implementations
-│   ├── memory.go       # History and long-term memory
-│   └── long_term_memory.go
-├── formatter/      # Output formatters
-│   ├── console.go      # Console formatter
-│   └── tea.go          # Tea TUI formatter
-├── session/        # Session management
-│   └── session.go      # Session implementation
-├── types/          # Core type definitions
-│   └── types.go        # Role, block types, etc.
-├── module/         # Module state management
-│   └── state.go        # Module state
-├── plan/           # Planning notebook
-│   └── plan_notebook.go
-└── utils/          # Utility functions
-    ├── utils.go        # General utilities
-    └── reflection.go   # Reflection helpers
+├── agent/              # Agent implementations
+│   ├── base.go             # Agent base and interfaces
+│   ├── react_agent.go      # ReActAgent implementation
+│   ├── dualact.go          # DualActAgent implementation
+│   ├── dualact_config.go   # DualActAgent configuration
+│   ├── dualact_conclusion.go # DualActAgent conclusion handling
+│   ├── user_agent.go       # UserAgent implementation
+│   └── compression.go      # Message compression for context management
+├── message/            # Message types and content blocks
+│   ├── message.go          # Core message types
+│   ├── blocks.go           # Content block constructors
+│   ├── helpers.go          # Helper methods
+│   ├── injector.go         # Message injection system
+│   ├── injector_files.go   # File-based message injection
+│   └── injector_tasks.go   # Task-based message injection
+├── model/              # Model interfaces and implementations
+│   ├── model.go            # Core model interfaces
+│   ├── response_helpers.go # Response processing utilities
+│   ├── openai/             # OpenAI client with SDK support
+│   └── anthropic/          # Anthropic client with SDK support
+├── tool/               # Tool system
+│   ├── toolkit.go          # Toolkit implementation
+│   ├── provider.go         # Tool provider interface
+│   └── constraint.go       # Tool constraint validation
+├── toolschema/         # JSON Schema generation for tools
+│   ├── schema.go           # Struct-to-schema conversion
+│   ├── convert.go          # Schema conversion utilities
+│   ├── registry.go         # Schema registry
+│   └── batch.go            # Batch schema operations
+├── toolpick/           # Intelligent tool selection
+│   ├── toolpick.go         # Main tool provider wrapper
+│   ├── types.go            # Selection types
+│   ├── selector/           # Selection strategies
+│   │   ├── semantic.go     # Embedding-based selection
+│   │   ├── llm_filter.go   # LLM-based filtering
+│   │   └── hybrid.go       # Combined strategies
+│   ├── ranking/            # Tool quality ranking
+│   └── cache/              # Selection/embedding caching
+├── pipeline/           # Pipeline and orchestration
+│   └── pipeline.go         # Sequential, fan-out, loop pipelines & MsgHub
+├── memory/             # Memory implementations
+│   ├── memory.go           # History and base memory interfaces
+│   └── long_term_memory.go # Persistent long-term memory
+├── embedding/          # Embedding providers
+│   ├── provider.go         # Unified embedding interface
+│   ├── provider_openai.go  # OpenAI embeddings
+│   ├── provider_sidecar.go # gRPC sidecar embeddings
+│   ├── mock.go             # Mock provider for testing
+│   └── pb/                 # Protobuf definitions
+├── rag/                # RAG (Retrieval-Augmented Generation)
+│   ├── knowledge_base.go   # Knowledge base interface
+│   ├── document.go         # Document model
+│   ├── config.go           # RAG configuration
+│   ├── tool.go             # RAG tool for agents
+│   ├── reader/             # Document readers
+│   └── store/              # Vector stores
+├── formatter/          # Output formatters
+│   ├── console.go          # Console formatter
+│   ├── tea.go              # Tea TUI formatter
+│   └── util.go             # Formatting utilities
+├── session/            # Session management
+│   └── session.go          # Session implementation
+├── types/              # Core type definitions
+│   └── types.go            # Role, block types, hooks, etc.
+├── module/             # Module state management
+│   └── state.go            # Module state
+├── plan/               # Planning notebook
+│   └── plan_notebook.go    # Plan tracking for agents
+├── viewer/             # TUI viewer components
+│   ├── viewer.go           # Main viewer
+│   ├── loader.go           # Content loading
+│   ├── keymap.go           # Key bindings
+│   └── styles.go           # Styling
+└── utils/              # Utility functions
+    ├── utils.go            # General utilities
+    └── reflection.go       # Reflection helpers
 ```
 
 ## Installation
@@ -238,6 +283,92 @@ agent.RegisterHook(types.HookTypePreReply, "log", func(ctx context.Context, a ag
 })
 ```
 
+### Intelligent Tool Selection (ToolPick)
+
+The `toolpick` package provides intelligent tool selection for agents with many tools:
+
+```go
+import "github.com/tingly-dev/tingly-agentscope/pkg/toolpick"
+
+// Create a tool provider with intelligent selection
+toolProvider, err := toolpick.NewToolProvider(toolkit, &toolpick.Config{
+    MaxTools:         10,
+    DefaultStrategy:  "semantic",  // "semantic", "llm_filter", or "hybrid"
+    EnableCache:      true,
+    EnableQuality:    true,
+})
+
+// Select relevant tools for a task
+result, err := toolProvider.SelectTools(ctx, "fetch data from API", 5)
+```
+
+**Selection Strategies:**
+- **Semantic**: Uses embedding similarity between task and tool descriptions
+- **LLM Filter**: Uses an LLM to filter relevant tools
+- **Hybrid**: Combines semantic and LLM-based approaches
+
+### RAG (Retrieval-Augmented Generation)
+
+The `rag` package provides document indexing and retrieval:
+
+```go
+import "github.com/tingly-dev/tingly-agentscope/pkg/rag"
+
+// Create a knowledge base
+kb := rag.NewSimpleKnowledgeBase(embeddingProvider, vectorStore)
+
+// Add documents
+docs := []*rag.Document{
+    rag.NewDocument("doc1", "Content here...", map[string]any{"source": "file.txt"}),
+}
+kb.AddDocuments(ctx, docs)
+
+// Retrieve relevant documents
+results, err := kb.Retrieve(ctx, "search query", 5, nil)
+```
+
+### Embedding Providers
+
+The `embedding` package provides a unified interface for embedding models:
+
+```go
+import "github.com/tingly-dev/tingly-agentscope/pkg/embedding"
+
+// OpenAI embeddings
+provider := embedding.NewOpenAIProvider("text-embedding-3-small", apiKey)
+
+// Generate embeddings
+embedding, err := provider.Embed(ctx, "text to embed")
+batch, err := provider.EmbedBatch(ctx, []string{"text1", "text2"})
+```
+
+### Tool Schema Generation
+
+The `toolschema` package generates JSON Schema from Go structs:
+
+```go
+import "github.com/tingly-dev/tingly-agentscope/pkg/toolschema"
+
+type ToolParams struct {
+    Query string `json:"query" description:"The search query"`
+    Limit int    `json:"limit,omitempty" description:"Max results"`
+}
+
+schema := toolschema.StructToSchema(ToolParams{})
+```
+
+### Message Injection
+
+The `message` package supports dynamic content injection:
+
+```go
+// File-based injection (injects file contents into messages)
+injector := message.NewFileInjector("/path/to/project")
+
+// Task-based injection (injects task context)
+taskInjector := message.NewTaskInjector(taskManager)
+```
+
 ## Examples
 
 See the `example/` directory for comprehensive examples:
@@ -343,7 +474,7 @@ go run ./cmd/dualact-demo/main.go
 ```
 
 ### Simple (`example/simple/`)
-A minimal example demonstrating the core Tingly Scope framework concepts using OpenAI.
+A minimal example demonstrating the core Tingly AgentScope framework concepts using OpenAI.
 
 **Features:**
 - Simple chat with ReActAgent
@@ -387,15 +518,18 @@ This Go implementation follows idiomatic Go patterns while preserving the core a
 - [x] Tea-based TUI formatter
 - [x] Session management
 - [x] Planning notebook support
+- [x] RAG (Retrieval-Augmented Generation) support
+- [x] Embedding providers (OpenAI, sidecar)
+- [x] Intelligent tool selection (toolpick)
+- [x] Tool schema generation from Go structs
 - [ ] Additional model integrations (Gemini, Ollama)
-- [ ] RAG (Retrieval-Augmented Generation) support
 - [ ] Distributed agent communication
 - [ ] Web UI / Studio
 - [ ] More example agents and tools
 
 ## License
 
-Tingly Scope is built upon the [AgentScope](https://github.com/agentscope-ai/agentscope) framework architecture.
+Tingly AgentScope is built upon the [AgentScope](https://github.com/agentscope-ai/agentscope) framework architecture.
 
 ## Contributing
 
