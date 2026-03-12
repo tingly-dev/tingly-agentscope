@@ -18,7 +18,7 @@ import (
 
 // ==================== Configuration ====================
 // Set USE_MOCK=true to use mock model instead of real API
-const USE_MOCK = false
+const USE_MOCK = true
 
 // createModel creates a model client.
 // Override this function to use a custom model for testing.
@@ -33,6 +33,7 @@ func createModel() model.ChatModel {
 		Model:   "tingly-ds",
 		APIKey:  apiKey,
 		BaseURL: "http://localhost:12580/tingly/openai",
+		Stream:  true, // Enable streaming for this API
 	})
 	if err != nil {
 		log.Fatalf("Failed to create OpenAI client: %v", err)
@@ -43,15 +44,15 @@ func createModel() model.ChatModel {
 // createMockModel creates a mock model with predefined responses for testing.
 // You can customize the responses here to test different scenarios.
 func createMockModel() model.ChatModel {
-	return mockmodel.New(&mockmodel.Config{
+	m := mockmodel.New(&mockmodel.Config{
 		ModelName: "mock-model",
 		Responses: []*mockmodel.MockResponse{
 			// Example 1: Simple chat response
 			{Content: "Hello! 2 + 2 equals 4."},
 
-			// Example 2: Data analysis - Round 1: Read data
+			// Example 2: Data analysis - Round 1: Read all data
 			{
-				Content: "I'll help you analyze the Engineering department data. Let me start by reading the employee data.",
+				Content: "I'll help you analyze the Engineering department data. Let me start by reading all the employee data.",
 				ToolUses: []*mockmodel.ToolUseCall{
 					{
 						ID:    "toolu_01",
@@ -61,13 +62,13 @@ func createMockModel() model.ChatModel {
 				},
 			},
 
-			// Example 2: Data analysis - Round 2: Filter by department
+			// Example 2: Data analysis - Round 2: Get Engineering department stats
 			{
-				Content: "I can see the employee data. Now let me filter for the Engineering department.",
+				Content: "I can see all employee data. Now let me get the Engineering department statistics directly.",
 				ToolUses: []*mockmodel.ToolUseCall{
 					{
 						ID:   "toolu_02",
-						Name: "DataFilterTool",
+						Name: "DataReaderTool",
 						Input: map[string]any{
 							"department": "Engineering",
 						},
@@ -77,13 +78,14 @@ func createMockModel() model.ChatModel {
 
 			// Example 2: Data analysis - Round 3: Calculate age statistics
 			{
-				Content: "Good, I found 4 engineers. Now let me calculate the average age.",
+				Content: "Great! I can see the Engineering department has 4 employees. Let me get detailed statistics on age.",
 				ToolUses: []*mockmodel.ToolUseCall{
 					{
 						ID:   "toolu_03",
 						Name: "StatsCalculatorTool",
 						Input: map[string]any{
-							"field": "age",
+							"field":      "age",
+							"department": "Engineering",
 						},
 					},
 				},
@@ -91,28 +93,14 @@ func createMockModel() model.ChatModel {
 
 			// Example 2: Data analysis - Round 4: Calculate salary statistics
 			{
-				Content: "Now let me calculate the average salary for engineers.",
+				Content: "Now let me get the salary statistics for the Engineering department.",
 				ToolUses: []*mockmodel.ToolUseCall{
 					{
 						ID:   "toolu_04",
 						Name: "StatsCalculatorTool",
 						Input: map[string]any{
-							"field": "salary",
-						},
-					},
-				},
-			},
-
-			// Example 2: Data analysis - Round 5: Generate final report
-			{
-				Content: "Based on my analysis, here are my findings:",
-				ToolUses: []*mockmodel.ToolUseCall{
-					{
-						ID:   "toolu_05",
-						Name: "ReportGeneratorTool",
-						Input: map[string]any{
-							"title":    "Engineering Department Analysis",
-							"findings": "The Engineering department has 4 employees:\n- Average age: 31.75 years\n- Average salary: $98,750\n- Salary range: $88,000 - $120,000\n- Age range: 26 - 42 years",
+							"field":      "salary",
+							"department": "Engineering",
 						},
 					},
 				},
@@ -120,17 +108,20 @@ func createMockModel() model.ChatModel {
 
 			// Example 2: Data analysis - Final response
 			{
-				Content: "## Engineering Department Analysis\n\nI've analyzed the employee data for the Engineering department. Here are my findings:\n\n**Team Size:** 4 engineers\n\n**Age Statistics:**\n- Average age: 31.75 years\n- Youngest: 26 years old (Grace)\n- Oldest: 42 years old (Charlie)\n\n**Salary Statistics:**\n- Average salary: $98,750\n- Lowest: $88,000 (Eve)\n- Highest: $120,000 (Charlie)\n\nThe Engineering team has a competitive salary structure with a good mix of experience levels.",
+				Content: "## Engineering Department Analysis\n\nBased on my analysis of the employee data, here are my findings for the Engineering department:\n\n**Team Size:** 4 engineers\n\n**Age Statistics:**\n- Average age: 31.75 years\n- Youngest: 26 years (Grace)\n- Oldest: 42 years (Charlie)\n\n**Salary Statistics:**\n- Average salary: $98,750\n- Lowest: $88,000 (Eve)\n- Highest: $120,000 (Charlie)\n\nThe Engineering team has a competitive salary structure with a good mix of experience levels.",
 			},
 
 			// Example 3: Pipeline responses
-			{Content: "AI is transforming industries through automation and data analysis."},
-			{Content: "L'intelligence artificielle transforme de nombreuses industries."},
+			{Content: "AI is transforming industries."},
+			{Content: "L'intelligence artificielle transforme l'industrie."},
 
 			// Default fallback response
 			{Content: "I understand your request. Here's a helpful response."},
 		},
 	})
+	// Reset call count to start from first response
+	m.Reset()
+	return m
 }
 
 func main() {
@@ -198,27 +189,39 @@ func example2() {
 	// Create a toolkit with multiple related tools
 	toolkit := tool.NewToolkit()
 
-	// Create tools for data analysis pipeline
-	dataReader := &DataReaderTool{}
-	if err := toolkit.Register(dataReader, &tool.RegisterOptions{GroupName: "data"}); err != nil {
-		log.Printf("Error registering tool: %v", err)
+	// Create the "data" tool group first
+	if err := toolkit.CreateToolGroup("data", "Data analysis tools", true, ""); err != nil {
+		log.Printf("Error creating tool group: %v", err)
 		return
 	}
 
-	dataFilter := &DataFilterTool{}
-	if err := toolkit.Register(dataFilter, &tool.RegisterOptions{GroupName: "data"}); err != nil {
+	// Create tools for data analysis pipeline
+	dataReader := &DataReaderTool{}
+	if err := toolkit.Register(dataReader, &tool.RegisterOptions{
+		GroupName:       "data",
+		FuncName:        "DataReaderTool",
+		FuncDescription: "Reads and displays employee data. Can optionally filter by department using 'department' parameter. Shows all records with name, age, department, and salary.",
+	}); err != nil {
 		log.Printf("Error registering tool: %v", err)
 		return
 	}
 
 	statsCalculator := &StatsCalculatorTool{}
-	if err := toolkit.Register(statsCalculator, &tool.RegisterOptions{GroupName: "data"}); err != nil {
+	if err := toolkit.Register(statsCalculator, &tool.RegisterOptions{
+		GroupName:       "data",
+		FuncName:        "StatsCalculatorTool",
+		FuncDescription: "Calculates statistics (average, min, max, total) for a numeric field like 'age' or 'salary'. Can optionally filter by department using 'department' parameter.",
+	}); err != nil {
 		log.Printf("Error registering tool: %v", err)
 		return
 	}
 
 	reportGenerator := &ReportGeneratorTool{}
-	if err := toolkit.Register(reportGenerator, &tool.RegisterOptions{GroupName: "data"}); err != nil {
+	if err := toolkit.Register(reportGenerator, &tool.RegisterOptions{
+		GroupName:       "data",
+		FuncName:        "ReportGeneratorTool",
+		FuncDescription: "Generates a formatted report with title and findings. Parameters: title (string), findings (string).",
+	}); err != nil {
 		log.Printf("Error registering tool: %v", err)
 		return
 	}
@@ -254,7 +257,6 @@ Always think step by step and use the appropriate tools for each step.`,
 		},
 	}
 	dataReader.SetData(sampleData)
-	dataFilter.SetData(sampleData)
 	statsCalculator.SetData(sampleData)
 
 	// Create a user message that requires multiple tool calls
@@ -283,6 +285,20 @@ func example3() {
 
 	if USE_MOCK {
 		fmt.Println("(Using mock model)")
+	}
+
+	// Skip this example with DeepSeek as it doesn't support consecutive assistant messages
+	if !USE_MOCK {
+		apiKey := "tingly-box-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnRfaWQiOiJ0ZXN0LWNsaWVudCIsImV4cCI6MTc2NjQwMzQwNSwiaWF0IjoxNzY2MzE3MDA1fQ.AHtmsHxGGJ0jtzvrTZMHC3kfl3Os94HOhMA-zXFtHXQ"
+		modelClient, _ := openai.NewClient(&openai.Config{
+			Model:   "tingly-ds",
+			APIKey:  apiKey,
+			BaseURL: "http://localhost:12580/tingly/openai",
+		})
+		if modelClient.ModelName() == "tingly-ds" {
+			fmt.Println("Skipping example with DeepSeek model (doesn't support consecutive assistant messages)")
+			return
+		}
 	}
 
 	modelClient := createModel()
@@ -376,102 +392,89 @@ func example4() {
 // ==================== Data Analysis Tools ====================
 // These tools work together to demonstrate multi-round tool usage
 
-// DataReaderTool reads employee data
-type DataReaderTool struct {
-	data map[string]any
-}
+// Global data storage for tools (in production, this would be passed differently)
+var globalData map[string]any
+
+// DataReaderTool reads and analyzes employee data directly
+type DataReaderTool struct{}
 
 func (r *DataReaderTool) SetData(data map[string]any) {
-	r.data = data
+	globalData = data
 }
 
 func (r *DataReaderTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	if r.data == nil {
+	if globalData == nil {
 		return tool.TextResponse("Error: no data loaded"), nil
 	}
 
-	records, ok := r.data["records"].([]map[string]any)
+	records, ok := globalData["records"].([]map[string]any)
 	if !ok {
 		return tool.TextResponse("Error: invalid data format"), nil
 	}
 
+	// Check if filtering by department is requested
+	dept, filterByDept := kwargs["department"].(string)
+
+	var filteredRecords []map[string]any
+	var totalAge, totalSalary float64
+	count := 0
+
+	for _, record := range records {
+		// Skip if filtering by department and record doesn't match
+		if filterByDept && record["department"] != dept {
+			continue
+		}
+
+		filteredRecords = append(filteredRecords, record)
+		age, _ := record["age"].(float64)
+		salary, _ := record["salary"].(float64)
+		totalAge += age
+		totalSalary += salary
+		count++
+	}
+
+	if count == 0 {
+		return tool.TextResponse(fmt.Sprintf("No records found")), nil
+	}
+
+	avgAge := totalAge / float64(count)
+	avgSalary := totalSalary / float64(count)
+
 	var result string
-	result = fmt.Sprintf("Read %d records:\n", len(records))
-	for i, record := range records {
-		result += fmt.Sprintf("  %d. %s (age: %v, dept: %v, salary: %v)\n",
-			i+1, record["name"], record["age"], record["department"], record["salary"])
+	if filterByDept {
+		result = fmt.Sprintf("=== %s Department Analysis ===\n", dept)
+		result += fmt.Sprintf("Number of employees: %d\n", count)
+		result += fmt.Sprintf("Average age: %.1f years\n", avgAge)
+		result += fmt.Sprintf("Average salary: $%.2f\n", avgSalary)
+		result += fmt.Sprintf("\nEmployees:\n")
+		for i, record := range filteredRecords {
+			result += fmt.Sprintf("  %d. %s (age: %v, salary: $%v)\n",
+				i+1, record["name"], record["age"], record["salary"])
+		}
+	} else {
+		result = fmt.Sprintf("Read %d records:\n", len(records))
+		for i, record := range records {
+			result += fmt.Sprintf("  %d. %s (age: %v, dept: %v, salary: %v)\n",
+				i+1, record["name"], record["age"], record["department"], record["salary"])
+		}
 	}
 
 	return tool.TextResponse(result), nil
 }
 
-// DataFilterTool filters data by department or age criteria
-type DataFilterTool struct {
-	data map[string]any
-}
-
-func (f *DataFilterTool) SetData(data map[string]any) {
-	f.data = data
-}
-
-func (f *DataFilterTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	if f.data == nil {
-		return tool.TextResponse("Error: no data loaded"), nil
-	}
-
-	records, ok := f.data["records"].([]map[string]any)
-	if !ok {
-		return tool.TextResponse("Error: invalid data format"), nil
-	}
-
-	var filtered []map[string]any
-
-	// Filter by department
-	if dept, ok := kwargs["department"].(string); ok && dept != "" {
-		for _, record := range records {
-			if record["department"] == dept {
-				filtered = append(filtered, record)
-			}
-		}
-		return tool.TextResponse(fmt.Sprintf("Filtered %d records from %s department", len(filtered), dept)), nil
-	}
-
-	// Filter by age range
-	minAge, hasMin := kwargs["min_age"].(float64)
-	maxAge, hasMax := kwargs["max_age"].(float64)
-
-	if hasMin || hasMax {
-		for _, record := range records {
-			age, _ := record["age"].(float64)
-			if hasMin && age < minAge {
-				continue
-			}
-			if hasMax && age > maxAge {
-				continue
-			}
-			filtered = append(filtered, record)
-		}
-		return tool.TextResponse(fmt.Sprintf("Filtered %d records by age criteria", len(filtered))), nil
-	}
-
-	return tool.TextResponse("Error: please specify department or min_age/max_age for filtering"), nil
-}
-
-// StatsCalculatorTool calculates statistics on filtered data
-type StatsCalculatorTool struct {
-	data map[string]any
-}
+// StatsCalculatorTool calculates statistics for a specific field
+type StatsCalculatorTool struct{}
 
 func (s *StatsCalculatorTool) SetData(data map[string]any) {
-	s.data = data
+	globalData = data
 }
 
 func (s *StatsCalculatorTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	if s.data == nil {
+	if globalData == nil {
 		return tool.TextResponse("Error: no data loaded"), nil
 	}
 
-	records, ok := s.data["records"].([]map[string]any)
+	records, ok := globalData["records"].([]map[string]any)
 	if !ok {
 		return tool.TextResponse("Error: invalid data format"), nil
 	}
@@ -481,12 +484,19 @@ func (s *StatsCalculatorTool) Call(ctx context.Context, kwargs map[string]any) (
 		field = "salary" // default
 	}
 
+	dept, filterByDept := kwargs["department"].(string)
+
 	var sum float64
 	var count int
 	var min, max float64
 	min = -1
 
 	for _, record := range records {
+		// Skip if filtering by department and record doesn't match
+		if filterByDept && record["department"] != dept {
+			continue
+		}
+
 		val, ok := record[field].(float64)
 		if !ok {
 			continue
@@ -507,7 +517,11 @@ func (s *StatsCalculatorTool) Call(ctx context.Context, kwargs map[string]any) (
 
 	avg := sum / float64(count)
 
-	result := fmt.Sprintf("Statistics for '%s' (based on %d records):\n", field, count)
+	result := fmt.Sprintf("Statistics for '%s'", field)
+	if filterByDept {
+		result += fmt.Sprintf(" (%s department)", dept)
+	}
+	result += fmt.Sprintf(" (based on %d records):\n", count)
 	result += fmt.Sprintf("  - Average: %.2f\n", avg)
 	result += fmt.Sprintf("  - Min: %.2f\n", min)
 	result += fmt.Sprintf("  - Max: %.2f\n", max)
