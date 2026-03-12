@@ -4,7 +4,7 @@ An autonomous AI agent **loop controller** based on the [Ralph pattern](https://
 
 ## Install
 ```
-go install github.com/tingly-dev/tingly-agentscope/app/tingly-loop@latest
+go install github.com/tingly-dev/tingly-agentscope/tingly-loop@latest
 ```
 
 ## Architecture

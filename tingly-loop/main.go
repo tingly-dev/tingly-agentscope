@@ -14,6 +14,7 @@ func main() {
 		Usage:   "Autonomous AI agent loop controller - calls worker agents to execute tasks",
 		Commands: []*cli.Command{
 			initCommand,
+			specCommand,
 			generateCommand,
 			runCommand,
 			statusCommand,
