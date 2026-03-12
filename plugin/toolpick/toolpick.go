@@ -12,9 +12,9 @@ import (
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
-	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick/cache"
-	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick/ranking"
-	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick/selector"
+	"github.com/tingly-dev/tingly-agentscope/plugin/toolpick/cache"
+	"github.com/tingly-dev/tingly-agentscope/plugin/toolpick/ranking"
+	"github.com/tingly-dev/tingly-agentscope/plugin/toolpick/selector"
 )
 
 // configWrapper wraps toolpick.Config for selector use.

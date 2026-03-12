@@ -36,7 +36,7 @@ func (q *QualityRecord) QualityScore() float64 {
 	// Log factor: log10(call_count + 1) / 10 for normalization
 	logFactor := 0.1
 	if q.CallCount > 0 {
-		logFactor = 0.1 * (math.Log10(float64(q.CallCount + 1)) / 10.0)
+		logFactor = 0.1 * (math.Log10(float64(q.CallCount+1)) / 10.0)
 	}
 
 	return successScore + descScore + logFactor
@@ -111,9 +111,9 @@ func (qm *QualityManager) RecordExecution(toolName string, success bool, duratio
 	record, ok := qm.records[toolName]
 	if !ok {
 		record = &QualityRecord{
-			Name:        toolName,
+			Name:               toolName,
 			DescriptionQuality: 0.5, // Default until evaluated
-			LastUpdated: time.Now(),
+			LastUpdated:        time.Now(),
 		}
 		qm.records[toolName] = record
 	}
@@ -241,11 +241,11 @@ func (qm *QualityManager) UpdateDescriptionQuality(toolName string, quality floa
 	record, ok := qm.records[toolName]
 	if !ok {
 		record = &QualityRecord{
-			Name:        toolName,
-			CallCount:   0,
+			Name:         toolName,
+			CallCount:    0,
 			SuccessCount: 0,
-			SuccessRate: 0,
-			LastUpdated: time.Now(),
+			SuccessRate:  0,
+			LastUpdated:  time.Now(),
 		}
 		qm.records[toolName] = record
 	}
