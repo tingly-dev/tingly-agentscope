@@ -4,16 +4,134 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model/mockmodel"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
 	"github.com/tingly-dev/tingly-agentscope/pkg/pipeline"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
+
+// ==================== Configuration ====================
+// Set USE_MOCK=true to use mock model instead of real API
+const USE_MOCK = false
+
+// createModel creates a model client.
+// Override this function to use a custom model for testing.
+func createModel() model.ChatModel {
+	if USE_MOCK {
+		return createMockModel()
+	}
+
+	apiKey := "tingly-box-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnRfaWQiOiJ0ZXN0LWNsaWVudCIsImV4cCI6MTc2NjQwMzQwNSwiaWF0IjoxNzY2MzE3MDA1fQ.AHtmsHxGGJ0jtzvrTZMHC3kfl3Os94HOhMA-zXFtHXQ"
+
+	modelClient, err := openai.NewClient(&openai.Config{
+		Model:   "tingly-ds",
+		APIKey:  apiKey,
+		BaseURL: "http://localhost:12580/tingly/openai",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create OpenAI client: %v", err)
+	}
+	return modelClient
+}
+
+// createMockModel creates a mock model with predefined responses for testing.
+// You can customize the responses here to test different scenarios.
+func createMockModel() model.ChatModel {
+	return mockmodel.New(&mockmodel.Config{
+		ModelName: "mock-model",
+		Responses: []*mockmodel.MockResponse{
+			// Example 1: Simple chat response
+			{Content: "Hello! 2 + 2 equals 4."},
+
+			// Example 2: Data analysis - Round 1: Read data
+			{
+				Content: "I'll help you analyze the Engineering department data. Let me start by reading the employee data.",
+				ToolUses: []*mockmodel.ToolUseCall{
+					{
+						ID:    "toolu_01",
+						Name:  "DataReaderTool",
+						Input: map[string]any{},
+					},
+				},
+			},
+
+			// Example 2: Data analysis - Round 2: Filter by department
+			{
+				Content: "I can see the employee data. Now let me filter for the Engineering department.",
+				ToolUses: []*mockmodel.ToolUseCall{
+					{
+						ID:   "toolu_02",
+						Name: "DataFilterTool",
+						Input: map[string]any{
+							"department": "Engineering",
+						},
+					},
+				},
+			},
+
+			// Example 2: Data analysis - Round 3: Calculate age statistics
+			{
+				Content: "Good, I found 4 engineers. Now let me calculate the average age.",
+				ToolUses: []*mockmodel.ToolUseCall{
+					{
+						ID:   "toolu_03",
+						Name: "StatsCalculatorTool",
+						Input: map[string]any{
+							"field": "age",
+						},
+					},
+				},
+			},
+
+			// Example 2: Data analysis - Round 4: Calculate salary statistics
+			{
+				Content: "Now let me calculate the average salary for engineers.",
+				ToolUses: []*mockmodel.ToolUseCall{
+					{
+						ID:   "toolu_04",
+						Name: "StatsCalculatorTool",
+						Input: map[string]any{
+							"field": "salary",
+						},
+					},
+				},
+			},
+
+			// Example 2: Data analysis - Round 5: Generate final report
+			{
+				Content: "Based on my analysis, here are my findings:",
+				ToolUses: []*mockmodel.ToolUseCall{
+					{
+						ID:   "toolu_05",
+						Name: "ReportGeneratorTool",
+						Input: map[string]any{
+							"title":    "Engineering Department Analysis",
+							"findings": "The Engineering department has 4 employees:\n- Average age: 31.75 years\n- Average salary: $98,750\n- Salary range: $88,000 - $120,000\n- Age range: 26 - 42 years",
+						},
+					},
+				},
+			},
+
+			// Example 2: Data analysis - Final response
+			{
+				Content: "## Engineering Department Analysis\n\nI've analyzed the employee data for the Engineering department. Here are my findings:\n\n**Team Size:** 4 engineers\n\n**Age Statistics:**\n- Average age: 31.75 years\n- Youngest: 26 years old (Grace)\n- Oldest: 42 years old (Charlie)\n\n**Salary Statistics:**\n- Average salary: $98,750\n- Lowest: $88,000 (Eve)\n- Highest: $120,000 (Charlie)\n\nThe Engineering team has a competitive salary structure with a good mix of experience levels.",
+			},
+
+			// Example 3: Pipeline responses
+			{Content: "AI is transforming industries through automation and data analysis."},
+			{Content: "L'intelligence artificielle transforme de nombreuses industries."},
+
+			// Default fallback response
+			{Content: "I understand your request. Here's a helpful response."},
+		},
+	})
+}
 
 func main() {
 	// Example 1: Simple chat with ReActAgent
@@ -33,17 +151,11 @@ func main() {
 func example1() {
 	fmt.Println("\n=== Example 1: Simple Chat with ReActAgent ===")
 
-	// Create an OpenAI client
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		log.Println("Skipping example: OPENAI_API_KEY not set")
-		return
+	if USE_MOCK {
+		fmt.Println("(Using mock model)")
 	}
 
-	modelClient, _ := openai.NewClient(&openai.Config{
-		Model:  "gpt-4o-mini",
-		APIKey: apiKey,
-	})
+	modelClient := createModel()
 
 	// Create a ReActAgent
 	reactAgent := agent.NewReActAgent(&agent.ReActAgentConfig{
@@ -77,16 +189,11 @@ func example1() {
 func example2() {
 	fmt.Println("\n=== Example 2: Multi-Step Data Analysis ===")
 
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		log.Println("Skipping example: OPENAI_API_KEY not set")
-		return
+	if USE_MOCK {
+		fmt.Println("(Using mock model)")
 	}
 
-	modelClient, _ := openai.NewClient(&openai.Config{
-		Model:  "gpt-4o-mini",
-		APIKey: apiKey,
-	})
+	modelClient := createModel()
 
 	// Create a toolkit with multiple related tools
 	toolkit := tool.NewToolkit()
@@ -174,16 +281,11 @@ Always think step by step and use the appropriate tools for each step.`,
 func example3() {
 	fmt.Println("\n=== Example 3: Sequential Pipeline ===")
 
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		log.Println("Skipping example: OPENAI_API_KEY not set")
-		return
+	if USE_MOCK {
+		fmt.Println("(Using mock model)")
 	}
 
-	modelClient, _ := openai.NewClient(&openai.Config{
-		Model:  "gpt-4o-mini",
-		APIKey: apiKey,
-	})
+	modelClient := createModel()
 
 	// Create two agents
 	agent1 := agent.NewReActAgent(&agent.ReActAgentConfig{
@@ -228,16 +330,11 @@ func example3() {
 func example4() {
 	fmt.Println("\n=== Example 4: MsgHub with Multiple Agents ===")
 
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		log.Println("Skipping example: OPENAI_API_KEY not set")
-		return
+	if USE_MOCK {
+		fmt.Println("(Using mock model)")
 	}
 
-	modelClient, _ := openai.NewClient(&openai.Config{
-		Model:  "gpt-4o-mini",
-		APIKey: apiKey,
-	})
+	modelClient := createModel()
 
 	// Create multiple agents
 	agent1 := agent.NewReActAgent(&agent.ReActAgentConfig{
