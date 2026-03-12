@@ -19,7 +19,7 @@ func main() {
 	// Example 1: Simple chat with ReActAgent
 	example1()
 
-	// Example 2: ReActAgent with tools
+	// Example 2: Multi-step data analysis with ReActAgent (demonstrates multi-round tool usage)
 	example2()
 
 	// Example 3: Sequential pipeline
@@ -72,9 +72,10 @@ func example1() {
 	fmt.Printf("Response: %s\n", response.GetTextContent())
 }
 
-// example2 demonstrates ReActAgent with tools
+// example2 demonstrates multi-step data analysis with ReActAgent
+// This shows how ReActAgent uses multiple tools in multiple rounds
 func example2() {
-	fmt.Println("\n=== Example 2: ReActAgent with Tools ===")
+	fmt.Println("\n=== Example 2: Multi-Step Data Analysis ===")
 
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
@@ -87,46 +88,86 @@ func example2() {
 		APIKey: apiKey,
 	})
 
-	// Create a toolkit
+	// Create a toolkit with multiple related tools
 	toolkit := tool.NewToolkit()
 
-	// Register a simple calculator tool
-	calculator := &CalculatorTool{}
-	err := toolkit.Register(calculator, &tool.RegisterOptions{
-		GroupName: "basic",
-	})
-	if err != nil {
+	// Create tools for data analysis pipeline
+	dataReader := &DataReaderTool{}
+	if err := toolkit.Register(dataReader, &tool.RegisterOptions{GroupName: "data"}); err != nil {
+		log.Printf("Error registering tool: %v", err)
+		return
+	}
+
+	dataFilter := &DataFilterTool{}
+	if err := toolkit.Register(dataFilter, &tool.RegisterOptions{GroupName: "data"}); err != nil {
+		log.Printf("Error registering tool: %v", err)
+		return
+	}
+
+	statsCalculator := &StatsCalculatorTool{}
+	if err := toolkit.Register(statsCalculator, &tool.RegisterOptions{GroupName: "data"}); err != nil {
+		log.Printf("Error registering tool: %v", err)
+		return
+	}
+
+	reportGenerator := &ReportGeneratorTool{}
+	if err := toolkit.Register(reportGenerator, &tool.RegisterOptions{GroupName: "data"}); err != nil {
 		log.Printf("Error registering tool: %v", err)
 		return
 	}
 
 	// Create a ReActAgent with tools
 	reactAgent := agent.NewReActAgent(&agent.ReActAgentConfig{
-		Name:          "assistant",
-		SystemPrompt:  "You are a helpful assistant with access to a calculator.",
+		Name: "data_analyst",
+		SystemPrompt: `You are a data analyst. When given a data analysis task, you should:
+1. First read the data to understand what you're working with
+2. Filter the data based on criteria
+3. Calculate statistics on the filtered data
+4. Generate a report with your findings
+
+Always think step by step and use the appropriate tools for each step.`,
 		Model:         modelClient,
 		Toolkit:       toolkit,
 		Memory:        memory.NewHistory(100),
-		MaxIterations: 5,
+		MaxIterations: 10, // Allow multiple rounds of reasoning
 	})
 
 	ctx := context.Background()
 
-	// Create a user message
+	// Prepare sample data and share it across tools
+	sampleData := map[string]any{
+		"records": []map[string]any{
+			{"name": "Alice", "age": 28, "department": "Engineering", "salary": 95000},
+			{"name": "Bob", "age": 34, "department": "Sales", "salary": 72000},
+			{"name": "Charlie", "age": 42, "department": "Engineering", "salary": 120000},
+			{"name": "Diana", "age": 29, "department": "Marketing", "salary": 68000},
+			{"name": "Eve", "age": 31, "department": "Engineering", "salary": 88000},
+			{"name": "Frank", "age": 38, "department": "Sales", "salary": 85000},
+			{"name": "Grace", "age": 26, "department": "Engineering", "salary": 92000},
+		},
+	}
+	dataReader.SetData(sampleData)
+	dataFilter.SetData(sampleData)
+	statsCalculator.SetData(sampleData)
+
+	// Create a user message that requires multiple tool calls
 	userMsg := message.NewMsg(
 		"user",
-		"What's 123 + 456?",
+		"Analyze the employee data and tell me about the Engineering department - specifically, what's the average age and average salary of engineers?",
 		types.RoleUser,
 	)
 
-	// Get a response
+	// Get a response - this will trigger multiple rounds of tool usage
+	fmt.Println("User: " + userMsg.GetTextContent())
+	fmt.Println("\nAgent thinking (you'll see multiple tool calls):")
+
 	response, err := reactAgent.Reply(ctx, userMsg)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
 	}
 
-	fmt.Printf("Response: %s\n", response.GetTextContent())
+	fmt.Printf("\n=== Final Response ===\n%s\n", response.GetTextContent())
 }
 
 // example3 demonstrates a sequential pipeline
@@ -235,7 +276,170 @@ func example4() {
 	hub.Close()
 }
 
-// CalculatorTool is a simple calculator tool
+// ==================== Data Analysis Tools ====================
+// These tools work together to demonstrate multi-round tool usage
+
+// DataReaderTool reads employee data
+type DataReaderTool struct {
+	data map[string]any
+}
+
+func (r *DataReaderTool) SetData(data map[string]any) {
+	r.data = data
+}
+
+func (r *DataReaderTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+	if r.data == nil {
+		return tool.TextResponse("Error: no data loaded"), nil
+	}
+
+	records, ok := r.data["records"].([]map[string]any)
+	if !ok {
+		return tool.TextResponse("Error: invalid data format"), nil
+	}
+
+	var result string
+	result = fmt.Sprintf("Read %d records:\n", len(records))
+	for i, record := range records {
+		result += fmt.Sprintf("  %d. %s (age: %v, dept: %v, salary: %v)\n",
+			i+1, record["name"], record["age"], record["department"], record["salary"])
+	}
+
+	return tool.TextResponse(result), nil
+}
+
+// DataFilterTool filters data by department or age criteria
+type DataFilterTool struct {
+	data map[string]any
+}
+
+func (f *DataFilterTool) SetData(data map[string]any) {
+	f.data = data
+}
+
+func (f *DataFilterTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+	if f.data == nil {
+		return tool.TextResponse("Error: no data loaded"), nil
+	}
+
+	records, ok := f.data["records"].([]map[string]any)
+	if !ok {
+		return tool.TextResponse("Error: invalid data format"), nil
+	}
+
+	var filtered []map[string]any
+
+	// Filter by department
+	if dept, ok := kwargs["department"].(string); ok && dept != "" {
+		for _, record := range records {
+			if record["department"] == dept {
+				filtered = append(filtered, record)
+			}
+		}
+		return tool.TextResponse(fmt.Sprintf("Filtered %d records from %s department", len(filtered), dept)), nil
+	}
+
+	// Filter by age range
+	minAge, hasMin := kwargs["min_age"].(float64)
+	maxAge, hasMax := kwargs["max_age"].(float64)
+
+	if hasMin || hasMax {
+		for _, record := range records {
+			age, _ := record["age"].(float64)
+			if hasMin && age < minAge {
+				continue
+			}
+			if hasMax && age > maxAge {
+				continue
+			}
+			filtered = append(filtered, record)
+		}
+		return tool.TextResponse(fmt.Sprintf("Filtered %d records by age criteria", len(filtered))), nil
+	}
+
+	return tool.TextResponse("Error: please specify department or min_age/max_age for filtering"), nil
+}
+
+// StatsCalculatorTool calculates statistics on filtered data
+type StatsCalculatorTool struct {
+	data map[string]any
+}
+
+func (s *StatsCalculatorTool) SetData(data map[string]any) {
+	s.data = data
+}
+
+func (s *StatsCalculatorTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+	if s.data == nil {
+		return tool.TextResponse("Error: no data loaded"), nil
+	}
+
+	records, ok := s.data["records"].([]map[string]any)
+	if !ok {
+		return tool.TextResponse("Error: invalid data format"), nil
+	}
+
+	field, _ := kwargs["field"].(string)
+	if field == "" {
+		field = "salary" // default
+	}
+
+	var sum float64
+	var count int
+	var min, max float64
+	min = -1
+
+	for _, record := range records {
+		val, ok := record[field].(float64)
+		if !ok {
+			continue
+		}
+		sum += val
+		count++
+		if min < 0 || val < min {
+			min = val
+		}
+		if val > max {
+			max = val
+		}
+	}
+
+	if count == 0 {
+		return tool.TextResponse(fmt.Sprintf("No valid records found for field: %s", field)), nil
+	}
+
+	avg := sum / float64(count)
+
+	result := fmt.Sprintf("Statistics for '%s' (based on %d records):\n", field, count)
+	result += fmt.Sprintf("  - Average: %.2f\n", avg)
+	result += fmt.Sprintf("  - Min: %.2f\n", min)
+	result += fmt.Sprintf("  - Max: %.2f\n", max)
+	result += fmt.Sprintf("  - Total: %.2f", sum)
+
+	return tool.TextResponse(result), nil
+}
+
+// ReportGeneratorTool generates a formatted report
+type ReportGeneratorTool struct{}
+
+func (r *ReportGeneratorTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+	title, _ := kwargs["title"].(string)
+	if title == "" {
+		title = "Data Analysis Report"
+	}
+
+	findings, _ := kwargs["findings"].(string)
+
+	report := fmt.Sprintf("=== %s ===\n", title)
+	report += fmt.Sprintf("%s\n", findings)
+	report += fmt.Sprintf("\nGenerated by Data Analysis Agent")
+
+	return tool.TextResponse(report), nil
+}
+
+// ==================== Legacy Simple Tools ====================
+
+// CalculatorTool is a simple calculator tool (kept for backward compatibility)
 type CalculatorTool struct{}
 
 // Call implements the ToolCallable interface
