@@ -10,6 +10,15 @@ import (
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 )
 
+// APIStyle defines the output format for tool definitions
+type APIStyle string
+
+const (
+	APIStyleInternal  APIStyle = "internal"  // Internal ToolInfo format
+	APIStyleAnthropic APIStyle = "anthropic" // Anthropic API format
+	APIStyleOpenAI    APIStyle = "openai"    // OpenAI API format
+)
+
 // Tool is a type-safe tool with structured parameters
 type Tool interface {
 	// Name returns the tool name
@@ -159,6 +168,105 @@ func (tt *TypedToolkit) GetModelSchemas() []model.ToolDefinition {
 		})
 	}
 	return result
+}
+
+// GetToolList returns tools in the specified API style format
+// style: "internal" (default), "anthropic", or "openai"
+func (tt *TypedToolkit) GetToolList(style APIStyle) (any, error) {
+	switch style {
+	case APIStyleInternal:
+		// Return internal ToolInfo format
+		return tt.GetSchemas(), nil
+
+	case APIStyleAnthropic:
+		// Return Anthropic API format
+		type AnthropicToolParam struct {
+			Name        string         `json:"name"`
+			Description string         `json:"description,omitempty"`
+			InputSchema map[string]any `json:"input_schema"`
+		}
+		result := make([]AnthropicToolParam, len(tt.tools))
+		i := 0
+		for _, t := range tt.tools {
+			// Build input schema from parameters
+			inputSchema := map[string]any{
+				"type": "object",
+			}
+			if params := t.ParameterSchema(); params != nil {
+				if props, ok := params["properties"]; ok {
+					inputSchema["properties"] = props
+				}
+				if required, ok := params["required"]; ok {
+					inputSchema["required"] = required
+				}
+			}
+			result[i] = AnthropicToolParam{
+				Name:        t.Name(),
+				Description: t.Description(),
+				InputSchema: inputSchema,
+			}
+			i++
+		}
+		return result, nil
+
+	case APIStyleOpenAI:
+		// Return OpenAI API format
+		type OpenAIFunctionParam struct {
+			Name        string         `json:"name"`
+			Description string         `json:"description,omitempty"`
+			Parameters  map[string]any `json:"parameters,omitempty"`
+		}
+		type OpenAIToolParam struct {
+			Type     string              `json:"type"`
+			Function OpenAIFunctionParam `json:"function"`
+		}
+		result := make([]OpenAIToolParam, len(tt.tools))
+		i := 0
+		for _, t := range tt.tools {
+			result[i] = OpenAIToolParam{
+				Type: "function",
+				Function: OpenAIFunctionParam{
+					Name:        t.Name(),
+					Description: t.Description(),
+					Parameters:  t.ParameterSchema(),
+				},
+			}
+			i++
+		}
+		return result, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported API style: %s", style)
+	}
+}
+
+// GetToolInfo returns detailed information about all tools
+func (tt *TypedToolkit) GetToolInfo() map[string]any {
+	type ToolInfo struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+
+	type ToolListInfo struct {
+		TotalTools int        `json:"total_tools"`
+		Tools      []ToolInfo `json:"tools"`
+	}
+
+	info := ToolListInfo{
+		TotalTools: len(tt.tools),
+		Tools:      make([]ToolInfo, 0, len(tt.tools)),
+	}
+
+	for _, t := range tt.tools {
+		info.Tools = append(info.Tools, ToolInfo{
+			Name:        t.Name(),
+			Description: t.Description(),
+		})
+	}
+
+	return map[string]any{
+		"tool_list": info,
+	}
 }
 
 // CallToolBlock executes a tool using a ToolUseBlock

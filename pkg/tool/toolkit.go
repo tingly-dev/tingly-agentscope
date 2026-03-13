@@ -23,6 +23,15 @@ const (
 	NamesakeRename   NamesakeStrategy = "rename"
 )
 
+// APIStyle defines the output format for tool definitions
+type APIStyle string
+
+const (
+	APIStyleInternal  APIStyle = "internal"  // Internal ToolDefinition format
+	APIStyleAnthropic APIStyle = "anthropic" // Anthropic API format
+	APIStyleOpenAI    APIStyle = "openai"    // OpenAI API format
+)
+
 // ToolFunction is the interface for tool functions
 type ToolFunction interface{}
 
@@ -219,6 +228,132 @@ func (t *Toolkit) GetSchemas() []model.ToolDefinition {
 	}
 
 	return schemas
+}
+
+// GetToolList returns tools in the specified API style format
+// style: "internal" (default), "anthropic", or "openai"
+func (t *Toolkit) GetToolList(style APIStyle) (any, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	// Get active tools
+	var activeTools []*RegisteredFunction
+	for _, tool := range t.tools {
+		if tool.Group == "basic" {
+			activeTools = append(activeTools, tool)
+		} else if group, exists := t.groups[tool.Group]; exists && group.Active {
+			activeTools = append(activeTools, tool)
+		}
+	}
+
+	switch style {
+	case APIStyleInternal:
+		// Return internal ToolDefinition format
+		schemas := make([]model.ToolDefinition, len(activeTools))
+		for i, tool := range activeTools {
+			schemas[i] = tool.JSONSchema
+		}
+		return schemas, nil
+
+	case APIStyleAnthropic:
+		// Return Anthropic API format
+		type AnthropicToolParam struct {
+			Name        string         `json:"name"`
+			Description string         `json:"description,omitempty"`
+			InputSchema map[string]any `json:"input_schema"`
+		}
+		result := make([]AnthropicToolParam, len(activeTools))
+		for i, tool := range activeTools {
+			// Extract parameters from the full schema
+			inputSchema := map[string]any{
+				"type": "object",
+			}
+			if params := tool.JSONSchema.Function.Parameters; params != nil {
+				if props, ok := params["properties"]; ok {
+					inputSchema["properties"] = props
+				}
+				if required, ok := params["required"]; ok {
+					inputSchema["required"] = required
+				}
+			}
+			result[i] = AnthropicToolParam{
+				Name:        tool.JSONSchema.Function.Name,
+				Description: tool.JSONSchema.Function.Description,
+				InputSchema: inputSchema,
+			}
+		}
+		return result, nil
+
+	case APIStyleOpenAI:
+		// Return OpenAI API format
+		type OpenAIFunctionParam struct {
+			Name        string         `json:"name"`
+			Description string         `json:"description,omitempty"`
+			Parameters  map[string]any `json:"parameters,omitempty"`
+		}
+		type OpenAIToolParam struct {
+			Type     string              `json:"type"`
+			Function OpenAIFunctionParam `json:"function"`
+		}
+		result := make([]OpenAIToolParam, len(activeTools))
+		for i, tool := range activeTools {
+			result[i] = OpenAIToolParam{
+				Type: "function",
+				Function: OpenAIFunctionParam{
+					Name:        tool.JSONSchema.Function.Name,
+					Description: tool.JSONSchema.Function.Description,
+					Parameters:  tool.JSONSchema.Function.Parameters,
+				},
+			}
+		}
+		return result, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported API style: %s", style)
+	}
+}
+
+// GetToolInfo returns detailed information about all active tools
+func (t *Toolkit) GetToolInfo() map[string]any {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	type ToolInfo struct {
+		Name        string `json:"name"`
+		Group       string `json:"group"`
+		Description string `json:"description"`
+	}
+
+	type ToolListInfo struct {
+		TotalTools   int        `json:"total_tools"`
+		ActiveGroups []string   `json:"active_groups"`
+		Tools        []ToolInfo `json:"tools"`
+	}
+
+	info := ToolListInfo{
+		TotalTools: len(t.tools),
+		Tools:      make([]ToolInfo, 0),
+	}
+
+	for _, group := range t.groups {
+		if group.Active {
+			info.ActiveGroups = append(info.ActiveGroups, group.Name)
+		}
+	}
+
+	for _, tool := range t.tools {
+		if tool.Group == "basic" || (t.groups[tool.Group] != nil && t.groups[tool.Group].Active) {
+			info.Tools = append(info.Tools, ToolInfo{
+				Name:        tool.Name,
+				Group:       tool.Group,
+				Description: tool.JSONSchema.Function.Description,
+			})
+		}
+	}
+
+	return map[string]any{
+		"tool_list": info,
+	}
 }
 
 // Call executes a tool function
