@@ -236,16 +236,16 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 				continue
 			}
 
-			// Convert tool response content blocks
-			resultBlocks := make([]message.ContentBlock, 0)
-			for _, block := range toolResp.Content {
-				resultBlocks = append(resultBlocks, block)
-			}
-
-			// Add tool result to messages
+			// Add tool result to messages (wrapping in ToolResultBlock with tool call ID)
 			resultMsg := message.NewMsg(
 				toolBlock.Name,
-				resultBlocks,
+				[]message.ContentBlock{
+					&message.ToolResultBlock{
+						ID:     toolBlock.ID,
+						Name:   toolBlock.Name,
+						Output: toolResp.Content,
+					},
+				},
 				types.RoleUser,
 			)
 			messages = append(messages, resultMsg)
