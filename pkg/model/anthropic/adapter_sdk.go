@@ -100,7 +100,7 @@ func (a *SDKAdapter) IsStreaming() bool {
 // buildMessageParams converts internal messages to SDK MessageNewParams.
 func (a *SDKAdapter) buildMessageParams(messages []*message.Msg, options *model.CallOptions, stream bool) (anthropic.MessageNewParams, error) {
 	// Build messages list
-	sdkMessages, system, err := a.convertMessages(messages)
+	sdkMessages, system, err := a.ConvertMessages(messages)
 	if err != nil {
 		return anthropic.MessageNewParams{}, err
 	}
@@ -130,7 +130,7 @@ func (a *SDKAdapter) buildMessageParams(messages []*message.Msg, options *model.
 
 	// Add tools if present
 	if len(options.Tools) > 0 {
-		params.Tools = a.convertTools(options.Tools)
+		params.Tools = a.ConvertTools(options.Tools)
 		if options.ToolChoice != "" {
 			params.ToolChoice = a.convertToolChoice(options.ToolChoice)
 		}
@@ -139,8 +139,8 @@ func (a *SDKAdapter) buildMessageParams(messages []*message.Msg, options *model.
 	return params, nil
 }
 
-// convertMessages converts internal messages to SDK format.
-func (a *SDKAdapter) convertMessages(messages []*message.Msg) ([]anthropic.MessageParam, string, error) {
+// ConvertMessages converts internal messages to SDK format.
+func (a *SDKAdapter) ConvertMessages(messages []*message.Msg) ([]anthropic.MessageParam, string, error) {
 	var system string
 	var sdkMessages []anthropic.MessageParam
 
@@ -228,8 +228,8 @@ func (a *SDKAdapter) convertContent(msg *message.Msg) []anthropic.ContentBlockPa
 	return contentBlocks
 }
 
-// convertTools converts tool definitions to SDK format.
-func (a *SDKAdapter) convertTools(tools []model.ToolDefinition) []anthropic.ToolUnionParam {
+// ConvertTools converts tool definitions to SDK format.
+func (a *SDKAdapter) ConvertTools(tools []model.ToolDefinition) []anthropic.ToolUnionParam {
 	result := make([]anthropic.ToolUnionParam, len(tools))
 	for i, tool := range tools {
 		// Convert parameters map to SDK format
