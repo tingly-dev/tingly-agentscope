@@ -571,49 +571,6 @@ func (r *ReActAgent) ClearMemory() {
 	}
 }
 
-// Memory is the interface for agent memory
-type Memory interface {
-	Add(ctx context.Context, msg *message.Msg) error
-	GetMessages() []*message.Msg
-	Clear()
-}
-
-// SimpleMemory implements an in-memory message store
-type SimpleMemory struct {
-	messages []*message.Msg
-	maxSize  int
-}
-
-// NewSimpleMemory creates a new simple memory
-func NewSimpleMemory(maxSize int) *SimpleMemory {
-	return &SimpleMemory{
-		messages: make([]*message.Msg, 0, maxSize),
-		maxSize:  maxSize,
-	}
-}
-
-// Add adds a message to memory
-func (m *SimpleMemory) Add(ctx context.Context, msg *message.Msg) error {
-	m.messages = append(m.messages, msg)
-
-	// Trim if over max size
-	if m.maxSize > 0 && len(m.messages) > m.maxSize {
-		m.messages = m.messages[len(m.messages)-m.maxSize:]
-	}
-
-	return nil
-}
-
-// GetMessages returns all messages in memory
-func (m *SimpleMemory) GetMessages() []*message.Msg {
-	return m.messages
-}
-
-// Clear clears all messages from memory
-func (m *SimpleMemory) Clear() {
-	m.messages = make([]*message.Msg, 0)
-}
-
 // AddMessage adds a message to the agent's memory
 func (r *ReActAgent) AddMessage(ctx context.Context, msg *message.Msg) error {
 	if r.config.Memory != nil {
