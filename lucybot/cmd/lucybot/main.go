@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"github.com/tingly-dev/lucybot/internal/config"
 	"github.com/tingly-dev/lucybot/internal/index"
 	"github.com/tingly-dev/lucybot/internal/tools"
+	"github.com/tingly-dev/lucybot/internal/ui"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 	"github.com/urfave/cli/v2"
@@ -61,6 +61,16 @@ var chatCommand = &cli.Command{
 			Aliases: []string{"q"},
 			Usage:   "Single query mode (non-interactive)",
 		},
+		&cli.BoolFlag{
+			Name:    "verbose",
+			Aliases: []string{"v"},
+			Usage:   "Print config sources",
+		},
+		&cli.BoolFlag{
+			Name:    "simple",
+			Aliases: []string{"s"},
+			Usage:   "Use simple mode (no TUI)",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		workDir := c.String("working-dir")
@@ -68,7 +78,12 @@ var chatCommand = &cli.Command{
 			os.Setenv("LUCYBOT_CONFIG", c.String("config"))
 		}
 
-		cfg, err := config.LoadConfigFromDefaultLocations()
+		// Print config sources if verbose
+		if c.Bool("verbose") {
+			config.PrintConfigSources()
+		}
+
+		cfg, err := config.LoadConfigWithMerge()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 			fmt.Fprintf(os.Stderr, "Using default configuration...\n")
@@ -79,6 +94,9 @@ var chatCommand = &cli.Command{
 		if c.String("model") != "" {
 			cfg.Agent.Model.ModelName = c.String("model")
 		}
+
+		// Set working directory
+		cfg.Agent.WorkingDirectory = workDir
 
 		// Create agent
 		lucybotAgent, err := agent.NewLucyBotAgent(&agent.LucyBotAgentConfig{
@@ -94,8 +112,13 @@ var chatCommand = &cli.Command{
 			return runSingleQuery(lucybotAgent, query)
 		}
 
-		// Interactive mode
-		return runInteractiveMode(lucybotAgent)
+		// Simple mode (no TUI)
+		if c.Bool("simple") {
+			return runSimpleMode(lucybotAgent)
+		}
+
+		// TUI mode
+		return runTUIMode(lucybotAgent, cfg)
 	},
 }
 
@@ -191,11 +214,7 @@ var initConfigCommand = &cli.Command{
 		outputPath := c.String("output")
 
 		if c.Bool("global") {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("failed to get home directory: %w", err)
-			}
-			outputPath = homeDir + "/.config/lucybot/config.toml"
+			outputPath = config.GetGlobalConfigPath()
 		}
 
 		// Create directory if needed
@@ -251,6 +270,13 @@ var initConfigCommand = &cli.Command{
 			}
 		}
 
+		fmt.Print("Base URL [http://localhost:12580/tingly/openai]: ")
+		var baseURL string
+		fmt.Scanln(&baseURL)
+		if baseURL != "" {
+			cfg.Agent.Model.BaseURL = baseURL
+		}
+
 		fmt.Print("Temperature [0.3]: ")
 		var temperature float64
 		if _, err := fmt.Scanln(&temperature); err == nil {
@@ -295,8 +321,27 @@ func runSingleQuery(lucybotAgent *agent.LucyBotAgent, query string) error {
 	return err
 }
 
-// runInteractiveMode runs the interactive chat loop
-func runInteractiveMode(lucybotAgent *agent.LucyBotAgent) error {
+// runTUIMode runs the interactive TUI mode
+func runTUIMode(lucybotAgent *agent.LucyBotAgent, cfg *config.Config) error {
+	// Get primary agents from registry
+	var primaryAgents []agent.AgentDefinition
+	if registry := lucybotAgent.GetRegistry(); registry != nil {
+		// This would come from agent registry
+		// For now, use the current agent as primary
+	}
+
+	// Run TUI
+	appCfg := &ui.AppConfig{
+		Agent:         lucybotAgent,
+		Config:        cfg,
+		PrimaryAgents: primaryAgents,
+	}
+
+	return ui.Run(appCfg)
+}
+
+// runSimpleMode runs the simple interactive mode (no TUI)
+func runSimpleMode(lucybotAgent *agent.LucyBotAgent) error {
 	fmt.Printf("🤖 %s - AI Programming Assistant\n", lucybotAgent.GetConfig().Agent.Name)
 	fmt.Println("Type /quit to exit, /help for commands")
 	fmt.Println(strings.Repeat("=", 50))
@@ -304,17 +349,17 @@ func runInteractiveMode(lucybotAgent *agent.LucyBotAgent) error {
 	// Print available tools
 	printAvailableTools(lucybotAgent.GetRegistry())
 
-	scanner := bufio.NewScanner(os.Stdin)
 	ctx := context.Background()
 
 	for {
 		fmt.Print("\n\033[32m➜\033[0m ")
 
-		if !scanner.Scan() {
+		var input string
+		if _, err := fmt.Scanln(&input); err != nil {
 			break
 		}
 
-		input := strings.TrimSpace(scanner.Text())
+		input = strings.TrimSpace(input)
 		if input == "" {
 			continue
 		}
@@ -386,6 +431,7 @@ func handleSlashCommand(input string, lucybotAgent *agent.LucyBotAgent) bool {
 		cfg := lucybotAgent.GetConfig()
 		fmt.Printf("Model: %s (%s)\n", cfg.Agent.Model.ModelName, cfg.Agent.Model.ModelType)
 		fmt.Printf("Temperature: %.2f\n", cfg.Agent.Model.Temperature)
+		fmt.Printf("BaseURL: %s\n", cfg.Agent.Model.BaseURL)
 		return true
 
 	default:
