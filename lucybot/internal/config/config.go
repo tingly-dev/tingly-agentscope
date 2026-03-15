@@ -106,6 +106,9 @@ You have access to various tools to help with software engineering tasks. Use th
 Always respond in English.
 Always respond with exactly one tool call.`
 
+// DefaultBaseURL is the default base URL for OpenAI API (Tingly proxy)
+const DefaultBaseURL = "http://localhost:12580/tingly/openai"
+
 // GetDefaultConfig returns a default configuration
 func GetDefaultConfig() *Config {
 	return &Config{
@@ -118,7 +121,7 @@ func GetDefaultConfig() *Config {
 				ModelType:   "openai",
 				ModelName:   "gpt-4o",
 				APIKey:      "${OPENAI_API_KEY}",
-				BaseURL:     "",
+				BaseURL:     DefaultBaseURL,
 				Temperature: DefaultTemperature,
 				MaxTokens:   DefaultMaxTokens,
 				Stream:      true,
@@ -273,6 +276,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Agent.Model.MaxTokens == 0 {
 		cfg.Agent.Model.MaxTokens = DefaultMaxTokens
+	}
+	if cfg.Agent.Model.BaseURL == "" {
+		cfg.Agent.Model.BaseURL = DefaultBaseURL
 	}
 }
 
