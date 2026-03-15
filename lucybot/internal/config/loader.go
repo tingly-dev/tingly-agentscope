@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/adrg/xdg"
 )
 
 // ConfigLocation represents a config file location type
@@ -14,9 +12,9 @@ type ConfigLocation int
 const (
 	// LocationProject is the per-project config (.lucybot/config.toml)
 	LocationProject ConfigLocation = iota
-	// LocationGlobalXDG is the global XDG config (~/.config/lucybot/config.toml)
-	LocationGlobalXDG
-	// LocationGlobalLegacy is the legacy global config (~/.lucybot/config.toml)
+	// LocationGlobal is the global config (~/.lucybot/config.toml)
+	LocationGlobal
+	// LocationGlobalLegacy is kept for compatibility but same as LocationGlobal
 	LocationGlobalLegacy
 )
 
@@ -28,18 +26,11 @@ type LocationInfo struct {
 }
 
 // GetGlobalConfigPath returns the path to the global config file
-// Prefers XDG_CONFIG_HOME, falls back to ~/.config/lucybot/config.toml
+// Uses ~/.lucybot/config.toml (matching tingly-coder behavior)
 func GetGlobalConfigPath() string {
-	// Try XDG config directory
-	if configPath, err := xdg.ConfigFile("lucybot/config.toml"); err == nil {
-		return configPath
-	}
-
-	// Fallback to home directory
 	if homeDir, err := os.UserHomeDir(); err == nil {
-		return filepath.Join(homeDir, ".config", "lucybot", "config.toml")
+		return filepath.Join(homeDir, ".lucybot", "config.toml")
 	}
-
 	return ""
 }
 
@@ -52,23 +43,12 @@ func GetProjectConfigPath() string {
 func FindAllConfigLocations() []LocationInfo {
 	var locations []LocationInfo
 
-	// Check global XDG config
+	// Check global config
 	if globalPath := GetGlobalConfigPath(); globalPath != "" {
 		_, err := os.Stat(globalPath)
 		locations = append(locations, LocationInfo{
 			Path:     globalPath,
-			Location: LocationGlobalXDG,
-			Exists:   err == nil,
-		})
-	}
-
-	// Check legacy global config
-	if homeDir, err := os.UserHomeDir(); err == nil {
-		legacyPath := filepath.Join(homeDir, ".lucybot", "config.toml")
-		_, err := os.Stat(legacyPath)
-		locations = append(locations, LocationInfo{
-			Path:     legacyPath,
-			Location: LocationGlobalLegacy,
+			Location: LocationGlobal,
 			Exists:   err == nil,
 		})
 	}
@@ -108,7 +88,7 @@ func LoadConfigWithMerge() (*Config, error) {
 		}
 
 		switch loc.Location {
-		case LocationGlobalXDG, LocationGlobalLegacy:
+		case LocationGlobal, LocationGlobalLegacy:
 			if globalCfg, err := LoadConfig(loc.Path); err == nil {
 				cfg = deepMergeConfigs(cfg, globalCfg)
 			} else {
@@ -231,10 +211,8 @@ func PrintConfigSources() {
 		switch loc.Location {
 		case LocationProject:
 			locName = "project"
-		case LocationGlobalXDG:
-			locName = "global (XDG)"
-		case LocationGlobalLegacy:
-			locName = "global (legacy)"
+		case LocationGlobal, LocationGlobalLegacy:
+			locName = "global"
 		}
 
 		fmt.Fprintf(os.Stderr, "  [%s] %s: %s\n", status, locName, loc.Path)

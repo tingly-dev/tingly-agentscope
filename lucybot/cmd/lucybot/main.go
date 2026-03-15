@@ -280,6 +280,9 @@ var initConfigCommand = &cli.Command{
 		fmt.Scanln(&baseURL)
 		if baseURL != "" {
 			cfg.Agent.Model.BaseURL = baseURL
+		} else {
+			// Ensure default base_url is set
+			cfg.Agent.Model.BaseURL = config.DefaultBaseURL
 		}
 
 		fmt.Print("Temperature [0.3]: ")
