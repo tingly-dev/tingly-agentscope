@@ -202,19 +202,24 @@ var initConfigCommand = &cli.Command{
 			Name:    "output",
 			Aliases: []string{"o"},
 			Usage:   "Output path for config file",
-			Value:   ".lucybot/config.toml",
+			Value:   "",
 		},
 		&cli.BoolFlag{
-			Name:    "global",
-			Aliases: []string{"g"},
-			Usage:   "Create global config in ~/.config/lucybot/",
+			Name:    "local",
+			Aliases: []string{"l"},
+			Usage:   "Create local config in .lucybot/ (default is global)",
 		},
 	},
 	Action: func(c *cli.Context) error {
 		outputPath := c.String("output")
 
-		if c.Bool("global") {
-			outputPath = config.GetGlobalConfigPath()
+		// Default to global config location
+		if outputPath == "" {
+			if c.Bool("local") {
+				outputPath = ".lucybot/config.toml"
+			} else {
+				outputPath = config.GetGlobalConfigPath()
+			}
 		}
 
 		// Create directory if needed

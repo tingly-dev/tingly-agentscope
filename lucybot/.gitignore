@@ -5,6 +5,9 @@ lucybot
 *.so
 *.dylib
 
+# Don't ignore cmd/lucybot directory
+!cmd/lucybot/
+
 # Test binary
 *.test
 
