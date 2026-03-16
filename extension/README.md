@@ -1,23 +1,23 @@
 # Extension Tools
 
-基于 `pkg/tool` 实现的常用工具集，可被 agent 直接复用。
+Common tools implemented based on `pkg/tool` that can be directly reused by agents.
 
-## 工具列表
+## Tool List
 
 ### read
-读取文件内容，支持文本文件。可指定偏移量和行数限制。
+Read file contents, supports text files. Can specify offset and line limit.
 
 ```go
 params := ReadParams{
     Path:   "file.txt",
-    Offset: 1,  // 从第1行开始（1-indexed）
-    Limit:  50, // 最多读取50行
+    Offset: 1,  // Start from line 1 (1-indexed)
+    Limit:  50, // Read up to 50 lines
 }
 resp, err := readTool.Read(ctx, params)
 ```
 
 ### write
-写入内容到文件。如果文件不存在则创建，存在则覆盖。自动创建父目录。
+Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.
 
 ```go
 params := WriteParams{
@@ -28,7 +28,7 @@ resp, err := writeTool.Write(ctx, params)
 ```
 
 ### edit
-通过精确匹配替换文本编辑文件。`oldText` 必须完全匹配（包括空白字符）。
+Edit files by replacing exact text matches. `oldText` must match exactly (including whitespace).
 
 ```go
 params := EditParams{
@@ -40,24 +40,24 @@ resp, err := editTool.Edit(ctx, params)
 ```
 
 ### bash
-执行 bash 命令，返回 stdout 和 stderr。支持超时设置。
+Execute bash commands, returns stdout and stderr. Supports timeout configuration.
 
 ```go
 params := BashParams{
     Command: "ls -la",
-    Timeout: 30, // 秒，可选
+    Timeout: 30, // seconds, optional
 }
 resp, err := bashTool.Bash(ctx, params)
 ```
 
-## 使用方法
+## Usage
 
-### 方式一：使用 ExtensionToolkit（推荐）
+### Method 1: Using ExtensionToolkit (Recommended)
 
 ```go
 import "github.com/tingly-dev/tingly-agentscope/extension/tools"
 
-// 创建 toolkit
+// Create toolkit
 et, err := tools.NewExtensionToolkit(&tools.ExtensionOptions{
     ReadOptions:  tools.ReadOptions([]string{"/allowed/path"}, 10*1024*1024),
     WriteOptions: tools.WriteOptions([]string{"/allowed/path"}, true),
@@ -68,83 +68,109 @@ if err != nil {
     log.Fatal(err)
 }
 
-// 获取 toolkit 用于 agent
+// Get toolkit for agent
 tk := et.GetToolkit()
 
-// 或者直接调用工具
+// Or call tools directly
 resp, err := et.Read(ctx, "file.txt", 0, 0)
 resp, err := et.Write(ctx, "file.txt", "content")
 resp, err := et.Edit(ctx, "file.txt", "old", "new")
 resp, err := et.Bash(ctx, "ls -la", 0)
 ```
 
-### 方式二：单独注册工具
+### Method 2: Register Tools Individually
 
 ```go
 import "github.com/tingly-dev/tingly-agentscope/extension/tools"
 
 tk := tool.NewToolkit()
 
-// 注册 read 工具
+// Register read tool
 tools.RegisterReadTool(tk, tools.ReadOptions([]string{"/allowed"}, 1024*1024))
 
-// 注册 write 工具
+// Register write tool
 tools.RegisterWriteTool(tk, tools.WriteOptions([]string{"/allowed"}, true))
 
-// 注册 edit 工具
+// Register edit tool
 tools.RegisterEditTool(tk, tools.EditOptions([]string{"/allowed"}))
 
-// 注册 bash 工具
+// Register bash tool
 tools.RegisterBashTool(tk, tools.BashOptions(
-    []string{"git", "go", "ls"},  // 允许的命令前缀
-    []string{"rm -rf /"},          // 阻止的命令
+    []string{"git", "go", "ls"},  // Allowed command prefixes
+    []string{"rm -rf /"},          // Blocked commands
     120*time.Second,
     "",
 ))
 ```
 
-### 方式三：直接使用工具实例
+### Method 3: Use Tool Instances Directly
 
 ```go
-// 创建工具实例
+// Create tool instance
 readTool := tools.NewReadTool(tools.ReadOptions([]string{"/allowed"}, 1024*1024))
 
-// 调用工具
+// Call tool
 resp, err := readTool.Read(ctx, tools.ReadParams{
     Path: "file.txt",
 })
 ```
 
-## 安全配置
+## Security Configuration
 
-### ReadTool 选项
-- `allowedDirs`: 允许读取的目录列表（空表示允许所有）
-- `maxFileSize`: 最大文件大小限制（字节）
+### ReadTool Options
+- `allowedDirs`: List of allowed directories (empty means allow all)
+- `maxFileSize`: Maximum file size limit in bytes
 
-### WriteTool 选项
-- `allowedDirs`: 允许写入的目录列表（空表示允许所有）
-- `allowOverwrite`: 是否允许覆盖已存在的文件
+### WriteTool Options
+- `allowedDirs`: List of allowed directories (empty means allow all)
+- `allowOverwrite`: Whether to allow overwriting existing files
+- `maxWriteSize`: Maximum content size limit in bytes (new)
 
-### EditTool 选项
-- `allowedDirs`: 允许编辑的目录列表（空表示允许所有）
+### EditTool Options
+- `allowedDirs`: List of allowed directories (empty means allow all)
 
-### BashTool 选项
-- `allowedCommands`: 允许的命令前缀列表（空表示允许所有，除了 blocked）
-- `blockedCommands`: 阻止的命令模式列表（默认包含危险命令如 `rm -rf /`）
-- `timeout`: 默认超时时间
-- `workingDir`: 工作目录
+### BashTool Options
+- `allowedCommands`: List of allowed command prefixes (empty means allow all, except blocked)
+- `blockedCommands`: List of blocked command patterns (default includes dangerous commands like `rm -rf /`)
+- `timeout`: Default timeout duration
+- `workingDir`: Working directory
+- `allowChaining`: Whether to allow command chaining (e.g., `&&`, `||`, `|`, `;`), default false (new)
 
-## 目录结构
+## Security Enhancements
+
+This implementation includes the following security enhancements:
+
+1. **Path Traversal Protection**: All file operation tools use a unified `validatePath` function to prevent directory traversal attacks
+   - Checks if path is within allowed directories
+   - Uses `filepath.Clean` to normalize paths
+   - Prevents prefix attacks like `/safe2` matching `/safe`
+
+2. **Bash Command Filtering**: Prevents command injection and chaining attacks
+   - Blocks command chaining by default (`&&`, `||`, `|`, `;`, `` ` ``, `$()`)
+   - Can be enabled with `BashAllowChaining(true)` (only in trusted environments)
+   - Blocks dangerous command patterns
+   - Trims command parameters to prevent whitespace bypass
+
+3. **File Size Limits**
+   - ReadTool: `maxFileSize` limits read file size
+   - WriteTool: `maxWriteSize` limits write content size (new)
+
+4. **Parameter Validation**
+   - ReadTool: Validates `limit` is non-negative
+   - Improved `Call` method type assertions, supports both `int` and `float64`
+
+## Directory Structure
 
 ```
 extension/
 ├── go.mod
 ├── README.md
 └── tools/
-    ├── read.go       # 文件读取工具
-    ├── write.go      # 文件写入工具
-    ├── edit.go       # 文件编辑工具
-    ├── bash.go       # Bash 执行工具
-    ├── toolkit.go    # ExtensionToolkit 封装
-    └── tools_test.go # 测试
+    ├── read.go       # File reading tool
+    ├── write.go      # File writing tool
+    ├── edit.go       # File editing tool
+    ├── bash.go       # Bash execution tool
+    ├── toolkit.go    # ExtensionToolkit wrapper
+    ├── util.go       # Shared utility functions
+    └── tools_test.go # Tests
 ```

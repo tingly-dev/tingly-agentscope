@@ -18,6 +18,7 @@ type BashTool struct {
 	blockedCommands []string
 	timeout         time.Duration
 	workingDir      string
+	allowChaining   bool
 }
 
 // BashOptions configures the BashTool
@@ -30,6 +31,13 @@ func BashOptions(allowedCommands, blockedCommands []string, timeout time.Duratio
 	}
 }
 
+// BashAllowChaining enables or disables command chaining (default: false)
+func BashAllowChaining(allow bool) func(*BashTool) {
+	return func(b *BashTool) {
+		b.allowChaining = allow
+	}
+}
+
 // NewBashTool creates a new bash tool instance
 func NewBashTool(options ...func(*BashTool)) *BashTool {
 	bt := &BashTool{
@@ -37,6 +45,7 @@ func NewBashTool(options ...func(*BashTool)) *BashTool {
 		blockedCommands: []string{"rm -rf /", "rm -rf /*", "> /dev/sda", "mkfs", "dd if=/dev/zero"},
 		timeout:         120 * time.Second,
 		workingDir:      "",
+		allowChaining:   false,
 	}
 	for _, opt := range options {
 		opt(bt)
@@ -98,10 +107,24 @@ func (b *BashTool) Bash(ctx context.Context, params BashParams) (*tool.ToolRespo
 
 // validateCommand checks if the command is allowed
 func (b *BashTool) validateCommand(command string) error {
-	// Check blocked commands
+	trimmed := strings.TrimSpace(command)
+
+	// Check for command chaining if not allowed
+	if !b.allowChaining {
+		// Check for common command chaining patterns
+		chainingPatterns := []string{"&&", "||", ";", "|", "`", "$("}
+		for _, pattern := range chainingPatterns {
+			if strings.Contains(trimmed, pattern) {
+				return fmt.Errorf("command chaining not allowed: pattern '%s' detected", pattern)
+			}
+		}
+	}
+
+	// Check blocked commands (trimmed to avoid whitespace bypass)
 	for _, blocked := range b.blockedCommands {
-		if strings.Contains(command, blocked) {
-			return fmt.Errorf("command contains blocked pattern: %s", blocked)
+		blockedTrimmed := strings.TrimSpace(blocked)
+		if strings.Contains(trimmed, blockedTrimmed) {
+			return fmt.Errorf("command contains blocked pattern: %s", blockedTrimmed)
 		}
 	}
 
@@ -111,7 +134,6 @@ func (b *BashTool) validateCommand(command string) error {
 	}
 
 	// Check if command starts with an allowed command
-	trimmed := strings.TrimSpace(command)
 	for _, allowed := range b.allowedCommands {
 		if strings.HasPrefix(trimmed, allowed) {
 			return nil

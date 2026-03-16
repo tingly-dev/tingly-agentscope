@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
@@ -14,8 +13,9 @@ import (
 
 // WriteTool provides file writing capabilities
 type WriteTool struct {
-	allowedDirs []string
+	allowedDirs    []string
 	allowOverwrite bool
+	maxWriteSize   int64
 }
 
 // WriteOptions configures the WriteTool
@@ -26,11 +26,19 @@ func WriteOptions(allowedDirs []string, allowOverwrite bool) func(*WriteTool) {
 	}
 }
 
+// WriteMaxSize configures the maximum write size for WriteTool
+func WriteMaxSize(maxSize int64) func(*WriteTool) {
+	return func(w *WriteTool) {
+		w.maxWriteSize = maxSize
+	}
+}
+
 // NewWriteTool creates a new write tool instance
 func NewWriteTool(options ...func(*WriteTool)) *WriteTool {
 	wt := &WriteTool{
 		allowedDirs:    []string{}, // Empty means allow all
 		allowOverwrite: true,
+		maxWriteSize:   10 * 1024 * 1024, // 10MB default
 	}
 	for _, opt := range options {
 		opt(wt)
@@ -46,8 +54,14 @@ type WriteParams struct {
 
 // Write writes content to a file. Creates the file if it doesn't exist, overwrites if it does.
 func (w *WriteTool) Write(ctx context.Context, params WriteParams) (*tool.ToolResponse, error) {
+	// Check write size
+	contentSize := int64(len(params.Content))
+	if contentSize > w.maxWriteSize {
+		return tool.TextResponse(fmt.Sprintf("Error: content too large (%d bytes, max %d bytes)", contentSize, w.maxWriteSize)), nil
+	}
+
 	// Validate path
-	if err := w.validatePath(params.Path); err != nil {
+	if err := validatePath(params.Path, w.allowedDirs); err != nil {
 		return tool.TextResponse(fmt.Sprintf("Error: %v", err)), nil
 	}
 
@@ -84,30 +98,6 @@ func (w *WriteTool) Write(ctx context.Context, params WriteParams) (*tool.ToolRe
 	}
 
 	return tool.TextResponse(fmt.Sprintf("Successfully %s file: %s (%d bytes)", action, params.Path, len(params.Content))), nil
-}
-
-// validatePath checks if the path is allowed
-func (w *WriteTool) validatePath(path string) error {
-	if len(w.allowedDirs) == 0 {
-		return nil // No restrictions
-	}
-
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return fmt.Errorf("failed to resolve path: %w", err)
-	}
-
-	for _, allowedDir := range w.allowedDirs {
-		absAllowedDir, err := filepath.Abs(allowedDir)
-		if err != nil {
-			continue
-		}
-		if strings.HasPrefix(absPath, absAllowedDir) {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("path not allowed: %s", path)
 }
 
 // RegisterWriteTool registers the write tool with the toolkit

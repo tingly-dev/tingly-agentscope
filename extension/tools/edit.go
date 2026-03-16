@@ -45,7 +45,7 @@ type EditParams struct {
 // Edit edits a file by replacing exact text
 func (e *EditTool) Edit(ctx context.Context, params EditParams) (*tool.ToolResponse, error) {
 	// Validate path
-	if err := e.validatePath(params.Path); err != nil {
+	if err := validatePath(params.Path, e.allowedDirs); err != nil {
 		return tool.TextResponse(fmt.Sprintf("Error: %v", err)), nil
 	}
 
@@ -96,30 +96,6 @@ func (e *EditTool) Edit(ctx context.Context, params EditParams) (*tool.ToolRespo
 	}
 
 	return tool.TextResponse(fmt.Sprintf("Successfully edited file: %s", params.Path)), nil
-}
-
-// validatePath checks if the path is allowed
-func (e *EditTool) validatePath(path string) error {
-	if len(e.allowedDirs) == 0 {
-		return nil // No restrictions
-	}
-
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return fmt.Errorf("failed to resolve path: %w", err)
-	}
-
-	for _, allowedDir := range e.allowedDirs {
-		absAllowedDir, err := filepath.Abs(allowedDir)
-		if err != nil {
-			continue
-		}
-		if strings.HasPrefix(absPath, absAllowedDir) {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("path not allowed: %s", path)
 }
 
 // RegisterEditTool registers the edit tool with the toolkit

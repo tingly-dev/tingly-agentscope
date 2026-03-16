@@ -29,7 +29,7 @@ func ReadOptions(allowedDirs []string, maxFileSize int64) func(*ReadTool) {
 // NewReadTool creates a new read tool instance
 func NewReadTool(options ...func(*ReadTool)) *ReadTool {
 	rt := &ReadTool{
-		allowedDirs: []string{}, // Empty means allow all
+		allowedDirs: []string{},       // Empty means allow all
 		maxFileSize: 10 * 1024 * 1024, // 10MB default
 	}
 	for _, opt := range options {
@@ -47,8 +47,16 @@ type ReadParams struct {
 
 // Read reads the contents of a file
 func (r *ReadTool) Read(ctx context.Context, params ReadParams) (*tool.ToolResponse, error) {
+	// Validate offset and limit
+	if params.Offset < 0 {
+		params.Offset = 0
+	}
+	if params.Limit < 0 {
+		return tool.TextResponse("Error: limit must be non-negative"), nil
+	}
+
 	// Validate path
-	if err := r.validatePath(params.Path); err != nil {
+	if err := validatePath(params.Path, r.allowedDirs); err != nil {
 		return tool.TextResponse(fmt.Sprintf("Error: %v", err)), nil
 	}
 
@@ -91,31 +99,7 @@ func (r *ReadTool) Read(ctx context.Context, params ReadParams) (*tool.ToolRespo
 	return tool.TextResponse(result), nil
 }
 
-// validatePath checks if the path is allowed
-func (r *ReadTool) validatePath(path string) error {
-	if len(r.allowedDirs) == 0 {
-		return nil // No restrictions
-	}
-
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return fmt.Errorf("failed to resolve path: %w", err)
-	}
-
-	for _, allowedDir := range r.allowedDirs {
-		absAllowedDir, err := filepath.Abs(allowedDir)
-		if err != nil {
-			continue
-		}
-		if strings.HasPrefix(absPath, absAllowedDir) {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("path not allowed: %s", path)
-}
-
-// applyLineRange applies offset and limit to content
+// RegisterReadTool registers the read tool with the toolkit
 func applyLineRange(content string, offset, limit int) string {
 	lines := strings.Split(content, "\n")
 
@@ -156,10 +140,15 @@ func (r *ReadTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolR
 	if path, ok := kwargs["path"].(string); ok {
 		params.Path = path
 	}
-	if offset, ok := kwargs["offset"].(float64); ok {
+	// Handle both int and float64 for numeric parameters
+	if offset, ok := kwargs["offset"].(int); ok {
+		params.Offset = offset
+	} else if offset, ok := kwargs["offset"].(float64); ok {
 		params.Offset = int(offset)
 	}
-	if limit, ok := kwargs["limit"].(float64); ok {
+	if limit, ok := kwargs["limit"].(int); ok {
+		params.Limit = limit
+	} else if limit, ok := kwargs["limit"].(float64); ok {
 		params.Limit = int(limit)
 	}
 	return r.Read(ctx, params)

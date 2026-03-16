@@ -105,6 +105,76 @@ func TestReadTool(t *testing.T) {
 			t.Errorf("expected 'path not allowed' error, got %q", textBlock.Text)
 		}
 	})
+
+	t.Run("read with path traversal protection", func(t *testing.T) {
+		// Create temp directory with a file
+		allowedDir := filepath.Join(tempDir, "allowed")
+		if err := os.MkdirAll(allowedDir, 0755); err != nil {
+			t.Fatalf("failed to create allowed dir: %v", err)
+		}
+		allowedFile := filepath.Join(allowedDir, "safe.txt")
+		if err := os.WriteFile(allowedFile, []byte("safe content"), 0644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+
+		rt := NewReadTool(ReadOptions([]string{allowedDir}, 0))
+
+		// Test: ../ traversal should be blocked
+		resp, err := rt.Read(context.Background(), ReadParams{Path: allowedDir + "/../other.txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		textBlock, ok := resp.Content[0].(*message.TextBlock)
+		if !ok {
+			t.Fatalf("expected text block in response, got %T", resp.Content[0])
+		}
+
+		if !strings.Contains(textBlock.Text, "path not allowed") {
+			t.Errorf("expected 'path not allowed' error for path traversal, got %q", textBlock.Text)
+		}
+
+		// Test: similar prefix path should be blocked
+		allowedDir2 := allowedDir + "2"
+		resp2, err := rt.Read(context.Background(), ReadParams{Path: filepath.Join(allowedDir2, "file.txt")})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		textBlock2, ok := resp2.Content[0].(*message.TextBlock)
+		if !ok {
+			t.Fatalf("expected text block in response, got %T", resp2.Content[0])
+		}
+
+		if !strings.Contains(textBlock2.Text, "path not allowed") {
+			t.Errorf("expected 'path not allowed' error for similar prefix path, got %q", textBlock2.Text)
+		}
+	})
+
+	t.Run("read with negative limit", func(t *testing.T) {
+		testFile := filepath.Join(tempDir, "negative.txt")
+		if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+
+		rt := NewReadTool()
+		resp, err := rt.Read(context.Background(), ReadParams{
+			Path:  testFile,
+			Limit: -1,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		textBlock, ok := resp.Content[0].(*message.TextBlock)
+		if !ok {
+			t.Fatalf("expected text block in response, got %T", resp.Content[0])
+		}
+
+		if !strings.Contains(textBlock.Text, "limit must be non-negative") {
+			t.Errorf("expected limit validation error, got %q", textBlock.Text)
+		}
+	})
 }
 
 func TestWriteTool(t *testing.T) {
@@ -222,6 +292,29 @@ func TestWriteTool(t *testing.T) {
 
 		if !strings.Contains(textBlock.Text, "overwrite is not allowed") {
 			t.Errorf("expected 'overwrite is not allowed' error, got %q", textBlock.Text)
+		}
+	})
+
+	t.Run("max write size limit", func(t *testing.T) {
+		testFile := filepath.Join(tempDir, "maxsize.txt")
+		wt := NewWriteTool(WriteMaxSize(100))
+
+		largeContent := strings.Repeat("x", 200)
+		resp, err := wt.Write(context.Background(), WriteParams{
+			Path:    testFile,
+			Content: largeContent,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		textBlock, ok := resp.Content[0].(*message.TextBlock)
+		if !ok {
+			t.Fatalf("expected text block in response, got %T", resp.Content[0])
+		}
+
+		if !strings.Contains(textBlock.Text, "content too large") {
+			t.Errorf("expected 'content too large' error, got %q", textBlock.Text)
 		}
 	})
 }
@@ -435,6 +528,44 @@ func TestBashTool(t *testing.T) {
 
 		if !strings.Contains(textBlock.Text, tempDir) {
 			t.Errorf("expected working directory %q in output, got %q", tempDir, textBlock.Text)
+		}
+	})
+
+	t.Run("command chaining blocked by default", func(t *testing.T) {
+		bt := NewBashTool()
+		resp, err := bt.Bash(context.Background(), BashParams{
+			Command: "echo test && rm -rf /",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		textBlock, ok := resp.Content[0].(*message.TextBlock)
+		if !ok {
+			t.Fatalf("expected text block in response, got %T", resp.Content[0])
+		}
+
+		if !strings.Contains(textBlock.Text, "command chaining not allowed") {
+			t.Errorf("expected command chaining error, got %q", textBlock.Text)
+		}
+	})
+
+	t.Run("command chaining allowed when enabled", func(t *testing.T) {
+		bt := NewBashTool(BashAllowChaining(true))
+		resp, err := bt.Bash(context.Background(), BashParams{
+			Command: "echo test && echo success",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		textBlock, ok := resp.Content[0].(*message.TextBlock)
+		if !ok {
+			t.Fatalf("expected text block in response, got %T", resp.Content[0])
+		}
+
+		if !strings.Contains(textBlock.Text, "success") {
+			t.Errorf("expected chaining to work when allowed, got %q", textBlock.Text)
 		}
 	})
 }
