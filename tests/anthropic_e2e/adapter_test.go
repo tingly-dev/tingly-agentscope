@@ -1,7 +1,7 @@
 //go:build e2e
 // +build e2e
 
-package anthropic_e2e_test
+package anthropic_e2e
 
 import (
 	"context"

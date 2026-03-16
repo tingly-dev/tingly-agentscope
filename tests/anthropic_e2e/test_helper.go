@@ -1,7 +1,7 @@
 //go:build e2e
 // +build e2e
 
-package anthropic_e2e_test
+package anthropic_e2e
 
 // Helper function for case-insensitive substring search
 func containsIgnoreCase(s, substr string) bool {
