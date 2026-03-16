@@ -69,11 +69,18 @@ type RegisteredFunction struct {
 	PresetKwargs map[string]types.JSONSerializable `json:"preset_kwargs"`
 }
 
+// CallFunc represents a function that can be called
+type CallFunc func(ctx context.Context, kwargs map[string]any) (*ToolResponse, error)
+
+// MiddlewareFunc represents a middleware function for wrapping tool calls
+type MiddlewareFunc func(CallFunc) CallFunc
+
 // Toolkit manages tool functions
 type Toolkit struct {
-	mu     sync.RWMutex
-	tools  map[string]*RegisteredFunction
-	groups map[string]*ToolGroup
+	mu          sync.RWMutex
+	tools       map[string]*RegisteredFunction
+	groups      map[string]*ToolGroup
+	middlewares []MiddlewareFunc
 }
 
 // NewToolkit creates a new toolkit
@@ -145,6 +152,7 @@ func (t *Toolkit) RemoveToolGroups(groupNames []string) error {
 }
 
 // Register registers a tool function
+// Auto-creates the group if it doesn't exist (except for "basic" which is implicit)
 func (t *Toolkit) Register(function ToolFunction, options *RegisterOptions) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -155,9 +163,15 @@ func (t *Toolkit) Register(function ToolFunction, options *RegisterOptions) erro
 		}
 	}
 
+	// Auto-create group if it doesn't exist and is not "basic"
 	if options.GroupName != "basic" {
 		if _, exists := t.groups[options.GroupName]; !exists {
-			return fmt.Errorf("tool group '%s' not found", options.GroupName)
+			// Auto-create inactive group
+			t.groups[options.GroupName] = &ToolGroup{
+				Name:        options.GroupName,
+				Description: "Auto-created tool group",
+				Active:      false,
+			}
 		}
 	}
 
@@ -356,6 +370,14 @@ func (t *Toolkit) GetToolInfo() map[string]any {
 	}
 }
 
+// Use adds a middleware to the toolkit
+// Middlewares are called in the order they are added
+func (t *Toolkit) Use(middleware MiddlewareFunc) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.middlewares = append(t.middlewares, middleware)
+}
+
 // Call executes a tool function
 func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*ToolResponse, error) {
 	t.mu.RLock()
@@ -387,8 +409,31 @@ func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*T
 		kwargs[k] = v
 	}
 
-	// Call the function
-	return t.callFunction(ctx, tool.Function, kwargs)
+	// Build the call chain with middlewares
+	callFunc := t.buildCallChain(tool)
+
+	// Execute the call chain
+	return callFunc(ctx, kwargs)
+}
+
+// buildCallChain builds the call chain with middlewares
+func (t *Toolkit) buildCallChain(tool *RegisteredFunction) CallFunc {
+	// Start with the actual tool call
+	var chain CallFunc = func(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
+		return t.callFunction(ctx, tool.Function, kwargs)
+	}
+
+	// Wrap with middlewares in reverse order (so they execute in added order)
+	t.mu.RLock()
+	middlewares := make([]MiddlewareFunc, len(t.middlewares))
+	copy(middlewares, t.middlewares)
+	t.mu.RUnlock()
+
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		chain = middlewares[i](chain)
+	}
+
+	return chain
 }
 
 // callFunction calls a tool function with the given arguments
