@@ -240,6 +240,7 @@ var initConfigCommand = &cli.Command{
 			}
 		}
 
+		// Start with all default values
 		cfg := config.GetDefaultConfig()
 
 		// Prompt for API key
@@ -280,9 +281,6 @@ var initConfigCommand = &cli.Command{
 		fmt.Scanln(&baseURL)
 		if baseURL != "" {
 			cfg.Agent.Model.BaseURL = baseURL
-		} else {
-			// Ensure default base_url is set
-			cfg.Agent.Model.BaseURL = config.DefaultBaseURL
 		}
 
 		fmt.Print("Temperature [0.3]: ")
@@ -291,7 +289,7 @@ var initConfigCommand = &cli.Command{
 			cfg.Agent.Model.Temperature = temperature
 		}
 
-		// Save config
+		// Save config with all values
 		if err := config.SaveConfig(cfg, outputPath); err != nil {
 			return fmt.Errorf("failed to save config: %w", err)
 		}
