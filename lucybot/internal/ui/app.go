@@ -201,7 +201,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ResponseMsg:
 		// Handle agent response
 		a.thinking = false
-		a.messages.AddAssistantMessage(msg.Content, msg.AgentName)
+		if len(msg.Blocks) > 0 {
+			a.messages.AddMessageWithBlocks("assistant", msg.Content, msg.AgentName, msg.Blocks)
+		} else {
+			a.messages.AddAssistantMessage(msg.Content, msg.AgentName)
+		}
 		return a, nil
 	}
 
@@ -217,6 +221,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 type ResponseMsg struct {
 	Content   string
 	AgentName string
+	Blocks    []message.ContentBlock // Full content blocks for rich rendering
 }
 
 // handleSubmit handles user input submission
@@ -252,13 +257,17 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 			}
 		}
 
-		// Extract text from response
+		// Extract content blocks and text from response
 		var content string
+		var blocks []message.ContentBlock
 		if resp != nil {
 			switch c := resp.Content.(type) {
 			case string:
 				content = c
+				blocks = []message.ContentBlock{message.Text(c)}
 			case []message.ContentBlock:
+				blocks = c
+				// Extract text for compatibility
 				for _, block := range c {
 					if text, ok := block.(*message.TextBlock); ok {
 						content += text.Text
@@ -270,6 +279,7 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 		return ResponseMsg{
 			Content:   content,
 			AgentName: a.config.Agent.Name,
+			Blocks:    blocks,
 		}
 	}
 }
@@ -457,13 +467,17 @@ func (a *App) handleAgentMention(agentName, remaining string) tea.Cmd {
 			}
 		}
 
-		// Extract text from response
+		// Extract content blocks and text from response
 		var content string
+		var blocks []message.ContentBlock
 		if resp != nil {
 			switch c := resp.Content.(type) {
 			case string:
 				content = c
+				blocks = []message.ContentBlock{message.Text(c)}
 			case []message.ContentBlock:
+				blocks = c
+				// Extract text for compatibility
 				for _, block := range c {
 					if text, ok := block.(*message.TextBlock); ok {
 						content += text.Text
@@ -475,6 +489,7 @@ func (a *App) handleAgentMention(agentName, remaining string) tea.Cmd {
 		return ResponseMsg{
 			Content:   content,
 			AgentName: agentName,
+			Blocks:    blocks,
 		}
 	}
 }
