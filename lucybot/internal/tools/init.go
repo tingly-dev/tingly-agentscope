@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 )
 
@@ -206,6 +207,41 @@ func InitTools(workDir string) *Registry {
 			return todoTools.TodoWrite(ctx, params)
 		},
 		TodoWriteParams{},
+	))
+
+	// Web tools
+	webTools := NewWebTools()
+
+	registry.Register(CreateToolInfo(
+		"web_fetch",
+		"Fetches content from a URL and returns the raw content.",
+		"Web",
+		func(ctx context.Context, args map[string]any) (*tool.ToolResponse, error) {
+			content, err := webTools.WebFetch(ctx, getString(args, "url"))
+			if err != nil {
+				return nil, err
+			}
+			return &tool.ToolResponse{Content: []message.ContentBlock{message.Text(content)}}, nil
+		},
+		struct {
+			URL string `json:"url" desc:"URL to fetch"`
+		}{},
+	))
+
+	registry.Register(CreateToolInfo(
+		"web_search",
+		"Performs a web search (mock implementation - requires API integration).",
+		"Web",
+		func(ctx context.Context, args map[string]any) (*tool.ToolResponse, error) {
+			result, err := webTools.WebSearch(ctx, getString(args, "query"))
+			if err != nil {
+				return nil, err
+			}
+			return &tool.ToolResponse{Content: []message.ContentBlock{message.Text(result)}}, nil
+		},
+		struct {
+			Query string `json:"query" desc:"Search query"`
+		}{},
 	))
 
 	return registry
