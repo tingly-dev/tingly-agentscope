@@ -2,11 +2,11 @@ package tool
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
@@ -65,9 +65,12 @@ type RegisteredFunction struct {
 	Name         string                            `json:"name"`
 	Group        string                            `json:"group"`
 	JSONSchema   model.ToolDefinition              `json:"json_schema"`
-	Function     ToolFunction                      `json:"-"`
 	PresetKwargs map[string]types.JSONSerializable `json:"preset_kwargs"`
-	ArgType      reflect.Type                      `json:"-"` // Expected argument type for type-safe calls
+
+	Function  ToolFunction  `json:"-"`
+	ArgType   reflect.Type  `json:"-"` // Expected argument type for type-safe calls
+	FuncType  reflect.Type  `json:"-"` // Function's reflect.Type for dynamic calling
+	FuncValue reflect.Value `json:"-"` // Function's reflect.Value for dynamic calling
 }
 
 // CallFunc represents a function that can be called
@@ -192,6 +195,22 @@ func (t *Toolkit) Register(function ToolFunction, options *RegisterOptions) erro
 		}
 	}
 
+	// Store function's reflection info for dynamic calling
+	funcValue := reflect.ValueOf(function)
+	funcType := funcValue.Type()
+
+	if funcType.Kind() == reflect.Func {
+		// If ArgType not provided, try to infer from function signature
+		if argType == nil && funcType.NumIn() >= 2 {
+			// Assume signature: func(context.Context, T) (*ToolResponse, error)
+			argType = funcType.In(1)
+			if argType.Kind() == reflect.Ptr {
+				argType = argType.Elem()
+			}
+
+		}
+	}
+
 	// Handle name conflict
 	funcName := schema.Function.Name
 	if options.FuncName != "" {
@@ -217,9 +236,12 @@ func (t *Toolkit) Register(function ToolFunction, options *RegisterOptions) erro
 		Name:         funcName,
 		Group:        options.GroupName,
 		JSONSchema:   *schema,
-		Function:     function,
 		PresetKwargs: options.PresetKwargs,
-		ArgType:      argType,
+
+		Function:  function,
+		ArgType:   argType,
+		FuncType:  funcType,
+		FuncValue: funcValue,
 	}
 
 	return nil
@@ -412,20 +434,19 @@ func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*T
 		}
 	}
 
-	// Build the call chain with middlewares
+	// Build the callDirect chain with middlewares
 	callFunc := t.buildCallChain(tool)
 
 	// Prepare arguments - if tool has ArgType, try to convert Input to that type
 	var args any = toolBlock.Input
 	if tool.ArgType != nil && toolBlock.Input != nil {
-		// Try to convert Input to the expected argument type
+		// Try to convert Input to the expected argument type using mapstructure
 		if inputMap, ok := toolBlock.Input.(map[string]any); ok {
-			// Convert map to struct using JSON marshal/unmarshal
-			argValue := reflect.New(tool.ArgType).Elem()
-			data, err := json.Marshal(inputMap)
-			if err == nil {
-				_ = json.Unmarshal(data, argValue.Interface())
-				args = argValue.Interface()
+			// Create a pointer instance of the argument type
+			argPtr := reflect.New(tool.ArgType)
+			// Use mapstructure for better type conversion than JSON marshal/unmarshal
+			if err := mapstructure.Decode(inputMap, argPtr.Interface()); err == nil {
+				args = argPtr.Elem().Interface()
 			}
 		}
 	}
@@ -444,11 +465,11 @@ func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*T
 	return callFunc(ctx, args)
 }
 
-// buildCallChain builds the call chain with middlewares
+// buildCallChain builds the callDirect chain with middlewares
 func (t *Toolkit) buildCallChain(tool *RegisteredFunction) CallFunc {
-	// Start with the actual tool call
+	// Start with the actual tool callDirect
 	var chain CallFunc = func(ctx context.Context, args any) (*ToolResponse, error) {
-		return t.callFunction(ctx, tool.Function, args)
+		return t.callDirect(ctx, tool, args)
 	}
 
 	// Wrap with middlewares in reverse order (so they execute in added order)
@@ -464,14 +485,67 @@ func (t *Toolkit) buildCallChain(tool *RegisteredFunction) CallFunc {
 	return chain
 }
 
-// callFunction calls a tool function with the given arguments
+// callDirect calls a tool function with the given arguments
 // All tools must implement ToolCallable interface
-func (t *Toolkit) callFunction(ctx context.Context, fn ToolFunction, args any) (*ToolResponse, error) {
-	callable, ok := fn.(ToolCallable)
-	if !ok {
-		return TextResponse(fmt.Sprintf("Error: tool function does not implement ToolCallable interface")), nil
+func (t *Toolkit) callDirect(ctx context.Context, fn *RegisteredFunction, args any) (*ToolResponse, error) {
+	// legacy
+	callable, ok := fn.Function.(ToolCallable)
+	if ok {
+		return callable.Call(ctx, args)
 	}
-	return callable.Call(ctx, args)
+
+	return callViaReflect(ctx, fn, args)
+}
+
+func callViaReflect(ctx context.Context, fn *RegisteredFunction, args any) (*ToolResponse, error) {
+	fnVal := reflect.ValueOf(fn.Function)
+	fnType := fnVal.Type()
+
+	// ===== 1️⃣ Handle context (key optimization point) =====
+	var ctxVal reflect.Value
+	ctxType := fnType.In(0)
+
+	if ctx == nil {
+		ctxVal = reflect.Zero(ctxType)
+	} else {
+		val := reflect.ValueOf(ctx)
+
+		// Exact match
+		if val.Type().AssignableTo(ctxType) {
+			ctxVal = val
+		} else if val.Type().ConvertibleTo(ctxType) {
+			ctxVal = val.Convert(ctxType)
+		} else {
+			panic("ctx type not compatible")
+		}
+	}
+
+	// ===== 2️⃣ Handle arguments =====
+	argType := fnType.In(1)
+
+	argPtr := reflect.New(argType)
+
+	err := mapstructure.Decode(args, argPtr.Interface())
+	if err != nil {
+		return nil, err
+	}
+
+	argVal := argPtr.Elem()
+
+	// ===== 3️⃣ Call function =====
+	results := fnVal.Call([]reflect.Value{ctxVal, argVal})
+
+	// ===== 4️⃣ Parse return values =====
+	var resp *ToolResponse
+	if !results[0].IsNil() {
+		resp = results[0].Interface().(*ToolResponse)
+	}
+
+	if !results[1].IsNil() {
+		return resp, results[1].Interface().(error)
+	}
+
+	return resp, nil
 }
 
 // StateDict returns the state for serialization

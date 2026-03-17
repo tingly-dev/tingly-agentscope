@@ -14,7 +14,7 @@ import (
 
 func demoAutoCreateGroups() {
 	// Issue #2: Auto-create tool groups
-	// No need to call CreateToolGroup before registering tools
+	// No need to CreateToolGroup before registering tools
 	tk := tool.NewToolkit()
 
 	myDBTool := &DatabaseTool{connectionString: "localhost:5432"}
