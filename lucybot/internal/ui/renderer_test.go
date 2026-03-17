@@ -107,3 +107,24 @@ func TestDetectCodeBlock(t *testing.T) {
 		t.Errorf("Expected code content, got %q", content)
 	}
 }
+
+func TestDetectLanguage(t *testing.T) {
+	tests := []struct {
+		code     string
+		expected string
+	}{
+		{"package main\nfunc main() {}", "go"},
+		{"def hello():\n    pass", "python"},
+		{"const x = 1; function foo() {}", "javascript"},
+		{"<?php $x = 1;", "php"},
+		{"#include <stdio.h>\nint main() {}", "c"},
+		{"some random text", ""},
+	}
+
+	for _, tt := range tests {
+		result := detectLanguage(tt.code)
+		if result != tt.expected {
+			t.Errorf("detectLanguage(%q) = %q, want %q", tt.code, result, tt.expected)
+		}
+	}
+}

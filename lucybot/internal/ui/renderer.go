@@ -362,18 +362,31 @@ func (r *MessageRenderer) renderMarkdown(text string) string {
 	return rendered
 }
 
-// isDiffContent checks if content is a git diff
-func isDiffContent(text string) bool {
-	diffPatterns := []string{
-		`^diff --git`,
-		`^\+\+\+ `,
-		`^--- `,
-		`^@@ -\d+,\d+ \+\d+,\d+ @@`,
+// Pre-compiled regex patterns for performance
+var (
+	// Diff detection patterns with multiline flag
+	diffPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`(?m)^diff --git`),
+		regexp.MustCompile(`(?m)^\+\+\+ `),
+		regexp.MustCompile(`(?m)^--- `),
+		regexp.MustCompile(`(?m)^@@ -\d+,\d+ \+\d+,\d+ @@`),
 	}
 
+	// Code block extraction pattern (DOTALL mode for multiline matching)
+	codeBlockRegex = regexp.MustCompile("(?s)```(\\w+)?\\n(.*?)```")
+
+	// Language detection patterns
+	goPattern         = regexp.MustCompile(`package\s+\w+|func\s+\w+\(|import\s+"`)
+	pythonPattern     = regexp.MustCompile(`def\s+\w+\(|import\s+\w+|print\(|class\s+\w+:`)
+	javascriptPattern = regexp.MustCompile(`const\s+|let\s+|var\s+|function\s+|=>`)
+	phpPattern        = regexp.MustCompile(`<\?php|\$\w+\s*=`)
+	cPattern          = regexp.MustCompile(`^\s*#include|int\s+main\s*\(`)
+)
+
+// isDiffContent checks if content is a git diff
+func isDiffContent(text string) bool {
 	for _, pattern := range diffPatterns {
-		matched, _ := regexp.MatchString(pattern, text)
-		if matched {
+		if pattern.MatchString(text) {
 			return true
 		}
 	}
@@ -382,9 +395,7 @@ func isDiffContent(text string) bool {
 
 // extractCodeBlock extracts language and code from markdown code block
 func extractCodeBlock(text string) (lang, code string) {
-	// (?s) enables DOTALL mode so . matches newlines
-	re := regexp.MustCompile("(?s)```(\\w+)?\\n(.*?)```")
-	matches := re.FindStringSubmatch(text)
+	matches := codeBlockRegex.FindStringSubmatch(text)
 	if len(matches) >= 3 {
 		return matches[1], matches[2]
 	}
@@ -394,19 +405,19 @@ func extractCodeBlock(text string) (lang, code string) {
 // detectLanguage attempts to detect the programming language
 func detectLanguage(code string) string {
 	// Simple heuristics for language detection
-	if matched, _ := regexp.MatchString(`package\s+\w+|func\s+\w+\(|import\s+"`, code); matched {
+	if goPattern.MatchString(code) {
 		return "go"
 	}
-	if matched, _ := regexp.MatchString(`def\s+\w+\(|import\s+\w+|print\(|class\s+\w+:`, code); matched {
+	if pythonPattern.MatchString(code) {
 		return "python"
 	}
-	if matched, _ := regexp.MatchString(`const\s+|let\s+|var\s+|function\s+|=\u003e`, code); matched {
+	if javascriptPattern.MatchString(code) {
 		return "javascript"
 	}
-	if matched, _ := regexp.MatchString(`\u003c\?php|\$\w+\s*=`, code); matched {
+	if phpPattern.MatchString(code) {
 		return "php"
 	}
-	if matched, _ := regexp.MatchString(`^\s*#include|int\s+main\s*\(`, code); matched {
+	if cPattern.MatchString(code) {
 		return "c"
 	}
 	return ""
