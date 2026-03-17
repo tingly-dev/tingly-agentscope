@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/openai/openai-go/v3 v3.22.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.79.1
