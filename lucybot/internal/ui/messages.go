@@ -15,15 +15,17 @@ type Message struct {
 
 // Messages is a component for displaying chat history
 type Messages struct {
-	messages []Message
-	width    int
-	height   int
+	messages   []Message
+	width      int
+	height     int
+	scrollOffset int // Line offset for scrolling
 }
 
 // NewMessages creates a new messages component
 func NewMessages() *Messages {
 	return &Messages{
-		messages: []Message{},
+		messages:     []Message{},
+		scrollOffset: 0,
 	}
 }
 
@@ -36,6 +38,8 @@ func (m *Messages) SetSize(width, height int) {
 // AddMessage adds a message to the history
 func (m *Messages) AddMessage(msg Message) {
 	m.messages = append(m.messages, msg)
+	// Auto-scroll to bottom when new message is added
+	m.ScrollToBottom()
 }
 
 // AddUserMessage adds a user message
@@ -66,6 +70,7 @@ func (m *Messages) AddSystemMessage(content string) {
 // Clear clears all messages
 func (m *Messages) Clear() {
 	m.messages = []Message{}
+	m.scrollOffset = 0
 }
 
 // GetLastMessage returns the last message
@@ -74,6 +79,52 @@ func (m *Messages) GetLastMessage() (Message, bool) {
 		return Message{}, false
 	}
 	return m.messages[len(m.messages)-1], true
+}
+
+// ScrollUp scrolls up by the specified number of lines
+func (m *Messages) ScrollUp(lines int) {
+	m.scrollOffset -= lines
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
+	}
+}
+
+// ScrollDown scrolls down by the specified number of lines
+func (m *Messages) ScrollDown(lines int) {
+	maxScroll := m.totalLines() - m.height
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	m.scrollOffset += lines
+	if m.scrollOffset > maxScroll {
+		m.scrollOffset = maxScroll
+	}
+}
+
+// ScrollToBottom scrolls to the bottom of the messages
+func (m *Messages) ScrollToBottom() {
+	maxScroll := m.totalLines() - m.height
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	m.scrollOffset = maxScroll
+}
+
+// GetScrollOffset returns the current scroll offset
+func (m *Messages) GetScrollOffset() int {
+	return m.scrollOffset
+}
+
+// totalLines calculates the total number of lines in all messages
+func (m *Messages) totalLines() int {
+	total := 0
+	for _, msg := range m.messages {
+		// Header + wrapped content lines + separator
+		wrappedContent := wrapText(msg.Content, m.width-2)
+		contentLines := strings.Count(wrappedContent, "\n") + 1
+		total += 1 + contentLines + 1
+	}
+	return total
 }
 
 // View renders the messages
@@ -101,9 +152,8 @@ func (m *Messages) View() string {
 	separatorStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#565f89")) // Gray
 
-	// Build content
-	var lines []string
-
+	// Build all lines first
+	var allLines []string
 	for _, msg := range m.messages {
 		var header string
 		var headerStyle lipgloss.Style
@@ -129,20 +179,37 @@ func (m *Messages) View() string {
 
 		// Header line
 		headerLine := headerStyle.Render(header)
-		lines = append(lines, headerLine)
+		allLines = append(allLines, headerLine)
 
 		// Content with word wrap
 		wrappedContent := wrapText(msg.Content, m.width-2)
 		contentLines := strings.Split(wrappedContent, "\n")
 		for _, line := range contentLines {
-			lines = append(lines, contentStyle.Render(line))
+			allLines = append(allLines, contentStyle.Render(line))
 		}
 
 		// Separator
-		lines = append(lines, separatorStyle.Render(strings.Repeat("─", m.width)))
+		allLines = append(allLines, separatorStyle.Render(strings.Repeat("─", m.width)))
 	}
 
-	return strings.Join(lines, "\n")
+	// Apply scroll offset and limit to visible height
+	visibleLines := m.getVisibleLines(allLines)
+
+	return strings.Join(visibleLines, "\n")
+}
+
+// getVisibleLines returns the lines visible based on scroll offset and height
+func (m *Messages) getVisibleLines(allLines []string) []string {
+	if m.scrollOffset >= len(allLines) {
+		return []string{}
+	}
+
+	end := m.scrollOffset + m.height
+	if end > len(allLines) {
+		end = len(allLines)
+	}
+
+	return allLines[m.scrollOffset:end]
 }
 
 // Height returns the total height of the messages

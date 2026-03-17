@@ -78,6 +78,9 @@ func NewApp(cfg *AppConfig) *App {
 	statusBar.SetModelName(cfg.Config.Agent.Model.ModelName)
 	statusBar.SetWorkingDir(cfg.Config.Agent.WorkingDirectory)
 
+	// Disable console output on agent - TUI handles display
+	cfg.Agent.SetConsoleOutputEnabled(false)
+
 	return &App{
 		agent:         cfg.Agent,
 		config:        cfg.Config,
@@ -141,6 +144,50 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					cmds = append(cmds, cmd)
 				}
 			}
+
+		case tea.KeyPgUp:
+			// Scroll up one page
+			a.messages.ScrollUp(a.height / 2)
+			return a, nil
+
+		case tea.KeyPgDown:
+			// Scroll down one page
+			a.messages.ScrollDown(a.height / 2)
+			return a, nil
+
+		case tea.KeyUp:
+			// Scroll up one line (if input is not focused or popup visible)
+			if a.input.IsPopupVisible() {
+				// Let input handle popup navigation
+				input, inputCmd := a.input.Update(msg)
+				a.input = input
+				cmds = append(cmds, inputCmd)
+			} else {
+				a.messages.ScrollUp(3)
+				return a, nil
+			}
+
+		case tea.KeyDown:
+			// Scroll down one line (if input is not focused or popup visible)
+			if a.input.IsPopupVisible() {
+				// Let input handle popup navigation
+				input, inputCmd := a.input.Update(msg)
+				a.input = input
+				cmds = append(cmds, inputCmd)
+			} else {
+				a.messages.ScrollDown(3)
+				return a, nil
+			}
+
+		case tea.KeyHome:
+			// Scroll to top
+			a.messages.ScrollUp(1000000)
+			return a, nil
+
+		case tea.KeyEnd:
+			// Scroll to bottom
+			a.messages.ScrollToBottom()
+			return a, nil
 		}
 
 	case spinner.TickMsg:
@@ -250,10 +297,16 @@ func (a *App) handleSlashCommand(input string) tea.Cmd {
   /model            - Show current model
   /agents           - List available agents
 
+Navigation:
+  PageUp/PageDown   - Scroll messages up/down
+  ↑/↓ arrows        - Scroll messages by line
+  Home              - Jump to top of messages
+  End               - Jump to bottom of messages
+  Tab               - Cycle through primary agents
+
 Tips:
   - Type / to see command suggestions
   - Type @ to mention an agent
-  - Press Tab to cycle through primary agents
   - Use Shift+Enter for multi-line input`
 		a.messages.AddSystemMessage(help)
 

@@ -143,8 +143,6 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 	messages := make([]*message.Msg, len(initialMessages))
 	copy(messages, initialMessages)
 
-	var thoughtContent []message.ContentBlock
-
 	for i := 0; i < r.config.MaxIterations; i++ {
 		// Get tools schema
 		tools := r.config.Toolkit.GetSchemas()
@@ -161,13 +159,9 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 		toolBlocks := resp.GetToolUseBlocks()
 		if len(toolBlocks) == 0 {
 			// No more tools to use, return the final response
-			thoughtContent = append(thoughtContent, resp.Content...)
 			finalMsg := r.createResponseMessage(resp)
 			return finalMsg, nil
 		}
-
-		// Accumulate content
-		thoughtContent = append(thoughtContent, resp.Content...)
 
 		// Increment step counter for assistant response
 		if f, ok := r.AgentBase.formatter.(interface{ NextStep() }); ok {
@@ -269,10 +263,10 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 		}
 	}
 
-	// Max iterations reached, return accumulated content
+	// Max iterations reached
 	return message.NewMsg(
 		r.Name(),
-		thoughtContent,
+		[]message.ContentBlock{message.Text("I've reached the maximum number of iterations. Let me provide a summary of what I found.")},
 		types.RoleAssistant,
 	), nil
 }
@@ -285,28 +279,9 @@ func (r *ReActAgent) callModel(ctx context.Context, messages []*message.Msg) (*m
 	}
 
 	if r.config.Model.IsStreaming() {
-		ch, err := r.config.Model.Stream(ctx, messages, options)
-		if err != nil {
-			return nil, err
-		}
-
-		// Collect all chunks
-		var content []message.ContentBlock
-		for chunk := range ch {
-			if chunk.Response != nil {
-				content = append(content, chunk.Response.Content...)
-			}
-			if chunk.IsLast {
-				break
-			}
-		}
-
-		return &model.ChatResponse{
-			ID:        types.GenerateID(),
-			CreatedAt: types.Timestamp(),
-			Type:      "chat",
-			Content:   content,
-		}, nil
+		// For tool calls, use non-streaming mode to avoid complexity
+		// Streaming tool calls require careful handling of partial tool use blocks
+		return r.config.Model.Call(ctx, messages, options)
 	}
 
 	return r.config.Model.Call(ctx, messages, options)
@@ -322,28 +297,9 @@ func (r *ReActAgent) callModelWithTools(ctx context.Context, messages []*message
 	}
 
 	if r.config.Model.IsStreaming() {
-		ch, err := r.config.Model.Stream(ctx, messages, options)
-		if err != nil {
-			return nil, err
-		}
-
-		// Collect all chunks
-		var content []message.ContentBlock
-		for chunk := range ch {
-			if chunk.Response != nil {
-				content = append(content, chunk.Response.Content...)
-			}
-			if chunk.IsLast {
-				break
-			}
-		}
-
-		return &model.ChatResponse{
-			ID:        types.GenerateID(),
-			CreatedAt: types.Timestamp(),
-			Type:      "chat",
-			Content:   content,
-		}, nil
+		// For tool calls, use non-streaming mode to avoid complexity
+		// Streaming tool calls require careful handling of partial tool use blocks
+		return r.config.Model.Call(ctx, messages, options)
 	}
 
 	return r.config.Model.Call(ctx, messages, options)
