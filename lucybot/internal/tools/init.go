@@ -244,6 +244,52 @@ func InitTools(workDir string) *Registry {
 		}{},
 	))
 
+	// Notebook tools
+	notebookTools := NewNotebookTools(workDir)
+
+	registry.Register(CreateToolInfo(
+		"read_notebook",
+		"Reads a Jupyter notebook (.ipynb) and displays cell contents.",
+		"Jupyter Notebook",
+		func(ctx context.Context, args map[string]any) (*tool.ToolResponse, error) {
+			content, err := notebookTools.ReadNotebook(ctx, getString(args, "path"))
+			if err != nil {
+				return nil, err
+			}
+			return &tool.ToolResponse{Content: []message.ContentBlock{message.Text(content)}}, nil
+		},
+		struct {
+			Path string `json:"path" desc:"Path to the .ipynb file"`
+		}{},
+	))
+
+	registry.Register(CreateToolInfo(
+		"notebook_edit_cell",
+		"Edits a cell in a Jupyter notebook. Supports replace, insert, and delete modes.",
+		"Jupyter Notebook",
+		func(ctx context.Context, args map[string]any) (*tool.ToolResponse, error) {
+			result, err := notebookTools.NotebookEditCell(
+				ctx,
+				getString(args, "path"),
+				getInt(args, "cell_number"),
+				getString(args, "new_source"),
+				getString(args, "edit_mode"),
+				getString(args, "cell_type"),
+			)
+			if err != nil {
+				return nil, err
+			}
+			return &tool.ToolResponse{Content: []message.ContentBlock{message.Text(result)}}, nil
+		},
+		struct {
+			Path       string `json:"path" desc:"Path to the .ipynb file"`
+			CellNumber int    `json:"cell_number" desc:"Index of the cell to edit"`
+			NewSource  string `json:"new_source" desc:"New cell content"`
+			EditMode   string `json:"edit_mode" desc:"Edit mode: replace, insert, or delete"`
+			CellType   string `json:"cell_type" desc:"Cell type for insert: code or markdown"`
+		}{},
+	))
+
 	return registry
 }
 
