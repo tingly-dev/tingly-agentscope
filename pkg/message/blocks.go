@@ -1,7 +1,5 @@
 package message
 
-import "github.com/tingly-dev/tingly-agentscope/pkg/types"
-
 // Text creates a new text block
 func Text(text string) *TextBlock {
 	return &TextBlock{Text: text}
@@ -15,8 +13,9 @@ func Thinking(thinking string) *ThinkingBlock {
 // Base64Image creates a new image block with base64 data
 func Base64Image(mediaType string, data string) *ImageBlock {
 	return &ImageBlock{
-		Source: &Base64Source{
-			MediaType: types.MediaType(mediaType),
+		Source: &MediaSource{
+			Type:      "base64",
+			MediaType: mediaType,
 			Data:      data,
 		},
 	}
@@ -25,15 +24,19 @@ func Base64Image(mediaType string, data string) *ImageBlock {
 // URLImage creates a new image block with URL source
 func URLImage(url string) *ImageBlock {
 	return &ImageBlock{
-		Source: &URLSource{URL: url},
+		Source: &MediaSource{
+			Type: "url",
+			URL:  url,
+		},
 	}
 }
 
 // Base64Audio creates a new audio block with base64 data
 func Base64Audio(mediaType string, data string) *AudioBlock {
 	return &AudioBlock{
-		Source: &Base64Source{
-			MediaType: types.MediaType(mediaType),
+		Source: &MediaSource{
+			Type:      "base64",
+			MediaType: mediaType,
 			Data:      data,
 		},
 	}
@@ -42,15 +45,19 @@ func Base64Audio(mediaType string, data string) *AudioBlock {
 // URLAudio creates a new audio block with URL source
 func URLAudio(url string) *AudioBlock {
 	return &AudioBlock{
-		Source: &URLSource{URL: url},
+		Source: &MediaSource{
+			Type: "url",
+			URL:  url,
+		},
 	}
 }
 
 // Base64Video creates a new video block with base64 data
 func Base64Video(mediaType string, data string) *VideoBlock {
 	return &VideoBlock{
-		Source: &Base64Source{
-			MediaType: types.MediaType(mediaType),
+		Source: &MediaSource{
+			Type:      "base64",
+			MediaType: mediaType,
 			Data:      data,
 		},
 	}
@@ -59,12 +66,15 @@ func Base64Video(mediaType string, data string) *VideoBlock {
 // URLVideo creates a new video block with URL source
 func URLVideo(url string) *VideoBlock {
 	return &VideoBlock{
-		Source: &URLSource{URL: url},
+		Source: &MediaSource{
+			Type: "url",
+			URL:  url,
+		},
 	}
 }
 
 // ToolUse creates a new tool use block
-func ToolUse(id, name string, input map[string]types.JSONSerializable) *ToolUseBlock {
+func ToolUse(id, name string, input any) *ToolUseBlock {
 	return &ToolUseBlock{
 		ID:    id,
 		Name:  name,

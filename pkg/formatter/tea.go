@@ -304,7 +304,7 @@ func (f *TeaFormatter) formatToolUseBlock(block *message.ToolUseBlock) string {
 	sb.WriteString(header + "\n")
 
 	// Show input parameters
-	if len(block.Input) > 0 {
+	if block.Input != nil {
 		params := f.formatToolInput(block.Input)
 		if params != "" {
 			sb.WriteString(params)
@@ -315,8 +315,17 @@ func (f *TeaFormatter) formatToolUseBlock(block *message.ToolUseBlock) string {
 }
 
 // formatToolInput formats tool input parameters with nice formatting
-func (f *TeaFormatter) formatToolInput(input map[string]types.JSONSerializable) string {
-	if len(input) == 0 {
+func (f *TeaFormatter) formatToolInput(input any) string {
+	if input == nil {
+		return ""
+	}
+
+	params, ok := input.(map[string]any)
+	if !ok {
+		return fmt.Sprintf("    Input: %v\n", input)
+	}
+
+	if len(params) == 0 {
 		return ""
 	}
 
@@ -324,14 +333,14 @@ func (f *TeaFormatter) formatToolInput(input map[string]types.JSONSerializable) 
 	indent := "    "
 
 	// Sort keys for consistent output
-	keys := make([]string, 0, len(input))
-	for k := range input {
+	keys := make([]string, 0, len(params))
+	for k := range params {
 		keys = append(keys, k)
 	}
 	sortStrings(keys)
 
 	for _, key := range keys {
-		value := input[key]
+		value := params[key]
 		var formattedValue string
 
 		switch v := value.(type) {
@@ -415,14 +424,15 @@ func (f *TeaFormatter) formatImageBlock(block *message.ImageBlock) string {
 
 	sb.WriteString("  📷 Image: ")
 
-	switch src := block.Source.(type) {
-	case *message.URLSource:
-		sb.WriteString(f.styleAccent(src.URL))
-	case *message.Base64Source:
-		info := fmt.Sprintf("base64:%s (%d bytes)", src.MediaType, len(src.Data))
+	if block.Source == nil {
+		sb.WriteString("no source")
+	} else if block.Source.IsURL() {
+		sb.WriteString(f.styleAccent(block.Source.URL))
+	} else if block.Source.IsBase64() {
+		info := fmt.Sprintf("base64:%s (%d bytes)", block.Source.MediaType, len(block.Source.Data))
 		sb.WriteString(f.styleMuted(info))
-	default:
-		sb.WriteString(fmt.Sprintf("unknown source type: %T", src))
+	} else {
+		sb.WriteString(fmt.Sprintf("unknown source type: %s", block.Source.Type))
 	}
 
 	sb.WriteString("\n")

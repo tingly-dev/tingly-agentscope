@@ -26,57 +26,55 @@ type ThinkingBlock struct {
 
 func (t *ThinkingBlock) Type() types.ContentBlockType { return types.BlockTypeThinking }
 
-// Source represents the source of media content
-type Source interface {
-	Type() string
+// MediaSource represents the source of media content (image, audio, video)
+type MediaSource struct {
+	Type      string `json:"type"`                 // "url" or "base64"
+	URL       string `json:"url,omitempty"`        // For URL sources
+	MediaType string `json:"media_type,omitempty"` // For base64 sources (e.g., "image/jpeg")
+	Data      string `json:"data,omitempty"`       // For base64 sources
 }
 
-// Base64Source represents base64 encoded media data
-type Base64Source struct {
-	MediaType types.MediaType `json:"media_type"`
-	Data      string          `json:"data"`
+// IsURL returns true if this is a URL source
+func (s *MediaSource) IsURL() bool {
+	return s.Type == "url"
 }
 
-func (b *Base64Source) Type() string { return "base64" }
-
-// URLSource represents a URL for media content
-type URLSource struct {
-	URL string `json:"url"`
+// IsBase64 returns true if this is a base64 source
+func (s *MediaSource) IsBase64() bool {
+	return s.Type == "base64"
 }
-
-func (u *URLSource) Type() string { return "url" }
 
 // MediaBlock contains common fields for image, audio, and video blocks
 type MediaBlock struct {
-	Source Source `json:"source"`
+	Source *MediaSource `json:"source"`
 }
 
 // ImageBlock represents an image content block
 type ImageBlock struct {
-	Source Source `json:"source"`
+	Source *MediaSource `json:"source"`
 }
 
 func (i *ImageBlock) Type() types.ContentBlockType { return types.BlockTypeImage }
 
 // AudioBlock represents an audio content block
 type AudioBlock struct {
-	Source Source `json:"source"`
+	Source *MediaSource `json:"source"`
 }
 
 func (a *AudioBlock) Type() types.ContentBlockType { return types.BlockTypeAudio }
 
 // VideoBlock represents a video content block
 type VideoBlock struct {
-	Source Source `json:"source"`
+	Source *MediaSource `json:"source"`
 }
 
 func (v *VideoBlock) Type() types.ContentBlockType { return types.BlockTypeVideo }
 
 // ToolUseBlock represents a tool use content block
 type ToolUseBlock struct {
-	ID    string                            `json:"id"`
-	Name  string                            `json:"name"`
-	Input map[string]types.JSONSerializable `json:"input"`
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Input any    `json:"input"`
 }
 
 func (t *ToolUseBlock) Type() types.ContentBlockType { return types.BlockTypeToolUse }
