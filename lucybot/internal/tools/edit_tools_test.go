@@ -3,10 +3,13 @@ package tools
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 )
 
 func TestEditFileTool_Execute(t *testing.T) {
@@ -315,7 +318,14 @@ func TestEditHistory_GenerateSummary(t *testing.T) {
 
 // Helper function to extract text from ToolResponse
 func extractTextFromResponse(resp interface{}) string {
-	// This is a simplified version - in real tests you'd need to properly
-	// extract text from the tool.ToolResponse type
+	if r, ok := resp.(*tool.ToolResponse); ok {
+		var result strings.Builder
+		for _, block := range r.Content {
+			if textBlock, ok := block.(*message.TextBlock); ok {
+				result.WriteString(textBlock.Text)
+			}
+		}
+		return result.String()
+	}
 	return ""
 }
