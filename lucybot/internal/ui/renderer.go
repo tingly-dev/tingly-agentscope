@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -8,6 +9,14 @@ import (
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
+
+// StructuredThought represents JSON thought format
+type StructuredThought struct {
+	Thought string `json:"thought"`
+	Intent  string `json:"intent,omitempty"`
+	Action  string `json:"action,omitempty"`
+	Reason  string `json:"reason,omitempty"`
+}
 
 // MessageRenderer renders AgentScope messages with rich formatting
 type MessageRenderer struct {
@@ -118,8 +127,46 @@ func (r *MessageRenderer) renderTextBlock(sb *strings.Builder, block *message.Te
 
 // tryRenderStructuredThought attempts to render JSON thought structure
 func (r *MessageRenderer) tryRenderStructuredThought(sb *strings.Builder, text string) bool {
-	// TODO: Implement in Task 5
-	return false
+	var thought StructuredThought
+	if err := json.Unmarshal([]byte(text), &thought); err != nil {
+		return false
+	}
+
+	if thought.Thought == "" {
+		return false
+	}
+
+	// Render tree structure
+	sb.WriteString(TreeBranchStyle.Render(TreeBranch))
+	sb.WriteString(" ")
+	sb.WriteString(AssistantStyle.Render("Thought"))
+	sb.WriteString("\n")
+
+	sb.WriteString(TreeVerticalStyle.Render(TreeVertical))
+	sb.WriteString(ContentStyle.Render(wrapText(thought.Thought, r.width-4)))
+	sb.WriteString("\n")
+
+	// Render intent if present
+	if thought.Intent != "" {
+		sb.WriteString(TreeBranchStyle.Render(TreeBranch))
+		sb.WriteString(" ")
+		sb.WriteString(ToolParamKeyStyle.Render("Intent"))
+		sb.WriteString(": ")
+		sb.WriteString(ContentStyle.Render(thought.Intent))
+		sb.WriteString("\n")
+	}
+
+	// Render action if present
+	if thought.Action != "" {
+		sb.WriteString(TreeEndStyle.Render(TreeEnd))
+		sb.WriteString(" ")
+		sb.WriteString(ToolParamKeyStyle.Render("Action"))
+		sb.WriteString(": ")
+		sb.WriteString(ContentStyle.Render(thought.Action))
+		sb.WriteString("\n")
+	}
+
+	return true
 }
 
 // renderToolUseBlock renders a tool use block

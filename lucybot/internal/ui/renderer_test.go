@@ -51,3 +51,21 @@ func TestMessagesWithRenderer(t *testing.T) {
 		t.Error("View should not be empty")
 	}
 }
+
+func TestRenderStructuredThought(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+
+	// JSON with thought/intent structure
+	jsonText := `{"thought": "I need to analyze this", "intent": "analysis"}`
+
+	var sb strings.Builder
+	result := renderer.tryRenderStructuredThought(&sb, jsonText)
+	if !result {
+		t.Error("Should detect and render structured thought")
+	}
+
+	output := sb.String()
+	if !strings.Contains(output, "I need to analyze this") {
+		t.Errorf("Should contain thought text, got: %s", output)
+	}
+}
