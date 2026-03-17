@@ -40,9 +40,9 @@ func NewReadTool(options ...func(*ReadTool)) *ReadTool {
 
 // ReadParams defines the parameters for the read tool
 type ReadParams struct {
-	Path   string `json:"path" jsonschema:"description=Path to the file to read (relative or absolute)"`
-	Offset int    `json:"offset,omitempty" jsonschema:"description=Line number to start reading from (1-indexed)"`
-	Limit  int    `json:"limit,omitempty" jsonschema:"description=Maximum number of lines to read"`
+	Path   string `json:"path" description:"Path to the file to read (relative or absolute)"`
+	Offset int    `json:"offset,omitempty" description:"Line number to start reading from (1-indexed)"`
+	Limit  int    `json:"limit,omitempty" description:"Maximum number of lines to read"`
 }
 
 // Read reads the contents of a file
@@ -125,13 +125,16 @@ func applyLineRange(content string, offset, limit int) string {
 }
 
 // RegisterReadTool registers the read tool with the toolkit
+// Note: This helper is provided for convenience, but NewExtensionToolkit
+// automatically registers all tools. Use this if you want to register
+// the read tool separately.
 func RegisterReadTool(tk *tool.Toolkit, options ...func(*ReadTool)) error {
 	rt := NewReadTool(options...)
-	return tk.Register(rt.Read, &tool.RegisterOptions{
-		GroupName:       "basic",
-		FuncName:        "read",
-		FuncDescription: "Read the contents of a file. Supports text files. Defaults to first 2000 lines. Use offset/limit for large files.",
-	})
+	// Use RegisterAll to auto-register the Read method
+	descriptions := map[string]string{
+		"Read": "Read the contents of a file. Supports text files. Defaults to first 2000 lines. Use offset/limit for large files.",
+	}
+	return tk.RegisterAll(rt, descriptions)
 }
 
 // Call implements the ToolCallable interface for programmatic use

@@ -48,8 +48,8 @@ func NewWriteTool(options ...func(*WriteTool)) *WriteTool {
 
 // WriteParams defines the parameters for the write tool
 type WriteParams struct {
-	Path    string `json:"path" jsonschema:"description=Path to the file to write (relative or absolute)"`
-	Content string `json:"content" jsonschema:"description=Content to write to the file"`
+	Path    string `json:"path" description:"Path to the file to write (relative or absolute)"`
+	Content string `json:"content" description:"Content to write to the file"`
 }
 
 // Write writes content to a file. Creates the file if it doesn't exist, overwrites if it does.
@@ -101,13 +101,16 @@ func (w *WriteTool) Write(ctx context.Context, params WriteParams) (*tool.ToolRe
 }
 
 // RegisterWriteTool registers the write tool with the toolkit
+// Note: This helper is provided for convenience, but NewExtensionToolkit
+// automatically registers all tools. Use this if you want to register
+// the write tool separately.
 func RegisterWriteTool(tk *tool.Toolkit, options ...func(*WriteTool)) error {
 	wt := NewWriteTool(options...)
-	return tk.Register(wt.Write, &tool.RegisterOptions{
-		GroupName:       "basic",
-		FuncName:        "write",
-		FuncDescription: "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
-	})
+	// Use RegisterAll to auto-register the Write method
+	descriptions := map[string]string{
+		"Write": "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
+	}
+	return tk.RegisterAll(wt, descriptions)
 }
 
 // Call implements the ToolCallable interface for programmatic use

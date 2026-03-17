@@ -55,8 +55,8 @@ func NewBashTool(options ...func(*BashTool)) *BashTool {
 
 // BashParams defines the parameters for the bash tool
 type BashParams struct {
-	Command string `json:"command" jsonschema:"description=Bash command to execute"`
-	Timeout int    `json:"timeout,omitempty" jsonschema:"description=Timeout in seconds (optional, no default timeout)"`
+	Command string `json:"command" description:"Bash command to execute"`
+	Timeout int    `json:"timeout,omitempty" description:"Timeout in seconds (optional, no default timeout)"`
 }
 
 // Bash executes a bash command in the current working directory
@@ -144,13 +144,16 @@ func (b *BashTool) validateCommand(command string) error {
 }
 
 // RegisterBashTool registers the bash tool with the toolkit
+// Note: This helper is provided for convenience, but NewExtensionToolkit
+// automatically registers all tools. Use this if you want to register
+// the bash tool separately.
 func RegisterBashTool(tk *tool.Toolkit, options ...func(*BashTool)) error {
 	bt := NewBashTool(options...)
-	return tk.Register(bt.Bash, &tool.RegisterOptions{
-		GroupName:       "basic",
-		FuncName:        "bash",
-		FuncDescription: "Execute a bash command in the current working directory. Returns stdout and stderr. Optionally provide a timeout in seconds.",
-	})
+	// Use RegisterAll to auto-register the Bash method
+	descriptions := map[string]string{
+		"Bash": "Execute a bash command in the current working directory. Returns stdout and stderr. Optionally provide a timeout in seconds.",
+	}
+	return tk.RegisterAll(bt, descriptions)
 }
 
 // Call implements the ToolCallable interface for programmatic use

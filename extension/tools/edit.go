@@ -37,9 +37,9 @@ func NewEditTool(options ...func(*EditTool)) *EditTool {
 
 // EditParams defines the parameters for the edit tool
 type EditParams struct {
-	Path    string `json:"path" jsonschema:"description=Path to the file to edit (relative or absolute)"`
-	OldText string `json:"oldText" jsonschema:"description=Exact text to find and replace (must match exactly including whitespace)"`
-	NewText string `json:"newText" jsonschema:"description=New text to replace the old text with"`
+	Path    string `json:"path" description:"Path to the file to edit (relative or absolute)"`
+	OldText string `json:"oldText" description:"Exact text to find and replace (must match exactly including whitespace)"`
+	NewText string `json:"newText" description:"New text to replace the old text with"`
 }
 
 // Edit edits a file by replacing exact text
@@ -99,13 +99,16 @@ func (e *EditTool) Edit(ctx context.Context, params EditParams) (*tool.ToolRespo
 }
 
 // RegisterEditTool registers the edit tool with the toolkit
+// Note: This helper is provided for convenience, but NewExtensionToolkit
+// automatically registers all tools. Use this if you want to register
+// the edit tool separately.
 func RegisterEditTool(tk *tool.Toolkit, options ...func(*EditTool)) error {
 	et := NewEditTool(options...)
-	return tk.Register(et.Edit, &tool.RegisterOptions{
-		GroupName:       "basic",
-		FuncName:        "edit",
-		FuncDescription: "Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.",
-	})
+	// Use RegisterAll to auto-register the Edit method
+	descriptions := map[string]string{
+		"Edit": "Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.",
+	}
+	return tk.RegisterAll(et, descriptions)
 }
 
 // Call implements the ToolCallable interface for programmatic use
