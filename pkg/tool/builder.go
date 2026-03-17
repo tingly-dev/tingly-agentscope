@@ -124,7 +124,7 @@ func (b *SchemaBuilder) Build() *model.ToolDefinition {
 // Common middleware helpers
 
 // LoggingMiddleware creates a middleware that logs tool calls
-func LoggingMiddleware(logger func(toolName string, kwargs map[string]any, result *ToolResponse, err error, duration int64)) MiddlewareFunc {
+func LoggingMiddleware(logger func(toolName string, args any, result *ToolResponse, err error, duration int64)) MiddlewareFunc {
 	return func(next CallFunc) CallFunc {
 		return func(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
 			// Extract tool name from context or kwargs

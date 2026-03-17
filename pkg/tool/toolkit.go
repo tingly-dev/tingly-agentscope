@@ -2,7 +2,6 @@ package tool
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -67,6 +66,7 @@ type RegisteredFunction struct {
 	JSONSchema   model.ToolDefinition              `json:"json_schema"`
 	Function     ToolFunction                      `json:"-"`
 	PresetKwargs map[string]types.JSONSerializable `json:"preset_kwargs"`
+	ArgType      reflect.Type                      `json:"-"` // Expected argument type for type-safe calls
 }
 
 // CallFunc represents a function that can be called
@@ -181,6 +181,16 @@ func (t *Toolkit) Register(function ToolFunction, options *RegisterOptions) erro
 		return fmt.Errorf("failed to parse function schema: %w", err)
 	}
 
+	// Extract ArgType from options if provided
+	var argType reflect.Type
+	if options.ArgType != nil {
+		argType = reflect.TypeOf(options.ArgType)
+		// If it's a pointer, get the element type
+		if argType.Kind() == reflect.Ptr {
+			argType = argType.Elem()
+		}
+	}
+
 	// Handle name conflict
 	funcName := schema.Function.Name
 	if options.FuncName != "" {
@@ -208,6 +218,7 @@ func (t *Toolkit) Register(function ToolFunction, options *RegisterOptions) erro
 		JSONSchema:   *schema,
 		Function:     function,
 		PresetKwargs: options.PresetKwargs,
+		ArgType:      argType,
 	}
 
 	return nil
@@ -378,7 +389,7 @@ func (t *Toolkit) Use(middleware MiddlewareFunc) {
 	t.middlewares = append(t.middlewares, middleware)
 }
 
-// Call executes a tool function
+// Call executes a tool function with type-safe argument handling
 func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*ToolResponse, error) {
 	t.mu.RLock()
 	tool, exists := t.tools[toolBlock.Name]
@@ -400,17 +411,25 @@ func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*T
 		}
 	}
 
-	// Merge preset kwargs with input
-	kwargs := make(map[string]any)
+	// Build the call chain with middlewares
+	callFunc := t.buildCallChain(tool)
+
+	// Convert input to map if needed (for backward compatibility)
+	var kwargs map[string]any
+	if toolBlock.Input != nil {
+		// Convert map[string]types.JSONSerializable to map[string]any
+		kwargs = make(map[string]any, len(toolBlock.Input))
+		for k, v := range toolBlock.Input {
+			kwargs[k] = v
+		}
+	} else {
+		kwargs = make(map[string]any)
+	}
+
+	// Merge preset kwargs
 	for k, v := range tool.PresetKwargs {
 		kwargs[k] = v
 	}
-	for k, v := range toolBlock.Input {
-		kwargs[k] = v
-	}
-
-	// Build the call chain with middlewares
-	callFunc := t.buildCallChain(tool)
 
 	// Execute the call chain
 	return callFunc(ctx, kwargs)
@@ -437,122 +456,13 @@ func (t *Toolkit) buildCallChain(tool *RegisteredFunction) CallFunc {
 }
 
 // callFunction calls a tool function with the given arguments
-func (t *Toolkit) callFunction(ctx context.Context, fn ToolFunction, kwargs map[string]any) (*ToolResponse, error) {
-	fnValue := reflect.ValueOf(fn)
-	if fnValue.Kind() == reflect.Ptr {
-		fnValue = fnValue.Elem()
+// All tools must implement ToolCallable interface
+func (t *Toolkit) callFunction(ctx context.Context, fn ToolFunction, args any) (*ToolResponse, error) {
+	callable, ok := fn.(ToolCallable)
+	if !ok {
+		return TextResponse(fmt.Sprintf("Error: tool function does not implement ToolCallable interface")), nil
 	}
-
-	// Handle function type
-	if fnValue.Kind() == reflect.Func {
-		return t.callReflectFunc(ctx, fnValue, kwargs)
-	}
-
-	// Handle interface with Call method
-	if callable, ok := fn.(ToolCallable); ok {
-		return callable.Call(ctx, kwargs)
-	}
-
-	return TextResponse("Error: unsupported function type"), nil
-}
-
-// callReflectFunc calls a reflected function
-func (t *Toolkit) callReflectFunc(ctx context.Context, fnValue reflect.Value, kwargs map[string]any) (*ToolResponse, error) {
-	fnType := fnValue.Type()
-	numIn := fnType.NumIn()
-
-	// Build arguments
-	args := make([]reflect.Value, numIn)
-
-	for i := 0; i < numIn; i++ {
-		paramType := fnType.In(i)
-
-		// Check if it's context.Context
-		if paramType.Implements(reflect.TypeOf((*context.Context)(nil)).Elem()) {
-			args[i] = reflect.ValueOf(ctx)
-			continue
-		}
-
-		// For map[string]any parameter (common in tools), pass kwargs directly
-		if paramType.Kind() == reflect.Map {
-			args[i] = reflect.ValueOf(kwargs)
-			continue
-		}
-
-		// For string parameter, try to get from kwargs by position or name
-		if paramType.Kind() == reflect.String {
-			// Try to get value by position or use empty string
-			if i < len(kwargs) {
-				// Get by position (convert to string)
-				args[i] = reflect.ValueOf(fmt.Sprintf("%v", getKwargsValueByPosition(kwargs, i)))
-			} else {
-				args[i] = reflect.ValueOf("")
-			}
-			continue
-		}
-
-		// For other types, try to get value from kwargs by position
-		if i < len(kwargs) {
-			args[i] = reflect.ValueOf(getKwargsValueByPosition(kwargs, i))
-		}
-	}
-
-	results := fnValue.Call(args)
-	return t.handleResult(results)
-}
-
-// getKwargsValueByPosition gets a value from kwargs by position
-// Since maps are unordered, this is a best-effort approach
-func getKwargsValueByPosition(kwargs map[string]any, pos int) any {
-	// Get all keys and sort them for consistent ordering
-	var sortedKeys []string
-	for k := range kwargs {
-		sortedKeys = append(sortedKeys, k)
-	}
-	// Simple bubble sort
-	for i := 0; i < len(sortedKeys); i++ {
-		for j := i + 1; j < len(sortedKeys); j++ {
-			if sortedKeys[i] > sortedKeys[j] {
-				sortedKeys[i], sortedKeys[j] = sortedKeys[j], sortedKeys[i]
-			}
-		}
-	}
-	if pos < len(sortedKeys) {
-		return kwargs[sortedKeys[pos]]
-	}
-	return nil
-}
-
-// handleResult handles the result from a function call
-func (t *Toolkit) handleResult(results []reflect.Value) (*ToolResponse, error) {
-	if len(results) == 0 {
-		return TextResponse(""), nil
-	}
-
-	lastResult := results[len(results)-1]
-
-	// Check if it's an error
-	if err, ok := lastResult.Interface().(error); ok && err != nil {
-		return TextResponse(fmt.Sprintf("Error: %v", err)), nil
-	}
-
-	// Check if it's a ToolResponse
-	if resp, ok := lastResult.Interface().(*ToolResponse); ok {
-		return resp, nil
-	}
-
-	// Check if it's a string
-	if str, ok := lastResult.Interface().(string); ok {
-		return TextResponse(str), nil
-	}
-
-	// Convert to JSON
-	jsonBytes, err := json.Marshal(lastResult.Interface())
-	if err != nil {
-		return TextResponse(fmt.Sprintf("Error: failed to serialize result: %v", err)), nil
-	}
-
-	return TextResponse(string(jsonBytes)), nil
+	return callable.Call(ctx, args)
 }
 
 // StateDict returns the state for serialization
@@ -674,11 +584,13 @@ type RegisterOptions struct {
 	JSONSchema       *model.ToolDefinition             `json:"json_schema,omitempty"`
 	PresetKwargs     map[string]types.JSONSerializable `json:"preset_kwargs,omitempty"`
 	NamesakeStrategy NamesakeStrategy                  `json:"namesake_strategy,omitempty"`
+	ArgType          any                               `json:"-"` // Argument type (e.g., &MyArgs{} for type-safe calls)
 }
 
-// ToolCallable is an interface for objects that can be called as tools
+// ToolCallable is the interface for tools that accept structured arguments
+// T is the argument type (e.g., *GrepArgs, *MyToolInput, etc.)
 type ToolCallable interface {
-	Call(ctx context.Context, kwargs map[string]any) (*ToolResponse, error)
+	Call(ctx context.Context, args any) (*ToolResponse, error)
 }
 
 // parseFunctionSchema parses a function to generate its JSON schema
