@@ -24,9 +24,9 @@ func NewToolRegistry() *ToolRegistry {
 	}
 }
 
-// registerTool registers a tool with type-safe structured arguments
-// This is the primary registration method
-func (r *ToolRegistry) registerTool(name string, tool any, argType any, opts *RegisterOptions) error {
+// RegisterTool registers a tool with type-safe structured arguments
+// This is the primary registration method for tools with struct arguments
+func (r *ToolRegistry) RegisterTool(name string, tool any, argType any, opts *RegisterOptions) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -288,19 +288,39 @@ type MethodWrapper struct {
 
 // Call implements the tool calling interface for wrapped methods
 func (mw *MethodWrapper) Call(ctx context.Context, args any) (*ToolResponse, error) {
-	// Convert args to expected parameter type
-	argValue := reflect.New(reflect.TypeOf(args).Elem())
+	// Convert args from map[string]any to expected parameter struct
+	var argValue reflect.Value
+
+	// args can be either a map[string]any or already the correct struct type
 	if m, ok := args.(map[string]any); ok {
+		// Create a new instance of the parameter type
+		// Get the parameter type from the method signature (2nd param, after receiver and context)
+		paramType := mw.method.Type.In(2)
+		argValue = reflect.New(paramType.Elem())
+
+		// Convert map to struct
 		if err := MapToStruct(m, argValue.Interface()); err != nil {
 			return nil, fmt.Errorf("failed to parse parameters: %w", err)
 		}
+	} else {
+		// args is already a pointer to the struct, use it directly
+		argValue = reflect.ValueOf(args)
 	}
 
 	// Call the method via reflection
+	// For value methods, we need to pass Elem(); for pointer methods, pass as-is
+	paramType := mw.method.Type.In(2)
+	var paramVal reflect.Value
+	if paramType.Kind() == reflect.Ptr {
+		paramVal = argValue
+	} else {
+		paramVal = argValue.Elem()
+	}
+
 	results := mw.method.Func.Call([]reflect.Value{
 		reflect.ValueOf(mw.receiver),
 		reflect.ValueOf(ctx),
-		argValue.Elem(),
+		paramVal,
 	})
 
 	// Parse results

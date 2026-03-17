@@ -104,8 +104,8 @@ func (c *ToolCaller) callTyped(ctx context.Context, tool *ToolDescriptor, args a
 
 	// Check if tool is a MethodWrapper
 	if wrapper, ok := handle.Tool.(*MethodWrapper); ok {
-		// MethodWrapper Call expects the value, not the pointer
-		return wrapper.Call(ctx, argPtr.Elem().Interface())
+		// MethodWrapper Call expects the pointer, not the value
+		return wrapper.Call(ctx, argPtr.Interface())
 	}
 
 	// Generic reflection call for typed tools

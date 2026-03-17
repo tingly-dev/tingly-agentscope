@@ -103,9 +103,9 @@ func NewToolkit() *Toolkit {
 	}
 }
 
-// registerTool registers a tool with type-safe structured arguments
-// This is the primary registration method
-func (t *Toolkit) registerTool(name string, tool any, argType any, opts *RegisterOptions) error {
+// RegisterTool registers a tool with type-safe structured arguments
+// This is the primary registration method for tools with struct arguments
+func (t *Toolkit) RegisterTool(name string, tool any, argType any, opts *RegisterOptions) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -116,7 +116,7 @@ func (t *Toolkit) registerTool(name string, tool any, argType any, opts *Registe
 	}
 
 	// Use the new registry
-	if err := t.registry.registerTool(name, tool, argType, opts); err != nil {
+	if err := t.registry.RegisterTool(name, tool, argType, opts); err != nil {
 		return err
 	}
 

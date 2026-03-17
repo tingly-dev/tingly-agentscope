@@ -28,7 +28,7 @@ type ToolDescriptor struct {
 	Schema model.ToolDefinition
 
 	// Execution (exactly one will be non-nil)
-	Typed    *TypedHandle    // For registerTool - type-safe with struct args
+	Typed    *TypedHandle    // For RegisterTool - type-safe with struct args
 	Function *FunctionHandle // For RegisterFunction - simple function with map args
 
 	// Configuration

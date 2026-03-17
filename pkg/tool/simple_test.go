@@ -18,12 +18,12 @@ func (s *SimpleTool) Call(ctx context.Context, args *SimpleArgs) (*ToolResponse,
 	return TextResponse("Processed: " + args.Message), nil
 }
 
-// TestRegisterToolSimple tests basic registerTool functionality
+// TestRegisterToolSimple tests basic RegisterTool functionality
 func TestRegisterToolSimple(t *testing.T) {
 	tk := NewToolkit()
 
 	// Register a tool
-	err := tk.registerTool("simple", &SimpleTool{}, &SimpleArgs{}, &RegisterOptions{
+	err := tk.RegisterTool("simple", &SimpleTool{}, &SimpleArgs{}, &RegisterOptions{
 		GroupName:       "basic",
 		FuncDescription: "Simple test tool",
 	})

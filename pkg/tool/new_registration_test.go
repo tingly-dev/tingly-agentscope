@@ -38,12 +38,12 @@ func (s *SearchTool) Call(ctx context.Context, args any) (*ToolResponse, error) 
 	return TextResponse("Searching for: " + searchArgs.Query), nil
 }
 
-// TestRegisterTool tests the new registerTool method
+// TestRegisterTool tests the new RegisterTool method
 func TestRegisterTool(t *testing.T) {
 	tk := NewToolkit()
 
 	// Register a tool with struct args
-	err := tk.registerTool("search", &SearchTool{basePath: "/tmp"}, &SearchArgs{}, &RegisterOptions{
+	err := tk.RegisterTool("search", &SearchTool{basePath: "/tmp"}, &SearchArgs{}, &RegisterOptions{
 		GroupName:       "basic",
 		FuncDescription: "Search for files",
 	})
@@ -102,12 +102,12 @@ func TestRegisterTool(t *testing.T) {
 	}
 }
 
-// TestRegisterToolCall tests calling a tool registered with registerTool
+// TestRegisterToolCall tests calling a tool registered with RegisterTool
 func TestRegisterToolCall(t *testing.T) {
 	tk := NewToolkit()
 
 	// Register a tool
-	err := tk.registerTool("search", &SearchTool{basePath: "/tmp"}, &SearchArgs{}, &RegisterOptions{
+	err := tk.RegisterTool("search", &SearchTool{basePath: "/tmp"}, &SearchArgs{}, &RegisterOptions{
 		GroupName:       "basic",
 		FuncDescription: "Search for files",
 	})
@@ -246,7 +246,7 @@ func TestRegisterFunctionCall(t *testing.T) {
 func TestRegisterAll(t *testing.T) {
 	// RegisterAll requires actual struct methods defined at package level
 	// Since we can't define methods inside a function in Go,
-	// this test is skipped. The basic registerTool and RegisterFunction
+	// this test is skipped. The basic RegisterTool and RegisterFunction
 	// methods are tested separately.
 	t.Skip("RegisterAll requires actual struct methods defined at package level")
 }
