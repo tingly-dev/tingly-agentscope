@@ -4,21 +4,25 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // Message represents a chat message
 type Message struct {
 	Role    string // "user", "assistant", "system"
 	Content string
-	Agent   string // Agent name (for assistant messages)
+	Agent   string                 // Agent name (for assistant messages)
+	Blocks  []message.ContentBlock // Content blocks for rich rendering
 }
 
 // Messages is a component for displaying chat history
 type Messages struct {
-	messages   []Message
-	width      int
-	height     int
+	messages     []Message
+	width        int
+	height       int
 	scrollOffset int // Line offset for scrolling
+	renderer     *MessageRenderer
 }
 
 // NewMessages creates a new messages component
@@ -26,6 +30,7 @@ func NewMessages() *Messages {
 	return &Messages{
 		messages:     []Message{},
 		scrollOffset: 0,
+		renderer:     NewMessageRenderer(80),
 	}
 }
 
@@ -33,6 +38,7 @@ func NewMessages() *Messages {
 func (m *Messages) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.renderer.SetWidth(width)
 }
 
 // AddMessage adds a message to the history
@@ -65,6 +71,17 @@ func (m *Messages) AddSystemMessage(content string) {
 		Role:    "system",
 		Content: content,
 	})
+}
+
+// AddMessageWithBlocks adds a message with content blocks for rich rendering
+func (m *Messages) AddMessageWithBlocks(role, content, agent string, blocks []message.ContentBlock) {
+	m.messages = append(m.messages, Message{
+		Role:    role,
+		Content: content,
+		Agent:   agent,
+		Blocks:  blocks,
+	})
+	m.ScrollToBottom()
 }
 
 // Clear clears all messages
@@ -177,15 +194,28 @@ func (m *Messages) View() string {
 			headerStyle = systemStyle
 		}
 
-		// Header line
-		headerLine := headerStyle.Render(header)
-		allLines = append(allLines, headerLine)
+		// Header line (only for user/system, renderer handles assistant)
+		if msg.Role != "assistant" {
+			headerLine := headerStyle.Render(header)
+			allLines = append(allLines, headerLine)
+		}
 
-		// Content with word wrap
-		wrappedContent := wrapText(msg.Content, m.width-2)
-		contentLines := strings.Split(wrappedContent, "\n")
-		for _, line := range contentLines {
-			allLines = append(allLines, contentStyle.Render(line))
+		// Render content
+		if len(msg.Blocks) > 0 {
+			// Use renderer for rich content
+			agentMsg := message.NewMsg(msg.Agent, msg.Blocks, types.Role(msg.Role))
+			rendered := m.renderer.Render(agentMsg)
+			if rendered != "" {
+				lines := strings.Split(rendered, "\n")
+				allLines = append(allLines, lines...)
+			}
+		} else {
+			// Fall back to simple content rendering
+			wrappedContent := wrapText(msg.Content, m.width-2)
+			contentLines := strings.Split(wrappedContent, "\n")
+			for _, line := range contentLines {
+				allLines = append(allLines, contentStyle.Render(line))
+			}
 		}
 
 		// Separator

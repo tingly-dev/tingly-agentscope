@@ -30,3 +30,24 @@ func TestRenderTextBlock(t *testing.T) {
 		t.Errorf("Expected output to contain 'Hello, world!', got: %s", output)
 	}
 }
+
+func TestMessagesWithRenderer(t *testing.T) {
+	messages := NewMessages()
+	messages.SetSize(80, 24)
+
+	// Add a message with content blocks
+	msg := Message{
+		Role:    "assistant",
+		Agent:   "lucy",
+		Content: "Hello from lucy!",
+		Blocks: []message.ContentBlock{
+			&message.TextBlock{Text: "Hello from lucy!"},
+		},
+	}
+	messages.AddMessage(msg)
+
+	view := messages.View()
+	if view == "" {
+		t.Error("View should not be empty")
+	}
+}
