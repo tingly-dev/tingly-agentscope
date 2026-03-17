@@ -194,17 +194,18 @@ func (a *SDKAdapter) convertContent(msg *message.Msg) []anthropic.ContentBlockPa
 				OfText: &anthropic.TextBlockParam{Text: b.Text},
 			})
 		case *message.ToolUseBlock:
+			var inputMap map[string]any
+			if m, ok := b.Input.(map[string]any); ok {
+				inputMap = m
+			} else {
+				inputMap = make(map[string]any)
+			}
+
 			contentBlocks = append(contentBlocks, anthropic.ContentBlockParamUnion{
 				OfToolUse: &anthropic.ToolUseBlockParam{
-					ID:   b.ID,
-					Name: b.Name,
-					Input: func() map[string]any {
-						result := make(map[string]any)
-						for k, v := range b.Input {
-							result[k] = v
-						}
-						return result
-					}(),
+					ID:    b.ID,
+					Name:  b.Name,
+					Input: inputMap,
 				},
 			})
 		case *message.ToolResultBlock:

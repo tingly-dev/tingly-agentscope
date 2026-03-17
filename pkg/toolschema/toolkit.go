@@ -278,9 +278,11 @@ func (tt *TypedToolkit) CallToolBlock(ctx context.Context, toolBlock *message.To
 	}
 
 	// Convert toolBlock.Input to map[string]any
-	params := make(map[string]any)
-	for k, v := range toolBlock.Input {
-		params[k] = v
+	var params map[string]any
+	if m, ok := toolBlock.Input.(map[string]any); ok {
+		params = m
+	} else {
+		params = make(map[string]any)
 	}
 
 	result, err := t.Call(ctx, params)

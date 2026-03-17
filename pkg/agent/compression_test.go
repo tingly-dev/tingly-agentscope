@@ -82,7 +82,7 @@ func TestSimpleTokenCounter_CountMessageTokens(t *testing.T) {
 	})
 
 	t.Run("message with tool use", func(t *testing.T) {
-		input := map[string]types.JSONSerializable{
+		input := map[string]any{
 			"path":  "/tmp/file.txt",
 			"limit": float64(100),
 		}

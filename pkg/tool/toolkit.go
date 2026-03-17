@@ -2,6 +2,7 @@ package tool
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -70,7 +71,7 @@ type RegisteredFunction struct {
 }
 
 // CallFunc represents a function that can be called
-type CallFunc func(ctx context.Context, kwargs map[string]any) (*ToolResponse, error)
+type CallFunc func(ctx context.Context, args any) (*ToolResponse, error)
 
 // MiddlewareFunc represents a middleware function for wrapping tool calls
 type MiddlewareFunc func(CallFunc) CallFunc
@@ -389,7 +390,7 @@ func (t *Toolkit) Use(middleware MiddlewareFunc) {
 	t.middlewares = append(t.middlewares, middleware)
 }
 
-// Call executes a tool function with type-safe argument handling
+// Call executes a tool function with structured argument handling
 func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*ToolResponse, error) {
 	t.mu.RLock()
 	tool, exists := t.tools[toolBlock.Name]
@@ -414,32 +415,40 @@ func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*T
 	// Build the call chain with middlewares
 	callFunc := t.buildCallChain(tool)
 
-	// Convert input to map if needed (for backward compatibility)
-	var kwargs map[string]any
-	if toolBlock.Input != nil {
-		// Convert map[string]types.JSONSerializable to map[string]any
-		kwargs = make(map[string]any, len(toolBlock.Input))
-		for k, v := range toolBlock.Input {
-			kwargs[k] = v
+	// Prepare arguments - if tool has ArgType, try to convert Input to that type
+	var args any = toolBlock.Input
+	if tool.ArgType != nil && toolBlock.Input != nil {
+		// Try to convert Input to the expected argument type
+		if inputMap, ok := toolBlock.Input.(map[string]any); ok {
+			// Convert map to struct using JSON marshal/unmarshal
+			argValue := reflect.New(tool.ArgType).Elem()
+			data, err := json.Marshal(inputMap)
+			if err == nil {
+				_ = json.Unmarshal(data, argValue.Interface())
+				args = argValue.Interface()
+			}
 		}
-	} else {
-		kwargs = make(map[string]any)
 	}
 
-	// Merge preset kwargs
-	for k, v := range tool.PresetKwargs {
-		kwargs[k] = v
+	// For tools without explicit ArgType, convert to map[string]any
+	if tool.ArgType == nil {
+		if _, ok := args.(map[string]any); !ok {
+			// Wrap in a map for backward compatibility
+			m := make(map[string]any)
+			m["input"] = args
+			args = m
+		}
 	}
 
-	// Execute the call chain
-	return callFunc(ctx, kwargs)
+	// Call with appropriate args type
+	return callFunc(ctx, args)
 }
 
 // buildCallChain builds the call chain with middlewares
 func (t *Toolkit) buildCallChain(tool *RegisteredFunction) CallFunc {
 	// Start with the actual tool call
-	var chain CallFunc = func(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
-		return t.callFunction(ctx, tool.Function, kwargs)
+	var chain CallFunc = func(ctx context.Context, args any) (*ToolResponse, error) {
+		return t.callFunction(ctx, tool.Function, args)
 	}
 
 	// Wrap with middlewares in reverse order (so they execute in added order)
@@ -588,9 +597,15 @@ type RegisterOptions struct {
 }
 
 // ToolCallable is the interface for tools that accept structured arguments
-// T is the argument type (e.g., *GrepArgs, *MyToolInput, etc.)
 type ToolCallable interface {
 	Call(ctx context.Context, args any) (*ToolResponse, error)
+}
+
+// TypedTool is a generic interface for tools with specific argument types.
+// Usage: type MyTool struct{}; func (t *MyTool) Call(ctx, args *MyArgs) (*ToolResponse, error)
+// The toolkit will automatically wrap the tool to work with the reflection-free system.
+type TypedTool[T any] interface {
+	Call(ctx context.Context, args T) (*ToolResponse, error)
 }
 
 // parseFunctionSchema parses a function to generate its JSON schema

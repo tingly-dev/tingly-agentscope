@@ -34,11 +34,16 @@ func demoMiddleware() {
 
 	// Add logging middleware
 	tk.Use(func(next tool.CallFunc) tool.CallFunc {
-		return func(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+		return func(ctx context.Context, args any) (*tool.ToolResponse, error) {
 			start := time.Now()
-			resp, err := next(ctx, kwargs)
+			resp, err := next(ctx, args)
 			duration := time.Since(start)
-			toolName := fmt.Sprintf("%v", kwargs["_tool_name"])
+			toolName := "unknown"
+			if m, ok := args.(map[string]any); ok {
+				if name, ok := m["_tool_name"].(string); ok {
+					toolName = name
+				}
+			}
 			fmt.Printf("[%s] took %v\n", toolName, duration)
 			return resp, err
 		}

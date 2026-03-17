@@ -75,9 +75,11 @@ func (c *SimpleTokenCounter) CountMessageTokens(msg *message.Msg) int {
 				total += c.CountTokens(b.Thinking)
 			case *message.ToolUseBlock:
 				total += c.CountTokens(b.Name)
-				for k, v := range b.Input {
-					total += c.CountTokens(k)
-					total += c.CountTokens(fmt.Sprintf("%v", v))
+				if params, ok := b.Input.(map[string]any); ok {
+					for k, v := range params {
+						total += c.CountTokens(k)
+						total += c.CountTokens(fmt.Sprintf("%v", v))
+					}
 				}
 			case *message.ToolResultBlock:
 				total += c.CountTokens(b.Name)

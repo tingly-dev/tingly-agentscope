@@ -126,19 +126,21 @@ func (b *SchemaBuilder) Build() *model.ToolDefinition {
 // LoggingMiddleware creates a middleware that logs tool calls
 func LoggingMiddleware(logger func(toolName string, args any, result *ToolResponse, err error, duration int64)) MiddlewareFunc {
 	return func(next CallFunc) CallFunc {
-		return func(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
-			// Extract tool name from context or kwargs
+		return func(ctx context.Context, args any) (*ToolResponse, error) {
+			// Extract tool name from context or args
 			toolName := "unknown"
-			if name, ok := kwargs["_tool_name"].(string); ok {
-				toolName = name
+			if m, ok := args.(map[string]any); ok {
+				if name, ok := m["_tool_name"].(string); ok {
+					toolName = name
+				}
 			}
 
 			start := time.Now()
-			result, err := next(ctx, kwargs)
+			result, err := next(ctx, args)
 			duration := time.Since(start).Milliseconds()
 
 			if logger != nil {
-				logger(toolName, kwargs, result, err, duration)
+				logger(toolName, args, result, err, duration)
 			}
 
 			return result, err
@@ -149,14 +151,14 @@ func LoggingMiddleware(logger func(toolName string, args any, result *ToolRespon
 // RecoveryMiddleware creates a middleware that recovers from panics
 func RecoveryMiddleware() MiddlewareFunc {
 	return func(next CallFunc) CallFunc {
-		return func(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
+		return func(ctx context.Context, args any) (*ToolResponse, error) {
 			defer func() {
 				if r := recover(); r != nil {
 					// Log the panic and convert to error response
 					// In a real implementation, you'd want proper logging here
 				}
 			}()
-			return next(ctx, kwargs)
+			return next(ctx, args)
 		}
 	}
 }
@@ -164,7 +166,7 @@ func RecoveryMiddleware() MiddlewareFunc {
 // TimeoutMiddleware creates a middleware that enforces a timeout
 func TimeoutMiddleware(timeout time.Duration) MiddlewareFunc {
 	return func(next CallFunc) CallFunc {
-		return func(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
+		return func(ctx context.Context, args any) (*ToolResponse, error) {
 			ctx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
 
@@ -174,7 +176,7 @@ func TimeoutMiddleware(timeout time.Duration) MiddlewareFunc {
 			})
 
 			go func() {
-				resp, err := next(ctx, kwargs)
+				resp, err := next(ctx, args)
 				done <- struct {
 					resp *ToolResponse
 					err  error

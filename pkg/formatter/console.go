@@ -206,20 +206,31 @@ func (f *ConsoleFormatter) formatToolUseBlock(block *message.ToolUseBlock) strin
 	sb.WriteString("\n")
 
 	// Show input parameters
-	if f.Verbose && len(block.Input) > 0 {
-		sb.WriteString(f.formatToolInput(block.Input))
+	if f.Verbose {
+		if block.Input != nil {
+			sb.WriteString(f.formatToolInput(block.Input))
+		}
 	}
 
 	return sb.String()
 }
 
 // formatToolInput formats tool input parameters
-func (f *ConsoleFormatter) formatToolInput(input map[string]types.JSONSerializable) string {
+func (f *ConsoleFormatter) formatToolInput(input any) string {
+	if input == nil {
+		return ""
+	}
+
+	params, ok := input.(map[string]any)
+	if !ok {
+		return fmt.Sprintf("  Input: %v\n", input)
+	}
+
 	var sb strings.Builder
 
 	// Sort keys for consistent output
-	keys := make([]string, 0, len(input))
-	for k := range input {
+	keys := make([]string, 0, len(params))
+	for k := range params {
 		keys = append(keys, k)
 	}
 
@@ -233,7 +244,7 @@ func (f *ConsoleFormatter) formatToolInput(input map[string]types.JSONSerializab
 	}
 
 	for _, key := range keys {
-		value := input[key]
+		value := params[key]
 		var formattedValue string
 
 		switch v := value.(type) {
@@ -297,13 +308,14 @@ func (f *ConsoleFormatter) formatImageBlock(block *message.ImageBlock) string {
 
 	sb.WriteString("  📷 Image: ")
 
-	switch src := block.Source.(type) {
-	case *message.URLSource:
-		sb.WriteString(fmt.Sprintf("URL: %s", src.URL))
-	case *message.Base64Source:
-		sb.WriteString(fmt.Sprintf("base64:%s (%d bytes)", src.MediaType, len(src.Data)))
-	default:
-		sb.WriteString(fmt.Sprintf("unknown source type: %T", src))
+	if block.Source == nil {
+		sb.WriteString("no source")
+	} else if block.Source.IsURL() {
+		sb.WriteString(fmt.Sprintf("URL: %s", block.Source.URL))
+	} else if block.Source.IsBase64() {
+		sb.WriteString(fmt.Sprintf("base64:%s (%d bytes)", block.Source.MediaType, len(block.Source.Data)))
+	} else {
+		sb.WriteString(fmt.Sprintf("unknown source type: %s", block.Source.Type))
 	}
 
 	sb.WriteString("\n")
