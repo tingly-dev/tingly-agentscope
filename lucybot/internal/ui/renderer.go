@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
@@ -139,9 +140,16 @@ func (r *MessageRenderer) formatToolCall(name string, input map[string]types.JSO
 	sb.WriteString(ToolNameStyle.Render(name))
 	sb.WriteString("(")
 
-	// Format parameters
+	// Format parameters in deterministic order
+	keys := make([]string, 0, len(input))
+	for key := range input {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
 	first := true
-	for key, value := range input {
+	for _, key := range keys {
+		value := input[key]
 		if !first {
 			sb.WriteString(", ")
 		}
