@@ -106,7 +106,7 @@ func demoCombinedUsage() {
 	tk := tool.NewToolkit()
 
 	// Add middleware
-	tk.Use(tool.LoggingMiddleware(func(toolName string, kwargs map[string]any, result *tool.ToolResponse, err error, duration int64) {
+	tk.Use(tool.LoggingMiddleware(func(toolName string, args any, result *tool.ToolResponse, err error, duration int64) {
 		log.Printf("[%s] duration=%dms err=%v", toolName, duration, err)
 	}))
 	tk.Use(tool.RecoveryMiddleware())
@@ -137,36 +137,36 @@ type DatabaseTool struct {
 	connectionString string
 }
 
-func (d *DatabaseTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+func (d *DatabaseTool) Call(ctx context.Context, args any) (*tool.ToolResponse, error) {
 	return tool.TextResponse("Query result: ..."), nil
 }
 
 type FileReadTool struct{}
 
-func (f *FileReadTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+func (f *FileReadTool) Call(ctx context.Context, args any) (*tool.ToolResponse, error) {
 	return tool.TextResponse("File content"), nil
 }
 
 type FileWriteTool struct{}
 
-func (f *FileWriteTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+func (f *FileWriteTool) Call(ctx context.Context, args any) (*tool.ToolResponse, error) {
 	return tool.TextResponse("File written"), nil
 }
 
 type NetworkTool struct{}
 
-func (n *NetworkTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+func (n *NetworkTool) Call(ctx context.Context, args any) (*tool.ToolResponse, error) {
 	return tool.TextResponse("Network response"), nil
 }
 
 type CacheTool struct{}
 
-func (c *CacheTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+func (c *CacheTool) Call(ctx context.Context, args any) (*tool.ToolResponse, error) {
 	return tool.TextResponse("Cache miss"), nil
 }
 
 type SearchTool struct{}
 
-func (s *SearchTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+func (s *SearchTool) Call(ctx context.Context, args any) (*tool.ToolResponse, error) {
 	return tool.TextResponse("Found 42 files"), nil
 }

@@ -1,22 +1,269 @@
 package tool
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
-// mockToolFunction is a simple mock function for testing
-func mockToolFunction(ctx map[string]any, kwargs map[string]any) string {
-	return "mock result"
+// TestStructParams tests tool calling with struct parameters
+type TestParams struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// testStructTool implements ToolCallable for testing
+type testStructTool struct{}
+
+func (t *testStructTool) Call(ctx context.Context, args any) (*ToolResponse, error) {
+	params, ok := args.(*TestParams)
+	if !ok {
+		// If args is a map, convert it
+		if m, ok := args.(map[string]any); ok {
+			params = &TestParams{}
+			if name, ok := m["name"].(string); ok {
+				params.Name = name
+			}
+			if count, ok := m["count"].(int); ok {
+				params.Count = count
+			}
+		} else {
+			return TextResponse("Error: invalid arguments"), nil
+		}
+	}
+	return TextResponse("name: " + params.Name + ", count: " + string(rune(params.Count))), nil
+}
+
+func TestCallWithStructParams(t *testing.T) {
+	tk := NewToolkit()
+
+	// Register a tool with struct parameters
+	err := tk.Register(&testStructTool{}, &RegisterOptions{
+		GroupName:       "basic",
+		FuncName:        "test_struct_tool",
+		FuncDescription: "A test tool with struct parameters",
+		JSONSchema: &model.ToolDefinition{
+			Type: "function",
+			Function: model.FunctionDefinition{
+				Name:        "test_struct_tool",
+				Description: "A test tool with struct parameters",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name": map[string]any{
+							"type":        "string",
+							"description": "name",
+						},
+						"count": map[string]any{
+							"type":        "integer",
+							"description": "count",
+						},
+					},
+					"required": []string{"name", "count"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to register tool: %v", err)
+	}
+
+	// Call the tool
+	ctx := context.Background()
+	toolBlock := &message.ToolUseBlock{
+		Name: "test_struct_tool",
+		Input: map[string]types.JSONSerializable{
+			"name":  "test",
+			"count": 42,
+		},
+	}
+
+	result, err := tk.Call(ctx, toolBlock)
+	if err != nil {
+		t.Fatalf("Call failed: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+
+	// Check result
+	if len(result.Content) == 0 {
+		t.Error("expected non-empty content")
+	}
+}
+
+// testPointerStructTool implements ToolCallable for testing
+type testPointerStructTool struct{}
+
+func (t *testPointerStructTool) Call(ctx context.Context, args any) (*ToolResponse, error) {
+	params, ok := args.(*TestParams)
+	if !ok {
+		// If args is a map, convert it
+		if m, ok := args.(map[string]any); ok {
+			params = &TestParams{}
+			if name, ok := m["name"].(string); ok {
+				params.Name = name
+			}
+			if count, ok := m["count"].(int); ok {
+				params.Count = count
+			}
+		} else {
+			return TextResponse("Error: invalid arguments"), nil
+		}
+	}
+	if params == nil {
+		return TextResponse("nil params"), nil
+	}
+	return TextResponse("name: " + params.Name + ", count: " + string(rune(params.Count))), nil
+}
+
+func TestCallWithPointerStructParams(t *testing.T) {
+	tk := NewToolkit()
+
+	// Register a tool with pointer struct parameters
+	err := tk.Register(&testPointerStructTool{}, &RegisterOptions{
+		GroupName:       "basic",
+		FuncName:        "test_pointer_struct_tool",
+		FuncDescription: "A test tool with pointer struct parameters",
+		JSONSchema: &model.ToolDefinition{
+			Type: "function",
+			Function: model.FunctionDefinition{
+				Name:        "test_pointer_struct_tool",
+				Description: "A test tool with pointer struct parameters",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name": map[string]any{
+							"type":        "string",
+							"description": "name",
+						},
+						"count": map[string]any{
+							"type":        "integer",
+							"description": "count",
+						},
+					},
+					"required": []string{"name", "count"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to register tool: %v", err)
+	}
+
+	// Call the tool
+	ctx := context.Background()
+	toolBlock := &message.ToolUseBlock{
+		Name: "test_pointer_struct_tool",
+		Input: map[string]types.JSONSerializable{
+			"name":  "test",
+			"count": 42,
+		},
+	}
+
+	result, err := tk.Call(ctx, toolBlock)
+	if err != nil {
+		t.Fatalf("Call failed: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+
+	// Check result
+	if len(result.Content) == 0 {
+		t.Error("expected non-empty content")
+	}
+}
+
+// testToolResponseTool implements ToolCallable for testing
+type testToolResponseTool struct{}
+
+func (t *testToolResponseTool) Call(ctx context.Context, args any) (*ToolResponse, error) {
+	params, ok := args.(*TestParams)
+	if !ok {
+		// If args is a map, convert it
+		if m, ok := args.(map[string]any); ok {
+			params = &TestParams{}
+			if name, ok := m["name"].(string); ok {
+				params.Name = name
+			}
+		}
+	}
+	return TextResponse("result: " + params.Name), nil
+}
+
+func TestCallWithToolResponseReturn(t *testing.T) {
+	tk := NewToolkit()
+
+	// Register a tool that returns ToolResponse
+	err := tk.Register(&testToolResponseTool{}, &RegisterOptions{
+		GroupName:       "basic",
+		FuncName:        "test_response_tool",
+		FuncDescription: "A test tool that returns ToolResponse",
+		JSONSchema: &model.ToolDefinition{
+			Type: "function",
+			Function: model.FunctionDefinition{
+				Name:        "test_response_tool",
+				Description: "A test tool that returns ToolResponse",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name": map[string]any{
+							"type":        "string",
+							"description": "name",
+						},
+					},
+					"required": []string{"name"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to register tool: %v", err)
+	}
+
+	// Call the tool
+	ctx := context.Background()
+	toolBlock := &message.ToolUseBlock{
+		Name: "test_response_tool",
+		Input: map[string]types.JSONSerializable{
+			"name": "test",
+		},
+	}
+
+	result, err := tk.Call(ctx, toolBlock)
+	if err != nil {
+		t.Fatalf("Call failed: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+
+	// Check result has content
+	if len(result.Content) == 0 {
+		t.Error("expected non-empty content")
+	}
+}
+
+// mockToolFunction is a simple mock tool for testing
+type mockToolFunction struct{}
+
+func (m *mockToolFunction) Call(ctx context.Context, args any) (*ToolResponse, error) {
+	return TextResponse("mock result"), nil
 }
 
 func TestGetToolList_InternalStyle(t *testing.T) {
 	tk := NewToolkit()
 
 	// Register a test tool
-	err := tk.Register(mockToolFunction, &RegisterOptions{
+	err := tk.Register(&mockToolFunction{}, &RegisterOptions{
 		GroupName:       "basic",
 		FuncName:        "test_tool",
 		FuncDescription: "A test tool",
@@ -66,7 +313,7 @@ func TestGetToolList_AnthropicStyle(t *testing.T) {
 	tk := NewToolkit()
 
 	// Register a test tool
-	err := tk.Register(mockToolFunction, &RegisterOptions{
+	err := tk.Register(&mockToolFunction{}, &RegisterOptions{
 		GroupName:       "basic",
 		FuncName:        "test_tool",
 		FuncDescription: "A test tool",
@@ -131,7 +378,7 @@ func TestGetToolList_OpenAIStyle(t *testing.T) {
 	tk := NewToolkit()
 
 	// Register a test tool
-	err := tk.Register(mockToolFunction, &RegisterOptions{
+	err := tk.Register(&mockToolFunction{}, &RegisterOptions{
 		GroupName:       "basic",
 		FuncName:        "test_tool",
 		FuncDescription: "A test tool",
@@ -226,7 +473,7 @@ func TestGetToolList_WithInactiveGroup(t *testing.T) {
 	}
 
 	// Register a tool in the inactive group
-	err = tk.Register(mockToolFunction, &RegisterOptions{
+	err = tk.Register(&mockToolFunction{}, &RegisterOptions{
 		GroupName:       "test_group",
 		FuncName:        "inactive_tool",
 		FuncDescription: "An inactive tool",
@@ -244,7 +491,7 @@ func TestGetToolList_WithInactiveGroup(t *testing.T) {
 	}
 
 	// Register a tool in basic group
-	err = tk.Register(mockToolFunction, &RegisterOptions{
+	err = tk.Register(&mockToolFunction{}, &RegisterOptions{
 		GroupName:       "basic",
 		FuncName:        "active_tool",
 		FuncDescription: "An active tool",
@@ -291,7 +538,7 @@ func TestGetToolInfo(t *testing.T) {
 	}
 
 	// Register tools
-	err = tk.Register(mockToolFunction, &RegisterOptions{
+	err = tk.Register(&mockToolFunction{}, &RegisterOptions{
 		GroupName:       "test_group",
 		FuncName:        "tool1",
 		FuncDescription: "Tool 1",
@@ -308,7 +555,7 @@ func TestGetToolInfo(t *testing.T) {
 		t.Fatalf("failed to register tool: %v", err)
 	}
 
-	err = tk.Register(mockToolFunction, &RegisterOptions{
+	err = tk.Register(&mockToolFunction{}, &RegisterOptions{
 		GroupName: "basic",
 		FuncName:  "tool2",
 		JSONSchema: &model.ToolDefinition{

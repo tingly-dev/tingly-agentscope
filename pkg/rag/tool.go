@@ -13,7 +13,15 @@ var _ tool.ToolCallable = (*SimpleKnowledge)(nil)
 
 // Call implements the tool.ToolCallable interface for SimpleKnowledge
 // This allows the knowledge base to be used as a tool by agents
-func (kb *SimpleKnowledge) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+func (kb *SimpleKnowledge) Call(ctx context.Context, args any) (*tool.ToolResponse, error) {
+	// Convert args to kwargs map if needed
+	var kwargs map[string]any
+	if m, ok := args.(map[string]any); ok {
+		kwargs = m
+	} else {
+		kwargs = make(map[string]any)
+	}
+
 	// Extract query
 	query, ok := kwargs["query"].(string)
 	if !ok || query == "" {
@@ -41,8 +49,8 @@ func (kb *SimpleKnowledge) Call(ctx context.Context, kwargs map[string]any) (*to
 
 // ToTool converts the knowledge base to a tool.Function for registration
 func (kb *SimpleKnowledge) ToTool() any {
-	return func(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-		return kb.Call(ctx, kwargs)
+	return func(ctx context.Context, args any) (*tool.ToolResponse, error) {
+		return kb.Call(ctx, args)
 	}
 }
 
@@ -59,8 +67,8 @@ func NewKnowledgeBaseTool(kb *SimpleKnowledge) *KnowledgeBaseTool {
 }
 
 // Call delegates to the underlying knowledge base
-func (t *KnowledgeBaseTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	return t.knowledgeBase.Call(ctx, kwargs)
+func (t *KnowledgeBaseTool) Call(ctx context.Context, args any) (*tool.ToolResponse, error) {
+	return t.knowledgeBase.Call(ctx, args)
 }
 
 // ToolDefinition returns the tool definition

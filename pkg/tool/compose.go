@@ -51,9 +51,17 @@ func (c *Chain) WithDescription(desc string) *Chain {
 }
 
 // Call implements ToolCallable interface
-func (c *Chain) Call(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
+func (c *Chain) Call(ctx context.Context, args any) (*ToolResponse, error) {
 	if len(c.tools) == 0 {
 		return TextResponse("Error: empty chain"), nil
+	}
+
+	// Convert args to kwargs if needed
+	var kwargs map[string]any
+	if m, ok := args.(map[string]any); ok {
+		kwargs = m
+	} else {
+		kwargs = make(map[string]any)
 	}
 
 	// Start with the input kwargs
@@ -112,9 +120,17 @@ func (p *Parallel) WithDescription(desc string) *Parallel {
 }
 
 // Call implements ToolCallable interface
-func (p *Parallel) Call(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
+func (p *Parallel) Call(ctx context.Context, args any) (*ToolResponse, error) {
 	if len(p.tools) == 0 {
 		return TextResponse("Error: no tools in parallel executor"), nil
+	}
+
+	// Convert args to kwargs if needed
+	var kwargs map[string]any
+	if m, ok := args.(map[string]any); ok {
+		kwargs = m
+	} else {
+		kwargs = make(map[string]any)
 	}
 
 	// Create channels for results
@@ -183,8 +199,8 @@ func (m *Map) WithDescription(desc string) *Map {
 }
 
 // Call implements ToolCallable interface
-func (m *Map) Call(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
-	resp, err := m.tool.Call(ctx, kwargs)
+func (m *Map) Call(ctx context.Context, args any) (*ToolResponse, error) {
+	resp, err := m.tool.Call(ctx, args)
 	if err != nil {
 		return nil, err
 	}
@@ -227,12 +243,20 @@ func (f *Filter) WithDescription(desc string) *Filter {
 }
 
 // Call implements ToolCallable interface
-func (f *Filter) Call(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
-	if f.predicate != nil && !f.predicate(kwargs) {
-		return TextResponse("Filtered: tool execution skipped"), nil
+func (f *Filter) Call(ctx context.Context, args any) (*ToolResponse, error) {
+	if f.predicate != nil {
+		var kwargs map[string]any
+		if m, ok := args.(map[string]any); ok {
+			kwargs = m
+		} else {
+			kwargs = make(map[string]any)
+		}
+		if !f.predicate(kwargs) {
+			return TextResponse("Filtered: tool execution skipped"), nil
+		}
 	}
 
-	return f.tool.Call(ctx, kwargs)
+	return f.tool.Call(ctx, args)
 }
 
 // Retry creates a tool that retries on failure
@@ -273,11 +297,11 @@ func (r *Retry) WithRetryCallback(callback func(attempt int, err error)) *Retry 
 }
 
 // Call implements ToolCallable interface
-func (r *Retry) Call(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
+func (r *Retry) Call(ctx context.Context, args any) (*ToolResponse, error) {
 	var lastErr error
 
 	for attempt := 1; attempt <= r.maxAttempts; attempt++ {
-		resp, err := r.tool.Call(ctx, kwargs)
+		resp, err := r.tool.Call(ctx, args)
 		if err == nil {
 			// Check if response indicates an error
 			if resp.Error != "" {
@@ -330,11 +354,11 @@ func (f *Fallback) WithDescription(desc string) *Fallback {
 }
 
 // Call implements ToolCallable interface
-func (f *Fallback) Call(ctx context.Context, kwargs map[string]any) (*ToolResponse, error) {
-	resp, err := f.primary.Call(ctx, kwargs)
+func (f *Fallback) Call(ctx context.Context, args any) (*ToolResponse, error) {
+	resp, err := f.primary.Call(ctx, args)
 	if err != nil || (resp != nil && resp.Error != "") {
 		// Primary failed, try fallback
-		return f.secondary.Call(ctx, kwargs)
+		return f.secondary.Call(ctx, args)
 	}
 
 	return resp, nil
