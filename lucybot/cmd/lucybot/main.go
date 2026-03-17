@@ -25,6 +25,7 @@ func main() {
 			chatCommand,
 			indexCommand,
 			toolsCommand,
+			diffCommand,
 			initConfigCommand,
 		},
 		DefaultCommand: "chat",
@@ -332,6 +333,77 @@ var toolsCommand = &cli.Command{
 			}
 		}
 		fmt.Println()
+		return nil
+	},
+}
+
+var diffCommand = &cli.Command{
+	Name:  "diff",
+	Usage: "Create a patch file from git changes",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "output",
+			Aliases: []string{"o"},
+			Usage:   "Output patch file path",
+			Value:   "changes.patch",
+		},
+		&cli.BoolFlag{
+			Name:    "staged",
+			Aliases: []string{"s"},
+			Usage:   "Only include staged changes",
+		},
+	},
+	Action: func(c *cli.Context) error {
+		outputFile := c.String("output")
+		stagedOnly := c.Bool("staged")
+
+		// Check if we're in a git repository
+		if _, err := os.Stat(".git"); os.IsNotExist(err) {
+			return fmt.Errorf("not in a git repository")
+		}
+
+		// Build git diff command
+		gitArgs := []string{"diff"}
+		if stagedOnly {
+			gitArgs = append(gitArgs, "--cached")
+		}
+		gitArgs = append(gitArgs, ">", outputFile)
+
+		fmt.Println("📦 Creating patch file from git changes...")
+		if stagedOnly {
+			fmt.Println("(including only staged changes)")
+		}
+		fmt.Printf("Output file: %s\n\n", outputFile)
+
+		// Execute git diff
+		var cmd string
+		if stagedOnly {
+			cmd = fmt.Sprintf("git diff --cached > %s", outputFile)
+		} else {
+			cmd = fmt.Sprintf("git diff > %s", outputFile)
+		}
+
+		result, err := tools.BashWithOutput(cmd, 30)
+		if err != nil {
+			return fmt.Errorf("failed to create patch: %w", err)
+		}
+
+		// Check if file was created and has content
+		info, err := os.Stat(outputFile)
+		if err != nil {
+			return fmt.Errorf("failed to create patch file: %w", err)
+		}
+
+		if info.Size() == 0 {
+			os.Remove(outputFile)
+			fmt.Println("No changes to include in patch.")
+			return nil
+		}
+
+		fmt.Printf("✓ Patch file created: %s (%d bytes)\n", outputFile, info.Size())
+		if result != "" {
+			fmt.Printf("Output: %s\n", result)
+		}
 		return nil
 	},
 }

@@ -135,3 +135,9 @@ type EchoParams struct {
 func Echo(ctx context.Context, params EchoParams) (*tool.ToolResponse, error) {
 	return tool.TextResponse(params.Message), nil
 }
+
+// BashWithOutput runs a shell command and returns the output directly (not as a ToolResponse)
+func BashWithOutput(command string, timeoutSec int) (string, error) {
+	session := GetGlobalBashSession()
+	return session.Execute(context.Background(), command, timeoutSec)
+}
