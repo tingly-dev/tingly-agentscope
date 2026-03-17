@@ -24,6 +24,7 @@ func main() {
 		Commands: []*cli.Command{
 			chatCommand,
 			indexCommand,
+			toolsCommand,
 			initConfigCommand,
 		},
 		DefaultCommand: "chat",
@@ -306,6 +307,31 @@ var initConfigCommand = &cli.Command{
 			}
 		}
 
+		return nil
+	},
+}
+
+var toolsCommand = &cli.Command{
+	Name:  "tools",
+	Usage: "List and inspect available tools",
+	Action: func(c *cli.Context) error {
+		registry := tools.InitTools(".")
+		fmt.Println("\n🔧 Available Tools:")
+		fmt.Println(strings.Repeat("=", 50))
+
+		categories := registry.GetCategories()
+		for _, category := range categories {
+			toolList := registry.ListByCategory(category)
+			if len(toolList) == 0 {
+				continue
+			}
+
+			fmt.Printf("\n%s:\n", category)
+			for _, t := range toolList {
+				fmt.Printf("  • %s: %s\n", t.Name, t.Description)
+			}
+		}
+		fmt.Println()
 		return nil
 	},
 }
