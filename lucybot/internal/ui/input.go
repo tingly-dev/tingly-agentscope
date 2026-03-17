@@ -23,6 +23,9 @@ type Input struct {
 
 	// Agents for @ mention
 	agents        []AgentInfo
+
+	// ESC handling for double-ESC to clear
+	escPressed    bool
 }
 
 // AgentInfo holds information about an agent
@@ -321,13 +324,25 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			// Otherwise, Enter is handled by parent
 
 		case tea.KeyEsc:
-			// Hide popups on Escape
+			// Hide popups on Escape, or clear input on double ESC
 			if i.IsPopupVisible() {
 				i.hidePopups()
+				i.escPressed = false
 				return i, nil
 			}
+			if i.escPressed {
+				// Double ESC - clear input
+				i.Reset()
+				i.escPressed = false
+				return i, nil
+			}
+			// First ESC press - set flag
+			i.escPressed = true
+			return i, nil
 
 		case tea.KeyRunes:
+			// Reset ESC flag on any character input
+			i.escPressed = false
 			// Check for trigger characters
 			if len(msg.Runes) == 1 {
 				switch msg.Runes[0] {

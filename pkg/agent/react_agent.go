@@ -144,6 +144,8 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 	copy(messages, initialMessages)
 
 	for i := 0; i < r.config.MaxIterations; i++ {
+		fmt.Printf("[DEBUG] ReAct iteration %d/%d\n", i+1, r.config.MaxIterations)
+
 		// Get tools schema
 		tools := r.config.Toolkit.GetSchemas()
 
@@ -157,9 +159,15 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 
 		// Check for tool use blocks
 		toolBlocks := resp.GetToolUseBlocks()
+		fmt.Printf("[DEBUG] Model returned %d tool use blocks\n", len(toolBlocks))
+		for j, tb := range toolBlocks {
+			fmt.Printf("[DEBUG] Tool %d: %s\n", j+1, tb.Name)
+		}
+
 		if len(toolBlocks) == 0 {
 			// No more tools to use, return the final response
 			finalMsg := r.createResponseMessage(resp)
+			fmt.Printf("[DEBUG] No tool blocks, returning final response\n")
 			return finalMsg, nil
 		}
 
@@ -264,6 +272,7 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 	}
 
 	// Max iterations reached
+	fmt.Printf("[DEBUG] Max iterations (%d) reached, returning summary message\n", r.config.MaxIterations)
 	return message.NewMsg(
 		r.Name(),
 		[]message.ContentBlock{message.Text("I've reached the maximum number of iterations. Let me provide a summary of what I found.")},

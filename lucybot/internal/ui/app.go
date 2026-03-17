@@ -37,6 +37,9 @@ type App struct {
 
 	// For agent mention handling
 	ctx context.Context
+
+	// Cancel function for interrupting operations
+	cancel context.CancelFunc
 }
 
 // AppConfig holds configuration for creating the App
@@ -81,6 +84,9 @@ func NewApp(cfg *AppConfig) *App {
 	// Disable console output on agent - TUI handles display
 	cfg.Agent.SetConsoleOutputEnabled(false)
 
+	// Create cancellable context
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &App{
 		agent:         cfg.Agent,
 		config:        cfg.Config,
@@ -91,7 +97,8 @@ func NewApp(cfg *AppConfig) *App {
 		spinner:       s,
 		primaryAgents: cfg.PrimaryAgents,
 		currentAgentIdx: 0,
-		ctx:           context.Background(),
+		ctx:           ctx,
+		cancel:        cancel,
 	}
 }
 
@@ -125,6 +132,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Global key bindings
 		switch msg.Type {
 		case tea.KeyCtrlC:
+			// If thinking, cancel the operation first
+			if a.thinking {
+				a.cancel()
+				// Create a new cancellable context for future operations
+				a.ctx, a.cancel = context.WithCancel(context.Background())
+				a.thinking = false
+				a.messages.AddSystemMessage("Operation cancelled")
+				return a, nil
+			}
 			a.quitting = true
 			return a, tea.Quit
 
@@ -243,13 +259,16 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 
 	// Send to agent
 	return func() tea.Msg {
+		fmt.Printf("[DEBUG] Starting agent.Reply for input: %q\n", input)
 		msg := message.NewMsg(
 			"user",
 			[]message.ContentBlock{message.Text(input)},
 			types.RoleUser,
 		)
 
+		fmt.Printf("[DEBUG] Calling agent.Reply...\n")
 		resp, err := a.agent.Reply(a.ctx, msg)
+		fmt.Printf("[DEBUG] agent.Reply returned, err=%v, resp nil=%v\n", err, resp == nil)
 		if err != nil {
 			return ResponseMsg{
 				Content:   fmt.Sprintf("Error: %v", err),
