@@ -85,3 +85,25 @@ func TestRenderMarkdown(t *testing.T) {
 		t.Error("Should process markdown, not return raw")
 	}
 }
+
+func TestDetectDiff(t *testing.T) {
+	diff := `diff --git a/file.txt b/file.txt
++ added line
+- removed line`
+
+	if !isDiffContent(diff) {
+		t.Error("Should detect diff content")
+	}
+}
+
+func TestDetectCodeBlock(t *testing.T) {
+	code := "```go\nfunc main() {}\n```"
+
+	lang, content := extractCodeBlock(code)
+	if lang != "go" {
+		t.Errorf("Expected language 'go', got %q", lang)
+	}
+	if !strings.Contains(content, "func main") {
+		t.Errorf("Expected code content, got %q", content)
+	}
+}

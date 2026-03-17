@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -359,4 +360,54 @@ func (r *MessageRenderer) renderMarkdown(text string) string {
 	}
 
 	return rendered
+}
+
+// isDiffContent checks if content is a git diff
+func isDiffContent(text string) bool {
+	diffPatterns := []string{
+		`^diff --git`,
+		`^\+\+\+ `,
+		`^--- `,
+		`^@@ -\d+,\d+ \+\d+,\d+ @@`,
+	}
+
+	for _, pattern := range diffPatterns {
+		matched, _ := regexp.MatchString(pattern, text)
+		if matched {
+			return true
+		}
+	}
+	return false
+}
+
+// extractCodeBlock extracts language and code from markdown code block
+func extractCodeBlock(text string) (lang, code string) {
+	// (?s) enables DOTALL mode so . matches newlines
+	re := regexp.MustCompile("(?s)```(\\w+)?\\n(.*?)```")
+	matches := re.FindStringSubmatch(text)
+	if len(matches) >= 3 {
+		return matches[1], matches[2]
+	}
+	return "", text
+}
+
+// detectLanguage attempts to detect the programming language
+func detectLanguage(code string) string {
+	// Simple heuristics for language detection
+	if matched, _ := regexp.MatchString(`package\s+\w+|func\s+\w+\(|import\s+"`, code); matched {
+		return "go"
+	}
+	if matched, _ := regexp.MatchString(`def\s+\w+\(|import\s+\w+|print\(|class\s+\w+:`, code); matched {
+		return "python"
+	}
+	if matched, _ := regexp.MatchString(`const\s+|let\s+|var\s+|function\s+|=\u003e`, code); matched {
+		return "javascript"
+	}
+	if matched, _ := regexp.MatchString(`\u003c\?php|\$\w+\s*=`, code); matched {
+		return "php"
+	}
+	if matched, _ := regexp.MatchString(`^\s*#include|int\s+main\s*\(`, code); matched {
+		return "c"
+	}
+	return ""
 }
