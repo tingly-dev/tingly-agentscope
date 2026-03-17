@@ -44,29 +44,27 @@ type ViewSourceParams struct {
 func (ct *CodeTools) ViewSource(ctx context.Context, params ViewSourceParams) (*tool.ToolResponse, error) {
 	query := strings.TrimSpace(params.Query)
 
-	// Parse query format
-	// 1. file:line-range format (e.g., "main.go:10-50" or "main.go:10-")
-	if fileRange, lineStart, lineEnd, ok := parseLineRange(query); ok {
-		return ct.viewByLineRange(fileRange, lineStart, lineEnd)
+	// Use the new query parser
+	parsed, err := ParseQuery(query, "")
+	if err != nil {
+		return tool.TextResponse(fmt.Sprintf("Error: invalid query: %v", err)), nil
 	}
 
-	// 2. file:symbol format (e.g., "main.go:MyFunction")
-	if filePath, symbol, ok := parseFileSymbol(query); ok {
-		return ct.viewByFileSymbol(filePath, symbol)
+	// Dispatch based on query type
+	switch parsed.Type {
+	case QueryFileLine, QueryFileRange, QueryFileStart, QueryFileEnd:
+		return ct.handleFileLineQuery(parsed)
+	case QueryFileSymbol:
+		return ct.viewByFileSymbol(parsed.FilePath, parsed.SymbolName)
+	case QueryFilePath:
+		return ct.viewByFilePath(parsed)
+	case QueryWildcard:
+		return ct.viewByWildcard(parsed.WildcardPattern)
+	case QuerySimpleName, QueryQualifiedName:
+		return ct.viewBySymbolName(parsed.SymbolName)
+	default:
+		return tool.TextResponse(fmt.Sprintf("Error: unsupported query type: %s", parsed.Type)), nil
 	}
-
-	// 3. type:prefix format (e.g., "class:MyClass", "func:MyFunc")
-	if typeFilter, name, ok := parseTypeFilter(query); ok {
-		return ct.viewByTypeFilter(typeFilter, name)
-	}
-
-	// 4. wildcard pattern (e.g., "*Test", "Get*")
-	if isWildcard(query) {
-		return ct.viewByWildcard(query)
-	}
-
-	// 5. Simple symbol name - try to find in index or by grep
-	return ct.viewBySymbolName(query)
 }
 
 // parseLineRange parses "file.go:10-50" or "file.go:10-" format
@@ -163,6 +161,34 @@ func (ct *CodeTools) viewByLineRange(filePath string, start, end int) (*tool.Too
 	}
 
 	return tool.TextResponse(result.String()), nil
+}
+
+// handleFileLineQuery handles file-based line queries
+func (ct *CodeTools) handleFileLineQuery(q *ParsedQuery) (*tool.ToolResponse, error) {
+	switch q.Type {
+	case QueryFileLine:
+		// Single line with context
+		start := q.LineStart - 5
+		if start < 1 {
+			start = 1
+		}
+		end := q.LineStart + 5
+		return ct.viewByLineRange(q.FilePath, start, end)
+	case QueryFileRange:
+		return ct.viewByLineRange(q.FilePath, q.LineStart, q.LineEnd)
+	case QueryFileStart:
+		return ct.viewByLineRange(q.FilePath, q.LineStart, 0)
+	case QueryFileEnd:
+		return ct.viewByLineRange(q.FilePath, 1, q.LineEnd)
+	default:
+		return tool.TextResponse(fmt.Sprintf("Error: unsupported line query type: %s", q.Type)), nil
+	}
+}
+
+// viewByFilePath views an entire file or its first part
+func (ct *CodeTools) viewByFilePath(q *ParsedQuery) (*tool.ToolResponse, error) {
+	// Show first 50 lines by default
+	return ct.viewByLineRange(q.FilePath, 1, 50)
 }
 
 // viewByFileSymbol views a symbol in a specific file
