@@ -395,6 +395,11 @@ func example4() {
 // Global data storage for tools (in production, this would be passed differently)
 var globalData map[string]any
 
+// DataReaderToolParams defines parameters for reading data
+type DataReaderToolParams struct {
+	Department string `json:"department,omitempty" jsonschema:"description=Filter by department (optional)"`
+}
+
 // DataReaderTool reads and analyzes employee data directly
 type DataReaderTool struct{}
 
@@ -402,7 +407,7 @@ func (r *DataReaderTool) SetData(data map[string]any) {
 	globalData = data
 }
 
-func (r *DataReaderTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+func (r *DataReaderTool) Call(ctx context.Context, args *DataReaderToolParams) (*tool.ToolResponse, error) {
 	if globalData == nil {
 		return tool.TextResponse("Error: no data loaded"), nil
 	}
@@ -412,16 +417,13 @@ func (r *DataReaderTool) Call(ctx context.Context, kwargs map[string]any) (*tool
 		return tool.TextResponse("Error: invalid data format"), nil
 	}
 
-	// Check if filtering by department is requested
-	dept, filterByDept := kwargs["department"].(string)
-
 	var filteredRecords []map[string]any
 	var totalAge, totalSalary float64
 	count := 0
 
 	for _, record := range records {
 		// Skip if filtering by department and record doesn't match
-		if filterByDept && record["department"] != dept {
+		if args.Department != "" && record["department"] != args.Department {
 			continue
 		}
 
@@ -441,8 +443,8 @@ func (r *DataReaderTool) Call(ctx context.Context, kwargs map[string]any) (*tool
 	avgSalary := totalSalary / float64(count)
 
 	var result string
-	if filterByDept {
-		result = fmt.Sprintf("=== %s Department Analysis ===\n", dept)
+	if args.Department != "" {
+		result = fmt.Sprintf("=== %s Department Analysis ===\n", args.Department)
 		result += fmt.Sprintf("Number of employees: %d\n", count)
 		result += fmt.Sprintf("Average age: %.1f years\n", avgAge)
 		result += fmt.Sprintf("Average salary: $%.2f\n", avgSalary)
@@ -462,6 +464,12 @@ func (r *DataReaderTool) Call(ctx context.Context, kwargs map[string]any) (*tool
 	return tool.TextResponse(result), nil
 }
 
+// StatsCalculatorToolParams defines parameters for statistics calculation
+type StatsCalculatorToolParams struct {
+	Field      string `json:"field,omitempty" jsonschema:"description=Field to analyze (default: salary)"`
+	Department string `json:"department,omitempty" jsonschema:"description=Filter by department (optional)"`
+}
+
 // StatsCalculatorTool calculates statistics for a specific field
 type StatsCalculatorTool struct{}
 
@@ -469,7 +477,7 @@ func (s *StatsCalculatorTool) SetData(data map[string]any) {
 	globalData = data
 }
 
-func (s *StatsCalculatorTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+func (s *StatsCalculatorTool) Call(ctx context.Context, args *StatsCalculatorToolParams) (*tool.ToolResponse, error) {
 	if globalData == nil {
 		return tool.TextResponse("Error: no data loaded"), nil
 	}
@@ -479,12 +487,10 @@ func (s *StatsCalculatorTool) Call(ctx context.Context, kwargs map[string]any) (
 		return tool.TextResponse("Error: invalid data format"), nil
 	}
 
-	field, _ := kwargs["field"].(string)
+	field := args.Field
 	if field == "" {
 		field = "salary" // default
 	}
-
-	dept, filterByDept := kwargs["department"].(string)
 
 	var sum float64
 	var count int
@@ -493,7 +499,7 @@ func (s *StatsCalculatorTool) Call(ctx context.Context, kwargs map[string]any) (
 
 	for _, record := range records {
 		// Skip if filtering by department and record doesn't match
-		if filterByDept && record["department"] != dept {
+		if args.Department != "" && record["department"] != args.Department {
 			continue
 		}
 
@@ -518,8 +524,8 @@ func (s *StatsCalculatorTool) Call(ctx context.Context, kwargs map[string]any) (
 	avg := sum / float64(count)
 
 	result := fmt.Sprintf("Statistics for '%s'", field)
-	if filterByDept {
-		result += fmt.Sprintf(" (%s department)", dept)
+	if args.Department != "" {
+		result += fmt.Sprintf(" (%s department)", args.Department)
 	}
 	result += fmt.Sprintf(" (based on %d records):\n", count)
 	result += fmt.Sprintf("  - Average: %.2f\n", avg)
@@ -530,19 +536,23 @@ func (s *StatsCalculatorTool) Call(ctx context.Context, kwargs map[string]any) (
 	return tool.TextResponse(result), nil
 }
 
+// ReportGeneratorToolParams defines parameters for report generation
+type ReportGeneratorToolParams struct {
+	Title    string `json:"title,omitempty" jsonschema:"description=Report title (default: Data Analysis Report)"`
+	Findings string `json:"findings,omitempty" jsonschema:"description=Report findings/content"`
+}
+
 // ReportGeneratorTool generates a formatted report
 type ReportGeneratorTool struct{}
 
-func (r *ReportGeneratorTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	title, _ := kwargs["title"].(string)
+func (r *ReportGeneratorTool) Call(ctx context.Context, args *ReportGeneratorToolParams) (*tool.ToolResponse, error) {
+	title := args.Title
 	if title == "" {
 		title = "Data Analysis Report"
 	}
 
-	findings, _ := kwargs["findings"].(string)
-
 	report := fmt.Sprintf("=== %s ===\n", title)
-	report += fmt.Sprintf("%s\n", findings)
+	report += fmt.Sprintf("%s\n", args.Findings)
 	report += fmt.Sprintf("\nGenerated by Data Analysis Agent")
 
 	return tool.TextResponse(report), nil
@@ -554,7 +564,14 @@ func (r *ReportGeneratorTool) Call(ctx context.Context, kwargs map[string]any) (
 type CalculatorTool struct{}
 
 // Call implements the ToolCallable interface
-func (c *CalculatorTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+func (c *CalculatorTool) Call(ctx context.Context, args any) (*tool.ToolResponse, error) {
+	var kwargs map[string]any
+	if m, ok := args.(map[string]any); ok {
+		kwargs = m
+	} else {
+		kwargs = make(map[string]any)
+	}
+
 	operation, _ := kwargs["operation"].(string)
 	a, _ := kwargs["a"].(float64)
 	b, _ := kwargs["b"].(float64)

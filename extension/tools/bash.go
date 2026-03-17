@@ -9,7 +9,6 @@ import (
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
-	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // BashTool provides bash command execution capabilities
@@ -153,21 +152,9 @@ func RegisterBashTool(tk *tool.Toolkit, options ...func(*BashTool)) error {
 	})
 }
 
-// Call implements the ToolCallable interface for programmatic use
-func (b *BashTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	params := BashParams{}
-	if command, ok := kwargs["command"].(string); ok {
-		params.Command = command
-	}
-	if timeout, ok := kwargs["timeout"].(float64); ok {
-		params.Timeout = int(timeout)
-	}
-	return b.Bash(ctx, params)
-}
-
 // ToToolUseBlock converts parameters to a ToolUseBlock for agent use
 func (b *BashTool) ToToolUseBlock(params BashParams) *message.ToolUseBlock {
-	input := map[string]types.JSONSerializable{
+	input := map[string]any{
 		"command": params.Command,
 	}
 	if params.Timeout > 0 {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
-	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // ReadTool provides file reading capabilities
@@ -134,29 +133,9 @@ func RegisterReadTool(tk *tool.Toolkit, options ...func(*ReadTool)) error {
 	})
 }
 
-// Call implements the ToolCallable interface for programmatic use
-func (r *ReadTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	params := ReadParams{}
-	if path, ok := kwargs["path"].(string); ok {
-		params.Path = path
-	}
-	// Handle both int and float64 for numeric parameters
-	if offset, ok := kwargs["offset"].(int); ok {
-		params.Offset = offset
-	} else if offset, ok := kwargs["offset"].(float64); ok {
-		params.Offset = int(offset)
-	}
-	if limit, ok := kwargs["limit"].(int); ok {
-		params.Limit = limit
-	} else if limit, ok := kwargs["limit"].(float64); ok {
-		params.Limit = int(limit)
-	}
-	return r.Read(ctx, params)
-}
-
 // ToToolUseBlock converts parameters to a ToolUseBlock for agent use
 func (r *ReadTool) ToToolUseBlock(params ReadParams) *message.ToolUseBlock {
-	input := map[string]types.JSONSerializable{
+	input := map[string]any{
 		"path": params.Path,
 	}
 	if params.Offset > 0 {

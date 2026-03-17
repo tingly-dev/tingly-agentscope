@@ -8,12 +8,12 @@ import (
 	"log"
 	"os"
 
+	"github.com/tingly-dev/tingly-agentscope/extension/toolpick"
 	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
-	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
@@ -160,7 +160,14 @@ type GetWeatherInput struct {
 
 type GetWeather struct{}
 
-func (g GetWeather) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
+func (g GetWeather) Call(_ context.Context, args any) (*tool.ToolResponse, error) {
+	var params map[string]any
+	if m, ok := args.(map[string]any); ok {
+		params = m
+	} else {
+		params = make(map[string]any)
+	}
+
 	input, err := parseParams[GetWeatherInput](params)
 	if err != nil {
 		return nil, err
@@ -180,7 +187,14 @@ type GetForecastInput struct {
 
 type GetForecast struct{}
 
-func (g GetForecast) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
+func (g GetForecast) Call(_ context.Context, args any) (*tool.ToolResponse, error) {
+	var params map[string]any
+	if m, ok := args.(map[string]any); ok {
+		params = m
+	} else {
+		params = make(map[string]any)
+	}
+
 	input, err := parseParams[GetForecastInput](params)
 	if err != nil {
 		return nil, err
@@ -204,7 +218,14 @@ type AddInput struct {
 
 type Add struct{}
 
-func (Add) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
+func (Add) Call(_ context.Context, args any) (*tool.ToolResponse, error) {
+	var params map[string]any
+	if m, ok := args.(map[string]any); ok {
+		params = m
+	} else {
+		params = make(map[string]any)
+	}
+
 	input, err := parseParams[AddInput](params)
 	if err != nil {
 		return nil, err
@@ -220,7 +241,14 @@ type MultiplyInput struct {
 
 type Multiply struct{}
 
-func (m Multiply) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
+func (m Multiply) Call(_ context.Context, args any) (*tool.ToolResponse, error) {
+	var params map[string]any
+	if m2, ok := args.(map[string]any); ok {
+		params = m2
+	} else {
+		params = make(map[string]any)
+	}
+
 	input, err := parseParams[MultiplyInput](params)
 	if err != nil {
 		return nil, err
@@ -235,7 +263,14 @@ type ReadFileInput struct {
 
 type ReadFile struct{}
 
-func (r ReadFile) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
+func (r ReadFile) Call(_ context.Context, args any) (*tool.ToolResponse, error) {
+	var params map[string]any
+	if m, ok := args.(map[string]any); ok {
+		params = m
+	} else {
+		params = make(map[string]any)
+	}
+
 	input, err := parseParams[ReadFileInput](params)
 	if err != nil {
 		return nil, err
@@ -251,7 +286,14 @@ type WriteFileInput struct {
 
 type WriteFile struct{}
 
-func (w WriteFile) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
+func (w WriteFile) Call(_ context.Context, args any) (*tool.ToolResponse, error) {
+	var params map[string]any
+	if m, ok := args.(map[string]any); ok {
+		params = m
+	} else {
+		params = make(map[string]any)
+	}
+
 	input, err := parseParams[WriteFileInput](params)
 	if err != nil {
 		return nil, err

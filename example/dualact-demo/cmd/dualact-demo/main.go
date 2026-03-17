@@ -38,9 +38,18 @@ func main() {
 	// Create toolkit for the reactive agent
 	toolkit := tool.NewToolkit()
 
-	// Register demo tools
-	toolkit.Register(&WriteFileTool{}, &tool.RegisterOptions{GroupName: "file"})
-	toolkit.Register(&RunCodeTool{}, &tool.RegisterOptions{GroupName: "execution"})
+	// Register demo tools - now with automatic type detection!
+	// The system automatically detects argument types and generates schemas
+	toolkit.Register(&WriteFileTool{}, &tool.RegisterOptions{
+		GroupName:       "file",
+		FuncName:        "write_file",
+		FuncDescription: "Write content to a file. Creates the file if it doesn't exist.",
+	})
+	toolkit.Register(&RunCodeTool{}, &tool.RegisterOptions{
+		GroupName:       "execution",
+		FuncName:        "run_code",
+		FuncDescription: "Execute code and return the output.",
+	})
 
 	ctx := context.Background()
 
@@ -309,85 +318,46 @@ func (c *TinglyModelClient) IsStreaming() bool {
 func (c *TinglyModelClient) SetFormatter(formatter any) {}
 
 // ============================================================
-// Demo Tools
+// Demo Tools - Now with Type-Safe Arguments!
 // ============================================================
+
+// WriteFileArgs defines the arguments for writing a file
+type WriteFileArgs struct {
+	Filename string `json:"filename" jsonschema:"required,description=Name of the file to write"`
+	Content  string `json:"content" jsonschema:"required,description=Content to write to the file"`
+}
 
 // WriteFileTool simulates writing a file
 type WriteFileTool struct{}
 
-func (w *WriteFileTool) Name() string {
-	return "write_file"
-}
-
-func (w *WriteFileTool) Description() string {
-	return "Write content to a file. Creates the file if it doesn't exist."
-}
-
-func (w *WriteFileTool) Parameters() map[string]any {
-	return map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"filename": map[string]any{
-				"type":        "string",
-				"description": "Name of the file to write",
-			},
-			"content": map[string]any{
-				"type":        "string",
-				"description": "Content to write to the file",
-			},
-		},
-		"required": []string{"filename", "content"},
-	}
-}
-
-func (w *WriteFileTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	filename := kwargs["filename"].(string)
-	content := kwargs["content"].(string)
-
-	// Simulate writing file
-	fmt.Printf("  📄 Writing: %s (%d bytes)\n", filename, len(content))
+func (w *WriteFileTool) Call(ctx context.Context, args *WriteFileArgs) (*tool.ToolResponse, error) {
+	// args is already *WriteFileArgs - no type assertions needed!
+	fmt.Printf("  📄 Writing: %s (%d bytes)\n", args.Filename, len(args.Content))
 
 	time.Sleep(300 * time.Millisecond) // Simulate I/O
 
-	return tool.TextResponse(fmt.Sprintf("Successfully wrote %s", filename)), nil
+	return tool.TextResponse(fmt.Sprintf("Successfully wrote %s", args.Filename)), nil
+}
+
+// RunCodeArgs defines the arguments for running code
+type RunCodeArgs struct {
+	Command string `json:"command" jsonschema:"required,description=Command to run (e.g., 'go test', 'go run main.go')"`
 }
 
 // RunCodeTool simulates running code
 type RunCodeTool struct{}
 
-func (r *RunCodeTool) Name() string {
-	return "run_code"
-}
-
-func (r *RunCodeTool) Description() string {
-	return "Execute code and return the output."
-}
-
-func (r *RunCodeTool) Parameters() map[string]any {
-	return map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"command": map[string]any{
-				"type":        "string",
-				"description": "Command to run (e.g., 'go test', 'go run main.go')",
-			},
-		},
-		"required": []string{"command"},
-	}
-}
-
-func (r *RunCodeTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	command := kwargs["command"].(string)
-
-	fmt.Printf("  🔧 Executing: %s\n", command)
+func (r *RunCodeTool) Call(ctx context.Context, args *RunCodeArgs) (*tool.ToolResponse, error) {
+	// args is already *RunCodeArgs - direct access!
+	fmt.Printf("  🔧 Executing: %s\n", args.Command)
 
 	time.Sleep(500 * time.Millisecond) // Simulate execution
 
 	// Simulate running tests
-	if strings.Contains(command, "test") {
+	if strings.Contains(args.Command, "test") {
 		fmt.Println("  ✅ All tests passed!")
 		return tool.TextResponse("PASS - All tests passed"), nil
 	}
 
-	return tool.TextResponse(fmt.Sprintf("Executed: %s", command)), nil
+	return tool.TextResponse(fmt.Sprintf("Executed: %s", args.Command)), nil
 }

@@ -3,13 +3,12 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/tingly-dev/tingly-agentscope/extension/toolpick"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
-	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick"
 )
 
 // Constants for configuration defaults
@@ -142,28 +141,80 @@ type Scenario struct {
 }
 
 func registerTools(toolkit *tool.Toolkit) {
-	// Weather tools
-	toolkit.Register(&GetWeatherTool{}, &tool.RegisterOptions{GroupName: "weather", FuncName: "weather_get"})
-	toolkit.Register(&GetForecastTool{}, &tool.RegisterOptions{GroupName: "weather", FuncName: "weather_forecast"})
-	toolkit.Register(&HistoricalWeatherTool{}, &tool.RegisterOptions{GroupName: "weather", FuncName: "weather_historical"})
+	// Weather tools - automatic type detection and schema generation
+	toolkit.Register(&GetWeatherTool{}, &tool.RegisterOptions{
+		GroupName:       "weather",
+		FuncName:        "weather_get",
+		FuncDescription: "Get current weather for a city",
+	})
+	toolkit.Register(&GetForecastTool{}, &tool.RegisterOptions{
+		GroupName:       "weather",
+		FuncName:        "weather_forecast",
+		FuncDescription: "Get 5-day weather forecast",
+	})
+	toolkit.Register(&HistoricalWeatherTool{}, &tool.RegisterOptions{
+		GroupName:       "weather",
+		FuncName:        "weather_historical",
+		FuncDescription: "Get historical weather data",
+	})
 
 	// File tools
-	toolkit.Register(&ReadFileTool{}, &tool.RegisterOptions{GroupName: "file", FuncName: "file_read"})
-	toolkit.Register(&WriteFileTool{}, &tool.RegisterOptions{GroupName: "file", FuncName: "file_write"})
-	toolkit.Register(&ListFilesTool{}, &tool.RegisterOptions{GroupName: "file", FuncName: "file_list"})
+	toolkit.Register(&ReadFileTool{}, &tool.RegisterOptions{
+		GroupName:       "file",
+		FuncName:        "file_read",
+		FuncDescription: "Read file contents",
+	})
+	toolkit.Register(&WriteFileTool{}, &tool.RegisterOptions{
+		GroupName:       "file",
+		FuncName:        "file_write",
+		FuncDescription: "Write data to a file",
+	})
+	toolkit.Register(&ListFilesTool{}, &tool.RegisterOptions{
+		GroupName:       "file",
+		FuncName:        "file_list",
+		FuncDescription: "List files in a directory",
+	})
 
 	// Calculator tools
-	toolkit.Register(&AddTool{}, &tool.RegisterOptions{GroupName: "calc", FuncName: "calc_add"})
-	toolkit.Register(&MultiplyTool{}, &tool.RegisterOptions{GroupName: "calc", FuncName: "calc_multiply"})
-	toolkit.Register(&AverageTool{}, &tool.RegisterOptions{GroupName: "calc", FuncName: "calc_average"})
+	toolkit.Register(&AddTool{}, &tool.RegisterOptions{
+		GroupName:       "calc",
+		FuncName:        "calc_add",
+		FuncDescription: "Add two numbers",
+	})
+	toolkit.Register(&MultiplyTool{}, &tool.RegisterOptions{
+		GroupName:       "calc",
+		FuncName:        "calc_multiply",
+		FuncDescription: "Multiply two numbers",
+	})
+	toolkit.Register(&AverageTool{}, &tool.RegisterOptions{
+		GroupName:       "calc",
+		FuncName:        "calc_average",
+		FuncDescription: "Calculate average of numbers",
+	})
 
 	// Search tools
-	toolkit.Register(&WebSearchTool{}, &tool.RegisterOptions{GroupName: "search", FuncName: "search_web"})
-	toolkit.Register(&DatabaseQueryTool{}, &tool.RegisterOptions{GroupName: "search", FuncName: "search_database"})
+	toolkit.Register(&WebSearchTool{}, &tool.RegisterOptions{
+		GroupName:       "search",
+		FuncName:        "search_web",
+		FuncDescription: "Search the web",
+	})
+	toolkit.Register(&DatabaseQueryTool{}, &tool.RegisterOptions{
+		GroupName:       "search",
+		FuncName:        "search_database",
+		FuncDescription: "Query database",
+	})
 
 	// Communication tools
-	toolkit.Register(&SendEmailTool{}, &tool.RegisterOptions{GroupName: "communication", FuncName: "comm_email"})
-	toolkit.Register(&SendMessageTool{}, &tool.RegisterOptions{GroupName: "communication", FuncName: "comm_message"})
+	toolkit.Register(&SendEmailTool{}, &tool.RegisterOptions{
+		GroupName:       "communication",
+		FuncName:        "comm_email",
+		FuncDescription: "Send an email",
+	})
+	toolkit.Register(&SendMessageTool{}, &tool.RegisterOptions{
+		GroupName:       "communication",
+		FuncName:        "comm_message",
+		FuncDescription: "Send a chat message",
+	})
 }
 
 func displayToolSelection(result *toolpick.SelectionResult) {
@@ -248,186 +299,163 @@ func demonstrateQualityTracking(provider *toolpick.ToolProvider) {
 
 // Mock tool implementations
 
-// parseParams converts map[string]any to a typed struct.
-func parseParams[T any](params map[string]any) (*T, error) {
-	var result T
-	data, err := json.Marshal(params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal params: %w", err)
-	}
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse params: %w", err)
-	}
-	return &result, nil
-}
-
 // GetWeatherToolParams defines parameters for GetWeatherTool.
 type GetWeatherToolParams struct {
-	City string `json:"city"`
+	City string `json:"city" jsonschema:"required,description=City name to get weather for"`
 }
 
 type GetWeatherTool struct{}
 
-func (g *GetWeatherTool) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
-	input, err := parseParams[GetWeatherToolParams](params)
-	if err != nil {
-		return nil, err
-	}
-	return tool.TextResponse(fmt.Sprintf("Weather in %s: Sunny, 22°C", input.City)), nil
+func (g *GetWeatherTool) Call(_ context.Context, args *GetWeatherToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("Weather in %s: Sunny, 22°C", args.City)), nil
 }
 
 // GetForecastToolParams defines parameters for GetForecastTool.
 type GetForecastToolParams struct {
-	City string `json:"city"`
+	City string `json:"city" jsonschema:"required,description=City name for forecast"`
 }
 
 type GetForecastTool struct{}
 
-func (g *GetForecastTool) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
-	input, err := parseParams[GetForecastToolParams](params)
-	if err != nil {
-		return nil, err
-	}
-	return tool.TextResponse(fmt.Sprintf("5-day forecast for %s: 22°C, 24°C, 21°C, 23°C, 20°C", input.City)), nil
+func (g *GetForecastTool) Call(_ context.Context, args *GetForecastToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("5-day forecast for %s: 22°C, 24°C, 21°C, 23°C, 20°C", args.City)), nil
 }
 
 // HistoricalWeatherToolParams defines parameters for HistoricalWeatherTool.
 type HistoricalWeatherToolParams struct {
-	Date string `json:"date"`
-	City string `json:"city"`
+	Date string `json:"date" jsonschema:"required,description=Date in YYYY-MM-DD format"`
+	City string `json:"city" jsonschema:"required,description=City name"`
 }
 
 type HistoricalWeatherTool struct{}
 
-func (h *HistoricalWeatherTool) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
-	input, err := parseParams[HistoricalWeatherToolParams](params)
-	if err != nil {
-		return nil, err
-	}
-	return tool.TextResponse(fmt.Sprintf("Historical weather for %s on %s: 18°C", input.City, input.Date)), nil
+func (h *HistoricalWeatherTool) Call(_ context.Context, args *HistoricalWeatherToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("Historical weather for %s on %s: 18°C", args.City, args.Date)), nil
 }
 
 // ReadFileToolParams defines parameters for ReadFileTool.
 type ReadFileToolParams struct {
-	Path string `json:"path"`
+	Path string `json:"path" jsonschema:"required,description=File path to read"`
 }
 
 type ReadFileTool struct{}
 
-func (r *ReadFileTool) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
-	input, err := parseParams[ReadFileToolParams](params)
-	if err != nil {
-		return nil, err
-	}
-	return tool.TextResponse(fmt.Sprintf("Contents of %s: [data]", input.Path)), nil
+func (r *ReadFileTool) Call(_ context.Context, args *ReadFileToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("Contents of %s: [data]", args.Path)), nil
 }
 
 // WriteFileToolParams defines parameters for WriteFileTool.
 type WriteFileToolParams struct {
-	Path string `json:"path"`
+	Path    string `json:"path" jsonschema:"required,description=File path to write"`
+	Content string `json:"content" jsonschema:"required,description=Content to write"`
 }
 
 type WriteFileTool struct{}
 
-func (w *WriteFileTool) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
-	input, err := parseParams[WriteFileToolParams](params)
-	if err != nil {
-		return nil, err
-	}
-	return tool.TextResponse(fmt.Sprintf("Written data to %s", input.Path)), nil
+func (w *WriteFileTool) Call(_ context.Context, args *WriteFileToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("Written data to %s", args.Path)), nil
+}
+
+// ListFilesToolParams defines parameters for ListFilesTool.
+type ListFilesToolParams struct {
+	Directory string `json:"directory" jsonschema:"description=Directory to list (default: current)"`
 }
 
 type ListFilesTool struct{}
 
-func (l *ListFilesTool) Call(_ context.Context, _ map[string]any) (*tool.ToolResponse, error) {
-	return tool.TextResponse("Files: data.csv, report.txt"), nil
+func (l *ListFilesTool) Call(_ context.Context, args *ListFilesToolParams) (*tool.ToolResponse, error) {
+	dir := args.Directory
+	if dir == "" {
+		dir = "."
+	}
+	return tool.TextResponse(fmt.Sprintf("Files in %s: data.csv, report.txt", dir)), nil
 }
 
 // AddToolParams defines parameters for AddTool.
 type AddToolParams struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
+	X float64 `json:"x" jsonschema:"required,description=First number"`
+	Y float64 `json:"y" jsonschema:"required,description=Second number"`
 }
 
 type AddTool struct{}
 
-func (AddTool) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
-	input, err := parseParams[AddToolParams](params)
-	if err != nil {
-		return nil, err
-	}
-	return tool.TextResponse(fmt.Sprintf("%.2f", input.X+input.Y)), nil
+func (a *AddTool) Call(_ context.Context, args *AddToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("%.2f", args.X+args.Y)), nil
 }
 
 // MultiplyToolParams defines parameters for MultiplyTool.
 type MultiplyToolParams struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
+	X float64 `json:"x" jsonschema:"required,description=First number"`
+	Y float64 `json:"y" jsonschema:"required,description=Second number"`
 }
 
 type MultiplyTool struct{}
 
-func (m *MultiplyTool) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
-	input, err := parseParams[MultiplyToolParams](params)
-	if err != nil {
-		return nil, err
-	}
-	return tool.TextResponse(fmt.Sprintf("%.2f", input.X*input.Y)), nil
+func (m *MultiplyTool) Call(_ context.Context, args *MultiplyToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("%.2f", args.X*args.Y)), nil
+}
+
+// AverageToolParams defines parameters for AverageTool.
+type AverageToolParams struct {
+	Numbers []float64 `json:"numbers" jsonschema:"required,description=Numbers to average"`
 }
 
 type AverageTool struct{}
 
-func (a *AverageTool) Call(_ context.Context, _ map[string]any) (*tool.ToolResponse, error) {
-	return tool.TextResponse("Average: 23.45"), nil
+func (a *AverageTool) Call(_ context.Context, args *AverageToolParams) (*tool.ToolResponse, error) {
+	if len(args.Numbers) == 0 {
+		return tool.TextResponse("Average: 0.00"), nil
+	}
+	sum := 0.0
+	for _, n := range args.Numbers {
+		sum += n
+	}
+	return tool.TextResponse(fmt.Sprintf("Average: %.2f", sum/float64(len(args.Numbers)))), nil
 }
 
 // WebSearchToolParams defines parameters for WebSearchTool.
 type WebSearchToolParams struct {
-	Query string `json:"query"`
+	Query string `json:"query" jsonschema:"required,description=Search query"`
 }
 
 type WebSearchTool struct{}
 
-func (w *WebSearchTool) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
-	input, err := parseParams[WebSearchToolParams](params)
-	if err != nil {
-		return nil, err
-	}
-	return tool.TextResponse(fmt.Sprintf("Search results for '%s': [...]", input.Query)), nil
+func (w *WebSearchTool) Call(_ context.Context, args *WebSearchToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("Search results for '%s': [...]", args.Query)), nil
+}
+
+// DatabaseQueryToolParams defines parameters for DatabaseQueryTool.
+type DatabaseQueryToolParams struct {
+	SQL string `json:"sql" jsonschema:"required,description=SQL query"`
 }
 
 type DatabaseQueryTool struct{}
 
-func (d *DatabaseQueryTool) Call(_ context.Context, _ map[string]any) (*tool.ToolResponse, error) {
-	return tool.TextResponse("Query results: [...]"), nil
+func (d *DatabaseQueryTool) Call(_ context.Context, args *DatabaseQueryToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("Query results for '%s': [...]", args.SQL)), nil
 }
 
 // SendEmailToolParams defines parameters for SendEmailTool.
 type SendEmailToolParams struct {
-	To string `json:"to"`
+	To      string `json:"to" jsonschema:"required,description=Recipient email"`
+	Subject string `json:"subject" jsonschema:"description=Email subject"`
+	Body    string `json:"body" jsonschema:"description=Email body"`
 }
 
 type SendEmailTool struct{}
 
-func (s *SendEmailTool) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
-	input, err := parseParams[SendEmailToolParams](params)
-	if err != nil {
-		return nil, err
-	}
-	return tool.TextResponse(fmt.Sprintf("Email sent to %s", input.To)), nil
+func (s *SendEmailTool) Call(_ context.Context, args *SendEmailToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("Email sent to %s", args.To)), nil
 }
 
 // SendMessageToolParams defines parameters for SendMessageTool.
 type SendMessageToolParams struct {
-	Channel string `json:"channel"`
+	Channel string `json:"channel" jsonschema:"required,description=Channel name"`
+	Message string `json:"message" jsonschema:"required,description=Message to send"`
 }
 
 type SendMessageTool struct{}
 
-func (s *SendMessageTool) Call(_ context.Context, params map[string]any) (*tool.ToolResponse, error) {
-	input, err := parseParams[SendMessageToolParams](params)
-	if err != nil {
-		return nil, err
-	}
-	return tool.TextResponse(fmt.Sprintf("Message sent to %s", input.Channel)), nil
+func (s *SendMessageTool) Call(_ context.Context, args *SendMessageToolParams) (*tool.ToolResponse, error) {
+	return tool.TextResponse(fmt.Sprintf("Message sent to %s", args.Channel)), nil
 }

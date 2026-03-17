@@ -8,7 +8,6 @@ import (
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
-	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // WriteTool provides file writing capabilities
@@ -110,23 +109,11 @@ func RegisterWriteTool(tk *tool.Toolkit, options ...func(*WriteTool)) error {
 	})
 }
 
-// Call implements the ToolCallable interface for programmatic use
-func (w *WriteTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	params := WriteParams{}
-	if path, ok := kwargs["path"].(string); ok {
-		params.Path = path
-	}
-	if content, ok := kwargs["content"].(string); ok {
-		params.Content = content
-	}
-	return w.Write(ctx, params)
-}
-
 // ToToolUseBlock converts parameters to a ToolUseBlock for agent use
 func (w *WriteTool) ToToolUseBlock(params WriteParams) *message.ToolUseBlock {
 	return &message.ToolUseBlock{
 		Name: "write",
-		Input: map[string]types.JSONSerializable{
+		Input: map[string]any{
 			"path":    params.Path,
 			"content": params.Content,
 		},

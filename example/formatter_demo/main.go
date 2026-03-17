@@ -24,7 +24,7 @@ func main() {
 	// Example 2: Assistant with tool use
 	fmt.Println("\n🤖 Example 2: Assistant with Tool Use")
 	fmt.Println("─────────────────────────────────────────────────────────────────")
-	toolInput := map[string]types.JSONSerializable{
+	toolInput := map[string]any{
 		"pattern": "*.go",
 	}
 	blocks := []message.ContentBlock{
@@ -56,7 +56,7 @@ func main() {
 	// Example 4: Complete tool call flow with parameters
 	fmt.Println("\n🔄 Example 4: Complete Tool Call Flow")
 	fmt.Println("─────────────────────────────────────────────────────────────────")
-	toolInput2 := map[string]types.JSONSerializable{
+	toolInput2 := map[string]any{
 		"path":  "main.go",
 		"limit": float64(10),
 	}

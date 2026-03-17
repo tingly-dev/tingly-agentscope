@@ -9,7 +9,6 @@ import (
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
-	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // EditTool provides file editing capabilities
@@ -108,26 +107,11 @@ func RegisterEditTool(tk *tool.Toolkit, options ...func(*EditTool)) error {
 	})
 }
 
-// Call implements the ToolCallable interface for programmatic use
-func (e *EditTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	params := EditParams{}
-	if path, ok := kwargs["path"].(string); ok {
-		params.Path = path
-	}
-	if oldText, ok := kwargs["oldText"].(string); ok {
-		params.OldText = oldText
-	}
-	if newText, ok := kwargs["newText"].(string); ok {
-		params.NewText = newText
-	}
-	return e.Edit(ctx, params)
-}
-
 // ToToolUseBlock converts parameters to a ToolUseBlock for agent use
 func (e *EditTool) ToToolUseBlock(params EditParams) *message.ToolUseBlock {
 	return &message.ToolUseBlock{
 		Name: "edit",
-		Input: map[string]types.JSONSerializable{
+		Input: map[string]any{
 			"path":    params.Path,
 			"oldText": params.OldText,
 			"newText": params.NewText,
