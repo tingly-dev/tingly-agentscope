@@ -9,6 +9,7 @@ import (
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model"
+	"github.com/tingly-dev/tingly-agentscope/pkg/registry"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 	"github.com/tingly-dev/tingly-agentscope/pkg/utils"
 )
@@ -67,7 +68,8 @@ type RegisteredFunction struct {
 	JSONSchema   model.ToolDefinition              `json:"json_schema"`
 	Function     ToolFunction                      `json:"-"`
 	PresetKwargs map[string]types.JSONSerializable `json:"preset_kwargs"`
-	ArgType      reflect.Type                      `json:"-"` // Expected argument type for type-safe calls
+	ArgType      reflect.Type                      `json:"-"` // Expected argument type for type-safe calls (legacy)
+	Decoder      registry.Decoder                  `json:"-"` // Cached decoder for zero-reflection calls
 }
 
 // CallFunc represents a function that can be called
@@ -154,6 +156,7 @@ func (t *Toolkit) RemoveToolGroups(groupNames []string) error {
 
 // Register registers a tool function
 // Auto-creates the group if it doesn't exist (except for "basic" which is implicit)
+// Auto-detects argument type for type-safe tools
 func (t *Toolkit) Register(function ToolFunction, options *RegisterOptions) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -176,20 +179,34 @@ func (t *Toolkit) Register(function ToolFunction, options *RegisterOptions) erro
 		}
 	}
 
-	// Parse function to get schema
-	schema, err := parseFunctionSchema(function, options)
-	if err != nil {
-		return fmt.Errorf("failed to parse function schema: %w", err)
-	}
-
-	// Extract ArgType from options if provided
+	// Try to auto-detect argument type from the tool function
 	var argType reflect.Type
-	if options.ArgType != nil {
+	var decoder registry.Decoder
+
+	if detectedType, err := registry.DetectArgType(reflect.TypeOf(function)); err == nil {
+		// Tool implements the typed pattern - register decoder
+		argType = detectedType
+		if dec, err := registry.Register(detectedType); err == nil {
+			decoder = dec
+		}
+
+		// Auto-generate schema from struct tags if not provided
+		if options.JSONSchema == nil {
+			schema := registry.GenerateSchema(detectedType, options.FuncName, options.FuncDescription)
+			options.JSONSchema = schema
+		}
+	} else if options.ArgType != nil {
+		// Fall back to legacy ArgType option
 		argType = reflect.TypeOf(options.ArgType)
-		// If it's a pointer, get the element type
 		if argType.Kind() == reflect.Ptr {
 			argType = argType.Elem()
 		}
+	}
+
+	// Parse function to get schema (fallback if not auto-generated)
+	schema, err := parseFunctionSchema(function, options)
+	if err != nil {
+		return fmt.Errorf("failed to parse function schema: %w", err)
 	}
 
 	// Handle name conflict
@@ -220,6 +237,7 @@ func (t *Toolkit) Register(function ToolFunction, options *RegisterOptions) erro
 		Function:     function,
 		PresetKwargs: options.PresetKwargs,
 		ArgType:      argType,
+		Decoder:      decoder,
 	}
 
 	return nil
@@ -415,12 +433,21 @@ func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*T
 	// Build the call chain with middlewares
 	callFunc := t.buildCallChain(tool)
 
-	// Prepare arguments - if tool has ArgType, try to convert Input to that type
+	// Prepare arguments
 	var args any = toolBlock.Input
-	if tool.ArgType != nil && toolBlock.Input != nil {
-		// Try to convert Input to the expected argument type
+
+	// Use cached decoder if available (zero reflection path)
+	if tool.Decoder != nil && toolBlock.Input != nil {
 		if inputMap, ok := toolBlock.Input.(map[string]any); ok {
-			// Convert map to struct using JSON marshal/unmarshal
+			decoded, err := tool.Decoder.Decode(inputMap)
+			if err != nil {
+				return TextResponse(fmt.Sprintf("Error decoding arguments: %v", err)), nil
+			}
+			args = decoded
+		}
+	} else if tool.ArgType != nil && toolBlock.Input != nil {
+		// Legacy path: use JSON marshal/unmarshal for backward compatibility
+		if inputMap, ok := toolBlock.Input.(map[string]any); ok {
 			argValue := reflect.New(tool.ArgType).Elem()
 			data, err := json.Marshal(inputMap)
 			if err == nil {
@@ -428,12 +455,9 @@ func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*T
 				args = argValue.Interface()
 			}
 		}
-	}
-
-	// For tools without explicit ArgType, convert to map[string]any
-	if tool.ArgType == nil {
+	} else {
+		// For tools without explicit ArgType, wrap in a map for backward compatibility
 		if _, ok := args.(map[string]any); !ok {
-			// Wrap in a map for backward compatibility
 			m := make(map[string]any)
 			m["input"] = args
 			args = m
