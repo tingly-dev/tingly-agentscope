@@ -69,3 +69,19 @@ func TestRenderStructuredThought(t *testing.T) {
 		t.Errorf("Should contain thought text, got: %s", output)
 	}
 }
+
+func TestRenderMarkdown(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+
+	markdown := "# Hello\n\nThis is **bold** and `code`."
+
+	rendered := renderer.renderMarkdown(markdown)
+	if rendered == "" {
+		t.Error("Should render markdown")
+	}
+
+	// Output should be processed (may contain ANSI codes)
+	if rendered == markdown {
+		t.Error("Should process markdown, not return raw")
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
@@ -120,9 +121,9 @@ func (r *MessageRenderer) renderTextBlock(sb *strings.Builder, block *message.Te
 	sb.WriteString(AssistantStyle.Render("Assistant"))
 	sb.WriteString("\n")
 
-	// Render content with wrapping
-	wrapped := wrapText(text, r.width-2)
-	sb.WriteString(ContentStyle.Render(wrapped))
+	// Render markdown content
+	rendered := r.renderMarkdown(text)
+	sb.WriteString(rendered)
 }
 
 // tryRenderStructuredThought attempts to render JSON thought structure
@@ -338,4 +339,24 @@ func (r *MessageRenderer) formatInt(n int) string {
 // SetWidth updates the renderer width
 func (r *MessageRenderer) SetWidth(width int) {
 	r.width = width
+}
+
+// renderMarkdown renders markdown text to formatted string
+func (r *MessageRenderer) renderMarkdown(text string) string {
+	// Create glamour renderer with custom styles
+	renderer, err := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(r.width-4),
+	)
+	if err != nil {
+		// Fall back to plain text
+		return text
+	}
+
+	rendered, err := renderer.Render(text)
+	if err != nil {
+		return text
+	}
+
+	return rendered
 }
