@@ -43,10 +43,18 @@ type IndexConfig struct {
 	Languages   []string `toml:"languages"`
 }
 
+// SessionConfig holds session persistence settings
+type SessionConfig struct {
+	Enabled     bool   `toml:"enabled"`
+	StoragePath string `toml:"storage_path"`
+	SessionID   string `toml:"session_id"`
+}
+
 // Config holds the complete configuration for LucyBot
 type Config struct {
-	Agent AgentConfig `toml:"agent"`
-	Index IndexConfig `toml:"index"`
+	Agent   AgentConfig   `toml:"agent"`
+	Index   IndexConfig   `toml:"index"`
+	Session SessionConfig `toml:"session"`
 }
 
 const (
@@ -134,6 +142,11 @@ func GetDefaultConfig() *Config {
 		Index: IndexConfig{
 			AutoRebuild: true,
 			Languages:   []string{"go", "python", "javascript", "typescript", "rust", "java", "c", "cpp"},
+		},
+		Session: SessionConfig{
+			Enabled:     false,
+			StoragePath: "",
+			SessionID:   "",
 		},
 	}
 }
