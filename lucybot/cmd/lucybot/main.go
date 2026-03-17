@@ -9,6 +9,7 @@ import (
 	"github.com/tingly-dev/lucybot/internal/agent"
 	"github.com/tingly-dev/lucybot/internal/config"
 	"github.com/tingly-dev/lucybot/internal/index"
+	"github.com/tingly-dev/lucybot/internal/session"
 	"github.com/tingly-dev/lucybot/internal/tools"
 	"github.com/tingly-dev/lucybot/internal/ui"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
@@ -73,6 +74,15 @@ var chatCommand = &cli.Command{
 			Aliases: []string{"s"},
 			Usage:   "Use simple mode (no TUI)",
 		},
+		&cli.StringFlag{
+			Name:    "session",
+			Aliases: []string{"S"},
+			Usage:   "Session ID for persistence (enables session feature)",
+		},
+		&cli.BoolFlag{
+			Name:  "load",
+			Usage: "Load existing session (requires --session)",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		workDir := c.String("working-dir")
@@ -100,6 +110,13 @@ var chatCommand = &cli.Command{
 		// Set working directory
 		cfg.Agent.WorkingDirectory = workDir
 
+		// Enable session if --session flag is provided
+		sessionID := c.String("session")
+		if sessionID != "" {
+			cfg.Session.Enabled = true
+			cfg.Session.SessionID = sessionID
+		}
+
 		// Create agent
 		lucybotAgent, err := agent.NewLucyBotAgent(&agent.LucyBotAgentConfig{
 			Config:  cfg,
@@ -107,6 +124,25 @@ var chatCommand = &cli.Command{
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create agent: %w", err)
+		}
+
+		// Initialize session manager if enabled
+		var sessionMgr *session.Manager
+		if cfg.Session.Enabled {
+			sessionMgr, err = session.NewManager(&cfg.Session)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to initialize session manager: %v\n", err)
+			}
+		}
+
+		// Load session if requested
+		if c.Bool("load") && sessionMgr != nil && sessionID != "" {
+			sess, err := sessionMgr.Load(sessionID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to load session: %v\n", err)
+			} else {
+				fmt.Printf("✓ Loaded session: %s (%d messages)\n", sess.Name, len(sess.Messages))
+			}
 		}
 
 		// Single query mode
