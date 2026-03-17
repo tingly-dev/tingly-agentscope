@@ -81,7 +81,10 @@ type MiddlewareFunc func(CallFunc) CallFunc
 
 // Toolkit manages tool functions
 type Toolkit struct {
-	mu          sync.RWMutex
+	mu       sync.RWMutex
+	registry *ToolRegistry
+	caller   *ToolCaller
+	// Legacy: keep for backward compatibility
 	tools       map[string]*RegisteredFunction
 	groups      map[string]*ToolGroup
 	middlewares []MiddlewareFunc
@@ -89,9 +92,166 @@ type Toolkit struct {
 
 // NewToolkit creates a new toolkit
 func NewToolkit() *Toolkit {
+	registry := NewToolRegistry()
+	caller := NewToolCaller(registry)
+
 	return &Toolkit{
-		tools:  make(map[string]*RegisteredFunction),
-		groups: make(map[string]*ToolGroup),
+		registry: registry,
+		caller:   caller,
+		tools:    make(map[string]*RegisteredFunction),
+		groups:   make(map[string]*ToolGroup),
+	}
+}
+
+// registerTool registers a tool with type-safe structured arguments
+// This is the primary registration method
+func (t *Toolkit) registerTool(name string, tool any, argType any, opts *RegisterOptions) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if opts == nil {
+		opts = &RegisterOptions{
+			GroupName: "basic",
+		}
+	}
+
+	// Use the new registry
+	if err := t.registry.registerTool(name, tool, argType, opts); err != nil {
+		return err
+	}
+
+	// Also store in legacy tools map for backward compatibility
+	t.storeLegacyTool(name, tool, argType, opts)
+
+	return nil
+}
+
+// RegisterFunction registers a simple function as a tool
+func (t *Toolkit) RegisterFunction(name string, fn any, opts *RegisterOptions) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if opts == nil {
+		opts = &RegisterOptions{
+			GroupName: "basic",
+		}
+	}
+
+	// Use the new registry
+	if err := t.registry.RegisterFunction(name, fn, opts); err != nil {
+		return err
+	}
+
+	// Also store in legacy tools map for backward compatibility
+	t.storeLegacyFunction(name, fn, opts)
+
+	return nil
+}
+
+// RegisterAll automatically registers all tool methods from a struct
+func (t *Toolkit) RegisterAll(provider any, descriptions ...map[string]string) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Use the new registry
+	if err := t.registry.RegisterAll(provider, descriptions...); err != nil {
+		return err
+	}
+
+	// Sync to legacy tools map
+	t.syncLegacyTools()
+
+	return nil
+}
+
+// storeLegacyTool stores a tool in the legacy format for backward compatibility
+func (t *Toolkit) storeLegacyTool(name string, tool any, argType any, opts *RegisterOptions) {
+	if opts == nil {
+		opts = &RegisterOptions{GroupName: "basic"}
+	}
+
+	argTypeValue := reflect.ValueOf(argType)
+	var actualArgType reflect.Type
+	if argTypeValue.Kind() == reflect.Ptr {
+		actualArgType = argTypeValue.Elem().Type()
+	} else {
+		actualArgType = argTypeValue.Type()
+	}
+
+	// Get schema from registry
+	schema := model.ToolDefinition{
+		Type: "function",
+		Function: model.FunctionDefinition{
+			Name:        name,
+			Description: opts.FuncDescription,
+			Parameters: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+		},
+	}
+	if toolDesc, ok := t.registry.Get(name); ok {
+		schema = toolDesc.Schema
+	}
+
+	t.tools[name] = &RegisteredFunction{
+		Name:         name,
+		Group:        opts.GroupName,
+		JSONSchema:   schema,
+		PresetKwargs: opts.PresetKwargs,
+		Function:     tool,
+		ArgType:      actualArgType,
+	}
+}
+
+// storeLegacyFunction stores a function in the legacy format
+func (t *Toolkit) storeLegacyFunction(name string, fn any, opts *RegisterOptions) {
+	if opts == nil {
+		opts = &RegisterOptions{GroupName: "basic"}
+	}
+
+	fnValue := reflect.ValueOf(fn)
+	fnType := fnValue.Type()
+
+	// Get schema from registry
+	schema := model.ToolDefinition{
+		Type: "function",
+		Function: model.FunctionDefinition{
+			Name:        name,
+			Description: opts.FuncDescription,
+			Parameters: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+		},
+	}
+	if toolDesc, ok := t.registry.Get(name); ok {
+		schema = toolDesc.Schema
+	}
+
+	t.tools[name] = &RegisteredFunction{
+		Name:         name,
+		Group:        opts.GroupName,
+		JSONSchema:   schema,
+		PresetKwargs: opts.PresetKwargs,
+		Function:     fn,
+		FuncType:     fnType,
+		FuncValue:    fnValue,
+	}
+}
+
+// syncLegacyTools syncs all tools from registry to legacy map
+func (t *Toolkit) syncLegacyTools() {
+	for _, tool := range t.registry.List() {
+		if tool.Typed != nil {
+			t.storeLegacyTool(tool.Name, tool.Typed.Tool, reflect.New(tool.Typed.ArgType).Interface(), &RegisterOptions{
+				GroupName: tool.Group,
+			})
+		} else if tool.Function != nil {
+			t.storeLegacyFunction(tool.Name, tool.Function.Func.Interface(), &RegisterOptions{
+				GroupName: tool.Group,
+			})
+		}
 	}
 }
 
@@ -100,6 +260,12 @@ func (t *Toolkit) CreateToolGroup(name, description string, active bool, notes s
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	// Use the new registry
+	if err := t.registry.CreateToolGroup(name, description, active, notes); err != nil {
+		return err
+	}
+
+	// Also create in legacy groups
 	if name == "basic" {
 		return fmt.Errorf("cannot create a tool group named 'basic'")
 	}
@@ -409,11 +575,24 @@ func (t *Toolkit) GetToolInfo() map[string]any {
 func (t *Toolkit) Use(middleware MiddlewareFunc) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	t.middlewares = append(t.middlewares, middleware)
+	// Also add to the new caller
+	t.caller.Use(middleware)
 }
 
 // Call executes a tool function with structured argument handling
 func (t *Toolkit) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*ToolResponse, error) {
+	// Try the new caller first
+	t.mu.RLock()
+	_, existsInRegistry := t.registry.Get(toolBlock.Name)
+	t.mu.RUnlock()
+
+	if existsInRegistry {
+		return t.caller.Call(ctx, toolBlock)
+	}
+
+	// Fallback to legacy call path
 	t.mu.RLock()
 	tool, exists := t.tools[toolBlock.Name]
 	t.mu.RUnlock()
