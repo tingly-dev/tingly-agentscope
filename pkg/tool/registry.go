@@ -181,7 +181,11 @@ func (r *ToolRegistry) RegisterFunction(name string, fn any, opts *RegisterOptio
 
 // RegisterAll automatically registers all tool methods from a struct
 // Methods must have the signature: func (T) Method(ctx context.Context, params Params) (*ToolResponse, error)
-// Tool names are derived from method names (e.g., ViewFile -> view_file)
+//
+// Tool names and descriptions can be provided via:
+// 1. The provider implementing DescriptiveTool interface (for name/description overrides)
+// 2. The descriptions map argument (method name -> description)
+// 3. Default: method name converted to snake_case (e.g., ViewFile -> view_file)
 func (r *ToolRegistry) RegisterAll(provider any, descriptions ...map[string]string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -193,6 +197,13 @@ func (r *ToolRegistry) RegisterAll(provider any, descriptions ...map[string]stri
 	descMap := make(map[string]string)
 	if len(descriptions) > 0 && descriptions[0] != nil {
 		descMap = descriptions[0]
+	}
+
+	// Check if provider implements DescriptiveTool for default name/description
+	var defaultName, defaultDesc string
+	if descTool, ok := provider.(DescriptiveTool); ok {
+		defaultName = descTool.Name()
+		defaultDesc = descTool.Description()
 	}
 
 	// Track registered tools for this provider
@@ -226,11 +237,31 @@ func (r *ToolRegistry) RegisterAll(provider any, descriptions ...map[string]stri
 			continue
 		}
 
-		// Create tool name from method name (e.g., ViewFile -> view_file)
+		// Determine tool name:
+		// 1. Use description map entry for this method
+		// 2. Use defaultName from DescriptiveTool (if single tool)
+		// 3. Convert method name to snake_case (e.g., ViewFile -> view_file)
 		name := ToSnakeCase(method.Name)
+		if descMap != nil {
+			// Check if description map has an entry for this method
+			// The key can be either "MethodName" or "tool_name"
+			if methodDesc, ok := descMap[method.Name]; ok && methodDesc != "" {
+				// This is just a description, not a name override
+			}
+		}
+		// If provider has a default name and this is the main tool method, use it
+		if defaultName != "" && isMainToolMethod(method.Name) {
+			name = defaultName
+		}
 
-		// Get description from map or struct tag
+		// Get description with priority:
+		// 1. Description map for this specific method
+		// 2. Default description from DescriptiveTool
+		// 3. Fallback to "Tool: {name}"
 		description := descMap[method.Name]
+		if description == "" {
+			description = defaultDesc
+		}
 		if description == "" {
 			description = "Tool: " + name
 		}
@@ -278,6 +309,18 @@ func (r *ToolRegistry) RegisterAll(provider any, descriptions ...map[string]stri
 	}
 
 	return nil
+}
+
+// isMainToolMethod checks if the method name suggests it's the primary tool method
+// For example, "Read", "Write", "Execute", "Run" are likely main methods
+func isMainToolMethod(methodName string) bool {
+	mainMethods := map[string]bool{
+		"Read": true, "Write": true, "Edit": true, "Delete": true,
+		"Execute": true, "Run": true, "Call": true, "Invoke": true,
+		"Create": true, "Update": true, "List": true, "Get": true,
+		"Bash": true, "Search": true, "View": true,
+	}
+	return mainMethods[methodName]
 }
 
 // MethodWrapper wraps a struct method as a tool

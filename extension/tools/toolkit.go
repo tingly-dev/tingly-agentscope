@@ -34,64 +34,43 @@ func NewExtensionToolkit(opts *ExtensionOptions) (*ExtensionToolkit, error) {
 		tk: tk,
 	}
 
-	// Configure read tool
+	// Configure and register read tool
 	readOpts := []func(*ReadTool){}
 	if opts != nil && opts.ReadOptions != nil {
 		readOpts = append(readOpts, opts.ReadOptions)
 	}
 	et.readTool = NewReadTool(readOpts...)
+	if err := tk.RegisterAll(et.readTool); err != nil {
+		return nil, fmt.Errorf("failed to register read tool: %w", err)
+	}
 
-	// Configure write tool
+	// Configure and register write tool
 	writeOpts := []func(*WriteTool){}
 	if opts != nil && opts.WriteOptions != nil {
 		writeOpts = append(writeOpts, opts.WriteOptions)
 	}
 	et.writeTool = NewWriteTool(writeOpts...)
+	if err := tk.RegisterAll(et.writeTool); err != nil {
+		return nil, fmt.Errorf("failed to register write tool: %w", err)
+	}
 
-	// Configure edit tool
+	// Configure and register edit tool
 	editOpts := []func(*EditTool){}
 	if opts != nil && opts.EditOptions != nil {
 		editOpts = append(editOpts, opts.EditOptions)
 	}
 	et.editTool = NewEditTool(editOpts...)
+	if err := tk.RegisterAll(et.editTool); err != nil {
+		return nil, fmt.Errorf("failed to register edit tool: %w", err)
+	}
 
-	// Configure bash tool
+	// Configure and register bash tool
 	bashOpts := []func(*BashTool){}
 	if opts != nil && opts.BashOptions != nil {
 		bashOpts = append(bashOpts, opts.BashOptions)
 	}
 	et.bashTool = NewBashTool(bashOpts...)
-
-	// Register all tools using RegisterAll which auto-registers methods
-	// Read tool
-	descriptions := map[string]string{
-		"Read": "Read the contents of a file. Supports text files. Defaults to first 2000 lines. Use offset/limit for large files.",
-	}
-	if err := tk.RegisterAll(et.readTool, descriptions); err != nil {
-		return nil, fmt.Errorf("failed to register read tool: %w", err)
-	}
-
-	// Write tool
-	descriptions = map[string]string{
-		"Write": "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
-	}
-	if err := tk.RegisterAll(et.writeTool, descriptions); err != nil {
-		return nil, fmt.Errorf("failed to register write tool: %w", err)
-	}
-
-	// Edit tool
-	descriptions = map[string]string{
-		"Edit": "Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.",
-	}
-	if err := tk.RegisterAll(et.editTool, descriptions); err != nil {
-		return nil, fmt.Errorf("failed to register edit tool: %w", err)
-	}
-
-	// Bash tool
-	descriptions = map[string]string{
-		"Bash": "Execute a bash command in the current working directory. Returns stdout and stderr. Optionally provide a timeout in seconds.",
-	}
-	if err := tk.RegisterAll(et.bashTool, descriptions); err != nil {
+	if err := tk.RegisterAll(et.bashTool); err != nil {
 		return nil, fmt.Errorf("failed to register bash tool: %w", err)
 	}
 

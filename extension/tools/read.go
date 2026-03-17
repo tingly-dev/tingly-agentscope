@@ -45,6 +45,16 @@ type ReadParams struct {
 	Limit  int    `json:"limit,omitempty" description:"Maximum number of lines to read"`
 }
 
+// Name implements DescriptiveTool interface
+func (r *ReadTool) Name() string {
+	return "read"
+}
+
+// Description implements DescriptiveTool interface
+func (r *ReadTool) Description() string {
+	return "Read the contents of a file. Supports text files. Defaults to first 2000 lines. Use offset/limit for large files."
+}
+
 // Read reads the contents of a file
 func (r *ReadTool) Read(ctx context.Context, params ReadParams) (*tool.ToolResponse, error) {
 	// Validate offset and limit
@@ -130,11 +140,8 @@ func applyLineRange(content string, offset, limit int) string {
 // the read tool separately.
 func RegisterReadTool(tk *tool.Toolkit, options ...func(*ReadTool)) error {
 	rt := NewReadTool(options...)
-	// Use RegisterAll to auto-register the Read method
-	descriptions := map[string]string{
-		"Read": "Read the contents of a file. Supports text files. Defaults to first 2000 lines. Use offset/limit for large files.",
-	}
-	return tk.RegisterAll(rt, descriptions)
+	// RegisterAll uses the DescriptiveTool interface for name/description
+	return tk.RegisterAll(rt)
 }
 
 // Call implements the ToolCallable interface for programmatic use

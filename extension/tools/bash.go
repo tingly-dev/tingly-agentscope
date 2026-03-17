@@ -59,6 +59,16 @@ type BashParams struct {
 	Timeout int    `json:"timeout,omitempty" description:"Timeout in seconds (optional, no default timeout)"`
 }
 
+// Name implements DescriptiveTool interface
+func (b *BashTool) Name() string {
+	return "bash"
+}
+
+// Description implements DescriptiveTool interface
+func (b *BashTool) Description() string {
+	return "Execute a bash command in the current working directory. Returns stdout and stderr. Optionally provide a timeout in seconds."
+}
+
 // Bash executes a bash command in the current working directory
 func (b *BashTool) Bash(ctx context.Context, params BashParams) (*tool.ToolResponse, error) {
 	// Validate command
@@ -149,11 +159,8 @@ func (b *BashTool) validateCommand(command string) error {
 // the bash tool separately.
 func RegisterBashTool(tk *tool.Toolkit, options ...func(*BashTool)) error {
 	bt := NewBashTool(options...)
-	// Use RegisterAll to auto-register the Bash method
-	descriptions := map[string]string{
-		"Bash": "Execute a bash command in the current working directory. Returns stdout and stderr. Optionally provide a timeout in seconds.",
-	}
-	return tk.RegisterAll(bt, descriptions)
+	// RegisterAll uses the DescriptiveTool interface for name/description
+	return tk.RegisterAll(bt)
 }
 
 // Call implements the ToolCallable interface for programmatic use

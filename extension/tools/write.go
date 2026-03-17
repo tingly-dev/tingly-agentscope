@@ -52,6 +52,16 @@ type WriteParams struct {
 	Content string `json:"content" description:"Content to write to the file"`
 }
 
+// Name implements DescriptiveTool interface
+func (w *WriteTool) Name() string {
+	return "write"
+}
+
+// Description implements DescriptiveTool interface
+func (w *WriteTool) Description() string {
+	return "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories."
+}
+
 // Write writes content to a file. Creates the file if it doesn't exist, overwrites if it does.
 func (w *WriteTool) Write(ctx context.Context, params WriteParams) (*tool.ToolResponse, error) {
 	// Check write size
@@ -106,11 +116,8 @@ func (w *WriteTool) Write(ctx context.Context, params WriteParams) (*tool.ToolRe
 // the write tool separately.
 func RegisterWriteTool(tk *tool.Toolkit, options ...func(*WriteTool)) error {
 	wt := NewWriteTool(options...)
-	// Use RegisterAll to auto-register the Write method
-	descriptions := map[string]string{
-		"Write": "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
-	}
-	return tk.RegisterAll(wt, descriptions)
+	// RegisterAll uses the DescriptiveTool interface for name/description
+	return tk.RegisterAll(wt)
 }
 
 // Call implements the ToolCallable interface for programmatic use

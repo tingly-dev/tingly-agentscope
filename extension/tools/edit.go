@@ -42,6 +42,16 @@ type EditParams struct {
 	NewText string `json:"newText" description:"New text to replace the old text with"`
 }
 
+// Name implements DescriptiveTool interface
+func (e *EditTool) Name() string {
+	return "edit"
+}
+
+// Description implements DescriptiveTool interface
+func (e *EditTool) Description() string {
+	return "Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits."
+}
+
 // Edit edits a file by replacing exact text
 func (e *EditTool) Edit(ctx context.Context, params EditParams) (*tool.ToolResponse, error) {
 	// Validate path
@@ -104,11 +114,8 @@ func (e *EditTool) Edit(ctx context.Context, params EditParams) (*tool.ToolRespo
 // the edit tool separately.
 func RegisterEditTool(tk *tool.Toolkit, options ...func(*EditTool)) error {
 	et := NewEditTool(options...)
-	// Use RegisterAll to auto-register the Edit method
-	descriptions := map[string]string{
-		"Edit": "Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.",
-	}
-	return tk.RegisterAll(et, descriptions)
+	// RegisterAll uses the DescriptiveTool interface for name/description
+	return tk.RegisterAll(et)
 }
 
 // Call implements the ToolCallable interface for programmatic use
