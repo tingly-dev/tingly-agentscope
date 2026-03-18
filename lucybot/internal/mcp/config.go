@@ -5,9 +5,13 @@ import "fmt"
 // MCPServerConfig represents an MCP server configuration with lazy loading support
 type MCPServerConfig struct {
 	Name        string            `toml:"name" json:"name"`
-	Command     string            `toml:"command" json:"command"`
-	Args        []string          `toml:"args" json:"args"`
+	Type        string            `toml:"type" json:"type"` // "stdio", "http", "streamable-http"
+	Command     string            `toml:"command,omitempty" json:"command,omitempty"`
+	Args        []string          `toml:"args,omitempty" json:"args,omitempty"`
 	Env         map[string]string `toml:"env,omitempty" json:"env,omitempty"`
+	URL         string            `toml:"url,omitempty" json:"url,omitempty"`
+	Headers     map[string]string `toml:"headers,omitempty" json:"headers,omitempty"`
+	Timeout     int               `toml:"timeout" json:"timeout"`
 	Enabled     bool              `toml:"enabled" json:"enabled"`
 	LazyLoad    *bool             `toml:"lazy_load,omitempty" json:"lazy_load,omitempty"`
 	Triggers    []string          `toml:"triggers" json:"triggers"`
@@ -19,9 +23,21 @@ func (c *MCPServerConfig) Validate() error {
 	if c.Name == "" {
 		return fmt.Errorf("server name is required")
 	}
-	if c.Command == "" {
-		return fmt.Errorf("command is required for server '%s'", c.Name)
+
+	// Validate based on transport type
+	switch c.Type {
+	case "stdio", "": // Empty defaults to stdio for backward compatibility
+		if c.Command == "" {
+			return fmt.Errorf("command is required for stdio server '%s'", c.Name)
+		}
+	case "http", "streamable-http":
+		if c.URL == "" {
+			return fmt.Errorf("url is required for %s server '%s'", c.Type, c.Name)
+		}
+	default:
+		return fmt.Errorf("unsupported transport type '%s' for server '%s'", c.Type, c.Name)
 	}
+
 	return nil
 }
 
@@ -31,6 +47,24 @@ func (c *MCPServerConfig) ShouldLazyLoad(globalDefault bool) bool {
 		return *c.LazyLoad
 	}
 	return globalDefault
+}
+
+// IsStdio returns true if this is a stdio transport server
+func (c *MCPServerConfig) IsStdio() bool {
+	return c.Type == "" || c.Type == "stdio"
+}
+
+// IsHTTP returns true if this is an HTTP transport server
+func (c *MCPServerConfig) IsHTTP() bool {
+	return c.Type == "http" || c.Type == "streamable-http"
+}
+
+// GetType returns the transport type (defaults to "stdio" if empty)
+func (c *MCPServerConfig) GetType() string {
+	if c.Type == "" {
+		return "stdio"
+	}
+	return c.Type
 }
 
 // MCPConfig holds all MCP-related configuration
