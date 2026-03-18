@@ -169,6 +169,17 @@ func (s *JSONLStore) Load(id string) (*Session, error) {
 		if msg.Metadata != nil {
 			if metaType, ok := msg.Metadata["_type"]; ok && metaType == "metadata" {
 				metadataFound = true
+				// Extract timestamps from metadata
+				if created, ok := msg.Metadata["created_at"].(string); ok {
+					if t, err := time.Parse(time.RFC3339, created); err == nil {
+						session.CreatedAt = t
+					}
+				}
+				if updated, ok := msg.Metadata["updated_at"].(string); ok {
+					if t, err := time.Parse(time.RFC3339, updated); err == nil {
+						session.UpdatedAt = t
+					}
+				}
 				continue
 			}
 		}
