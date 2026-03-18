@@ -8,6 +8,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/adrg/xdg"
+
+	"github.com/tingly-dev/lucybot/internal/mcp"
 )
 
 // ModelConfig holds model configuration for the LLM
@@ -55,6 +57,7 @@ type Config struct {
 	Agent   AgentConfig   `toml:"agent"`
 	Index   IndexConfig   `toml:"index"`
 	Session SessionConfig `toml:"session"`
+	MCP     mcp.MCPConfig  `toml:"mcp"`
 }
 
 const (
