@@ -25,6 +25,7 @@ type ReActAgentConfig struct {
 	Compression   *CompressionConfig
 	PlanNotebook  *plan.PlanNotebook
 	InjectorChain *message.InjectorChain // Message injection hook chain
+	Streaming     *StreamingConfig       // Streaming callback configuration
 }
 
 // ReActAgent implements the ReAct (Reasoning + Acting) pattern
@@ -186,6 +187,11 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 			return nil, fmt.Errorf("failed to print assistant message: %w", err)
 		}
 
+		// Stream the assistant message via callback for TUI/real-time display
+		if r.config.Streaming != nil {
+			r.config.Streaming.SafeInvoke(asstMsg)
+		}
+
 		// Execute each tool
 		for _, toolBlock := range toolBlocks {
 			// toolBlock is already *message.ToolUseBlock, no conversion needed
@@ -227,6 +233,12 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 				if err := r.Print(ctx, errorResultMsg); err != nil {
 					return nil, fmt.Errorf("failed to print tool error: %w", err)
 				}
+
+				// Stream the error result via callback
+				if r.config.Streaming != nil {
+					r.config.Streaming.SafeInvoke(errorResultMsg)
+				}
+
 				messages = append(messages, errorResultMsg)
 
 				// Add error result to memory for session persistence
@@ -267,6 +279,11 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 			// Print tool result for streaming output
 			if err := r.Print(ctx, resultMsg); err != nil {
 				return nil, fmt.Errorf("failed to print tool result: %w", err)
+			}
+
+			// Stream the tool result via callback for TUI/real-time display
+			if r.config.Streaming != nil {
+				r.config.Streaming.SafeInvoke(resultMsg)
 			}
 		}
 	}
