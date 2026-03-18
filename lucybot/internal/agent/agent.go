@@ -62,6 +62,21 @@ func (mf *ModelFactory) CreateModel(cfg *config.ModelConfig) (model.ChatModel, e
 	}
 }
 
+// buildSystemPrompt builds the system prompt with MCP information
+func buildSystemPrompt(cfg *config.Config, mcpHelper *mcp.IntegrationHelper) string {
+	prompt := cfg.Agent.SystemPrompt
+
+	// Add MCP server information if available
+	if mcpHelper != nil {
+		mcpSection := mcpHelper.BuildSystemPromptAppendix()
+		if mcpSection != "" {
+			prompt = prompt + mcpSection
+		}
+	}
+
+	return prompt
+}
+
 // NewLucyBotAgent creates a new LucyBotAgent from configuration
 func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 	// Create model
@@ -107,10 +122,13 @@ func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 	// Create memory
 	mem := memory.NewHistory(100)
 
+	// Build system prompt with MCP information
+	systemPrompt := buildSystemPrompt(cfg.Config, mcpHelper)
+
 	// Create ReAct agent
 	agentConfig := &agent.ReActAgentConfig{
 		Name:          cfg.Config.Agent.Name,
-		SystemPrompt:  cfg.Config.Agent.SystemPrompt,
+		SystemPrompt:  systemPrompt,
 		Model:         chatModel,
 		Toolkit:       toolkit,
 		Memory:        mem,
@@ -165,4 +183,35 @@ func (a *LucyBotAgent) SetWorkDir(dir string) {
 // SetStreamingConfig sets the streaming configuration on the underlying ReAct agent
 func (a *LucyBotAgent) SetStreamingConfig(streaming *agent.StreamingConfig) {
 	a.ReActAgent.SetStreamingConfig(streaming)
+}
+
+// AnalyzeInput analyzes user input for MCP lazy loading triggers
+func (a *LucyBotAgent) AnalyzeInput(ctx context.Context, input string) error {
+	if a.mcpHelper == nil {
+		return nil
+	}
+
+	results, err := a.mcpHelper.AnalyzeInput(ctx, input)
+	if err != nil {
+		return err
+	}
+
+	// Re-register tools if new servers were loaded
+	if len(results) > 0 {
+		hasNew := false
+		for _, result := range results {
+			if result.Success {
+				hasNew = true
+				fmt.Printf("[MCP] Auto-loaded server '%s' with %d tools\n", result.ServerName, len(result.ToolsLoaded))
+			}
+		}
+
+		if hasNew {
+			if err := a.mcpHelper.RegisterTools(a.toolkit); err != nil {
+				return fmt.Errorf("failed to register new MCP tools: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
