@@ -144,6 +144,9 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 	messages := make([]*message.Msg, len(initialMessages))
 	copy(messages, initialMessages)
 
+	// Initialize loop detector to prevent infinite loops
+	loopDetector := NewLoopDetector(3)
+
 	for i := 0; i < r.config.MaxIterations; i++ {
 		fmt.Printf("[DEBUG] ReAct iteration %d/%d\n", i+1, r.config.MaxIterations)
 
@@ -194,6 +197,21 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 
 		// Execute each tool
 		for _, toolBlock := range toolBlocks {
+			// Check for loop detection
+			if loopDetector.DetectLoop(toolBlock) {
+				loopMsg := message.NewMsg(
+					r.Name(),
+					[]message.ContentBlock{message.Text(loopDetector.GetLoopMessage(toolBlock))},
+					types.RoleAssistant,
+				)
+				// Stream the warning
+				if r.config.Streaming != nil {
+					r.config.Streaming.SafeInvoke(loopMsg)
+				}
+				// Return with the loop warning
+				return loopMsg, nil
+			}
+
 			// toolBlock is already *message.ToolUseBlock, no conversion needed
 			// Add tool use to messages
 			toolMsg := message.NewMsg(
