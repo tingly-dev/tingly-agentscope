@@ -290,6 +290,22 @@ func InitTools(workDir string) *Registry {
 		}{},
 	))
 
+	// Finish tool - allows agent to signal completion
+	registry.Register(CreateToolInfo(
+		"finish",
+		"Signal that the task is complete and provide a final summary. Use this when you have finished all necessary work and have a complete answer for the user.",
+		"Agent Control",
+		func(ctx context.Context, args map[string]any) (*tool.ToolResponse, error) {
+			summary := getString(args, "summary")
+			return &tool.ToolResponse{
+				Content: []message.ContentBlock{message.Text("Task finished: " + summary)},
+			}, nil
+		},
+		struct {
+			Summary string `json:"summary" desc:"A summary of what was accomplished and the final answer to the user"`
+		}{},
+	))
+
 	return registry
 }
 
