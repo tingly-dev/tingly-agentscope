@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/tingly-dev/lucybot/internal/mcp"
 )
 
 // ConfigLocation represents a config file location type
@@ -126,6 +128,9 @@ func deepMergeConfigs(base, override *Config) *Config {
 	// Merge Index config
 	mergeIndexConfig(&result.Index, &override.Index)
 
+	// Merge MCP config
+	mergeMCPConfig(&result.MCP, &override.MCP)
+
 	return &result
 }
 
@@ -193,6 +198,23 @@ func mergeIndexConfig(base, override *IndexConfig) {
 	base.AutoRebuild = override.AutoRebuild
 	if len(override.Languages) > 0 {
 		base.Languages = override.Languages
+	}
+}
+
+// mergeMCPConfig merges MCP configuration
+// Servers from override take precedence over base
+func mergeMCPConfig(base, override *mcp.MCPConfig) {
+	if override.Servers == nil {
+		return
+	}
+
+	if base.Servers == nil {
+		base.Servers = make(map[string]mcp.MCPServerConfig)
+	}
+
+	// Merge servers - override servers take precedence
+	for name, server := range override.Servers {
+		base.Servers[name] = server
 	}
 }
 
