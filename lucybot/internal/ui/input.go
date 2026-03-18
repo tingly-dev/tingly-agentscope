@@ -429,17 +429,29 @@ func isTerminalEscapeSequence(s string) bool {
 	}
 
 	// Check for escape character (0x1b) or 8-bit control characters
-	// Note: Using strings.Contains for bytes, ContainsRune for runes
 	if strings.Contains(s, "\x1b") || strings.Contains(s, "\x9b") ||
 		strings.Contains(s, "\x9d") || strings.Contains(s, "\x8e") ||
 		strings.Contains(s, "\x8f") {
 		return true
 	}
 
-	// Pattern 1: OSC sequence fragments (start with ] after ESC was consumed)
+	// Check for backslash (0x5c) which appears in corrupted sequences like \] \c etc.
+	// These are often escape sequence fragments that got corrupted
+	if strings.Contains(s, "\x5c") {
+		// If there's a backslash followed by brackets, hex chars, or other patterns
+		// This indicates corrupted escape sequences
+		if matched, _ := regexp.MatchString(`\\+[\]\[]`, s); matched {
+			return true
+		}
+		// Backslash followed by letters like c, x, etc. (\c, \x)
+		if matched, _ := regexp.MatchString(`\\+[a-zA-Z]`, s); matched {
+			return true
+		}
+	}
+
+	// Pattern: OSC sequence fragments (start with ] after ESC was consumed)
 	// OSC 11 for background color: ]11;rgb:... or just ]]]]] sequences
 	if strings.Contains(s, "]") {
-		// Check if it's just normal text with brackets
 		// If it contains typical OSC patterns, filter it
 		if matched, _ := regexp.MatchString(`\d+;rgb:`, s); matched {
 			return true
@@ -454,35 +466,39 @@ func isTerminalEscapeSequence(s string) bool {
 		}
 	}
 
-	// Pattern 2: CSI sequence fragments like [21;1R (Cursor Position Report)
+	// Pattern: CSI sequence fragments like [21;1R or [13;1R (Cursor Position Report)
 	// CSI sequences start with [ (after ESC) and end with a letter
 	if matched, _ := regexp.MatchString(`\[\d+;\d+[A-Za-z]`, s); matched {
 		return true
 	}
 
-	// Pattern 3: Contains "rgb:" which is typical of OSC color responses
+	// Pattern: Contains "rgb:" which is typical of OSC color responses
 	if strings.Contains(s, "rgb:") {
 		return true
 	}
 
-	// Pattern 4: Looks like OSC 11 or similar numeric response
+	// Pattern: Looks like OSC 11 or similar numeric response
 	if matched, _ := regexp.MatchString(`^\d+;rgb:`, s); matched {
 		return true
 	}
 
-	// Pattern 5: Contains hex color fragments typical of OSC responses
+	// Pattern: Contains hex color fragments typical of OSC responses
 	if matched, _ := regexp.MatchString(`[0-9a-fA-F]{4}/[0-9a-fA-F]{4}`, s); matched {
 		return true
 	}
 
-	// Pattern 6: Contains common OSC sequence fragments that shouldn't be typed
+	// Pattern: Contains common OSC sequence fragments that shouldn't be typed
 	if strings.Contains(s, "0c0c") || strings.Contains(s, ";rgb:") ||
 		strings.Contains(s, "/0c") || strings.Contains(s, "c0c/") {
 		return true
 	}
 
-	// Pattern 7: Pure control characters or unusual combinations
-	// Check for any control characters (0x00-0x1f except common whitespace)
+	// Pattern: Looks like a CSI response variant (e.g., 13;1R, 11;1R)
+	if matched, _ := regexp.MatchString(`\d+;\d+[A-Za-z]`, s); matched {
+		return true
+	}
+
+	// Pattern: Any remaining control characters (0x00-0x1f except common whitespace)
 	for _, r := range s {
 		if r < 0x20 && r != '\t' && r != '\n' && r != '\r' {
 			return true
