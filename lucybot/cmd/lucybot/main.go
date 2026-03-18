@@ -352,7 +352,7 @@ var toolsCommand = &cli.Command{
 	Name:  "tools",
 	Usage: "List and inspect available tools",
 	Action: func(c *cli.Context) error {
-		registry := tools.InitTools(".")
+		registry := tools.InitTools(".", nil)
 		fmt.Println("\n🔧 Available Tools:")
 		fmt.Println(strings.Repeat("=", 50))
 

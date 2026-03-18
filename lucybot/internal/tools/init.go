@@ -3,12 +3,14 @@ package tools
 import (
 	"context"
 
+	"github.com/tingly-dev/lucybot/internal/mcp"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 )
 
 // InitTools initializes and registers all LucyBot tools
-func InitTools(workDir string) *Registry {
+// mcpHelper is optional and can be nil if MCP is not configured
+func InitTools(workDir string, mcpHelper *mcp.IntegrationHelper) *Registry {
 	registry := NewRegistry()
 	fileTools := NewFileTools(workDir)
 	codeTools := NewCodeTools(fileTools, "")
@@ -305,6 +307,27 @@ func InitTools(workDir string) *Registry {
 			Summary string `json:"summary" desc:"A summary of what was accomplished and the final answer to the user"`
 		}{},
 	))
+
+	// MCP server management tools
+	if mcpHelper != nil {
+		registry.Register(CreateToolInfo(
+			"load_mcp_server",
+			"Load an MCP server and register its tools. Use this when you need tools from a specific MCP server.",
+			"MCP",
+			mcpHelper.GetLoadServerTool(),
+			struct {
+				ServerName string `json:"server_name" desc:"Name of the MCP server to load"`
+			}{},
+		))
+
+		registry.Register(CreateToolInfo(
+			"list_mcp_servers",
+			"List all available MCP servers and their load status.",
+			"MCP",
+			mcpHelper.GetListServersTool(),
+			struct{}{},
+		))
+	}
 
 	return registry
 }

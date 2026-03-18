@@ -1,9 +1,11 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/tingly-dev/lucybot/internal/config"
+	"github.com/tingly-dev/lucybot/internal/mcp"
 	"github.com/tingly-dev/lucybot/internal/tools"
 	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/formatter"
@@ -17,10 +19,11 @@ import (
 // LucyBotAgent wraps ReActAgent with LucyBot-specific functionality
 type LucyBotAgent struct {
 	*agent.ReActAgent
-	config   *config.Config
-	toolkit  *tool.Toolkit
-	workDir  string
-	registry *tools.Registry
+	config     *config.Config
+	toolkit    *tool.Toolkit
+	workDir    string
+	registry   *tools.Registry
+	mcpHelper  *mcp.IntegrationHelper
 }
 
 // LucyBotAgentConfig holds configuration for creating a LucyBotAgent
@@ -68,9 +71,38 @@ func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 		return nil, fmt.Errorf("failed to create model: %w", err)
 	}
 
-	// Initialize tools
-	registry := tools.InitTools(cfg.WorkDir)
+	// Initialize MCP helper if MCP is configured
+	var mcpHelper *mcp.IntegrationHelper
+	if len(cfg.Config.MCP.Servers) > 0 {
+		mcpHelper = mcp.NewIntegrationHelper()
+		if err := mcpHelper.LoadConfig(&cfg.Config.MCP); err != nil {
+			// Log warning but don't fail - MCP is optional
+			fmt.Printf("Warning: failed to load MCP config: %v\n", err)
+			mcpHelper = nil
+		} else {
+			// Load eager servers (those with lazy_load=false)
+			ctx := context.Background()
+			results := mcpHelper.LoadEagerServers(ctx)
+			for _, result := range results {
+				if result.Success {
+					fmt.Printf("✓ Loaded MCP server: %s (%d tools)\n", result.ServerName, len(result.ToolsLoaded))
+				} else {
+					fmt.Printf("✗ Failed to load MCP server: %s - %s\n", result.ServerName, result.Error)
+				}
+			}
+		}
+	}
+
+	// Initialize tools with MCP helper
+	registry := tools.InitTools(cfg.WorkDir, mcpHelper)
 	toolkit := registry.BuildToolkit()
+
+	// Register MCP tools to toolkit if helper is available
+	if mcpHelper != nil {
+		if err := mcpHelper.RegisterTools(toolkit); err != nil {
+			fmt.Printf("Warning: failed to register MCP tools: %v\n", err)
+		}
+	}
 
 	// Create memory
 	mem := memory.NewHistory(100)
@@ -96,6 +128,7 @@ func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 		toolkit:    toolkit,
 		workDir:    cfg.WorkDir,
 		registry:   registry,
+		mcpHelper:  mcpHelper,
 	}, nil
 }
 
@@ -117,6 +150,11 @@ func (a *LucyBotAgent) GetRegistry() *tools.Registry {
 // GetToolkit returns the toolkit
 func (a *LucyBotAgent) GetToolkit() *tool.Toolkit {
 	return a.toolkit
+}
+
+// GetMCPHelper returns the MCP integration helper
+func (a *LucyBotAgent) GetMCPHelper() *mcp.IntegrationHelper {
+	return a.mcpHelper
 }
 
 // SetWorkDir updates the working directory
