@@ -162,26 +162,13 @@ func (a *SDKAdapter) convertMessages(messages []*message.Msg) []openai.ChatCompl
 	result := make([]openai.ChatCompletionMessageParamUnion, 0, len(messages))
 
 	for _, msg := range messages {
-		contentStr := a.extractContentString(msg)
-
 		switch msg.Role {
 		case types.RoleUser:
-			result = append(result, openai.ChatCompletionMessageParamUnion{
-				OfUser: &openai.ChatCompletionUserMessageParam{
-					Content: openai.ChatCompletionUserMessageParamContentUnion{
-						OfString: openai.String(contentStr),
-					},
-				},
-			})
+			result = append(result, a.convertUserMessage(msg))
 		case types.RoleAssistant:
-			result = append(result, openai.ChatCompletionMessageParamUnion{
-				OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-					Content: openai.ChatCompletionAssistantMessageParamContentUnion{
-						OfString: openai.String(contentStr),
-					},
-				},
-			})
+			result = append(result, a.convertAssistantMessage(msg))
 		case types.RoleSystem:
+			contentStr := a.extractContentString(msg)
 			result = append(result, openai.ChatCompletionMessageParamUnion{
 				OfSystem: &openai.ChatCompletionSystemMessageParam{
 					Content: openai.ChatCompletionSystemMessageParamContentUnion{
@@ -195,6 +182,146 @@ func (a *SDKAdapter) convertMessages(messages []*message.Msg) []openai.ChatCompl
 	return result
 }
 
+// convertUserMessage converts a user message to SDK format.
+// ToolResultBlocks are converted to tool messages.
+func (a *SDKAdapter) convertUserMessage(msg *message.Msg) openai.ChatCompletionMessageParamUnion {
+	// Check for tool result blocks - these need special handling
+	blocks := msg.GetContentBlocks()
+	var toolResults []*message.ToolResultBlock
+	var textBlocks []*message.TextBlock
+
+	for _, block := range blocks {
+		switch b := block.(type) {
+		case *message.ToolResultBlock:
+			toolResults = append(toolResults, b)
+		case *message.TextBlock:
+			textBlocks = append(textBlocks, b)
+		}
+	}
+
+	// If we have tool results, convert them to tool messages
+	// For simplicity, we return the first tool result as a tool message
+	// Additional tool results would need to be separate messages
+	if len(toolResults) > 0 {
+		return a.convertToolResultBlock(toolResults[0])
+	}
+
+	// Regular user message with text content
+	contentStr := msg.GetTextContent()
+
+	return openai.ChatCompletionMessageParamUnion{
+		OfUser: &openai.ChatCompletionUserMessageParam{
+			Content: openai.ChatCompletionUserMessageParamContentUnion{
+				OfString: openai.String(contentStr),
+			},
+		},
+	}
+}
+
+// convertAssistantMessage converts an assistant message to SDK format.
+// ToolUseBlocks are converted to assistant messages with tool_calls.
+func (a *SDKAdapter) convertAssistantMessage(msg *message.Msg) openai.ChatCompletionMessageParamUnion {
+	blocks := msg.GetContentBlocks()
+	var toolUses []*message.ToolUseBlock
+	var textBlocks []*message.TextBlock
+
+	for _, block := range blocks {
+		switch b := block.(type) {
+		case *message.ToolUseBlock:
+			toolUses = append(toolUses, b)
+		case *message.TextBlock:
+			textBlocks = append(textBlocks, b)
+		}
+	}
+
+	// Build assistant message
+	assistantMsg := &openai.ChatCompletionAssistantMessageParam{
+		Role: "assistant",
+	}
+
+	// Add text content if present
+	if len(textBlocks) > 0 {
+		var contentParts []openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion
+		for _, tb := range textBlocks {
+			contentParts = append(contentParts, openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion{
+				OfText: &openai.ChatCompletionContentPartTextParam{
+					Type: "text",
+					Text: tb.Text,
+				},
+			})
+		}
+		if len(contentParts) > 0 {
+			assistantMsg.Content.OfArrayOfContentParts = contentParts
+		}
+	}
+
+	// Add tool calls if present
+	if len(toolUses) > 0 {
+		assistantMsg.ToolCalls = a.convertToolUseBlocks(toolUses)
+	}
+
+	return openai.ChatCompletionMessageParamUnion{
+		OfAssistant: assistantMsg,
+	}
+}
+
+// convertToolUseBlocks converts ToolUseBlocks to SDK tool call format.
+func (a *SDKAdapter) convertToolUseBlocks(toolUses []*message.ToolUseBlock) []openai.ChatCompletionMessageToolCallUnionParam {
+	result := make([]openai.ChatCompletionMessageToolCallUnionParam, len(toolUses))
+	for i, tu := range toolUses {
+		// Convert input to JSON string
+		var args string
+		if tu.Input != nil {
+			if inputMap, ok := tu.Input.(map[string]any); ok {
+				argsBytes, _ := json.Marshal(inputMap)
+				args = string(argsBytes)
+			} else {
+				argsBytes, _ := json.Marshal(tu.Input)
+				args = string(argsBytes)
+			}
+		}
+		if args == "" {
+			args = "{}"
+		}
+
+		result[i] = openai.ChatCompletionMessageToolCallUnionParam{
+			OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
+				ID:   tu.ID,
+				Type: "function",
+				Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
+					Name:      tu.Name,
+					Arguments: args,
+				},
+			},
+		}
+	}
+	return result
+}
+
+// convertToolResultBlock converts a ToolResultBlock to SDK tool message format.
+func (a *SDKAdapter) convertToolResultBlock(tr *message.ToolResultBlock) openai.ChatCompletionMessageParamUnion {
+	// Extract text content from output blocks
+	var content string
+	for _, output := range tr.Output {
+		if tb, ok := output.(*message.TextBlock); ok {
+			if content != "" {
+				content += "\n"
+			}
+			content += tb.Text
+		}
+	}
+
+	return openai.ChatCompletionMessageParamUnion{
+		OfTool: &openai.ChatCompletionToolMessageParam{
+			Role:       "tool",
+			ToolCallID: tr.ID,
+			Content: openai.ChatCompletionToolMessageParamContentUnion{
+				OfString: openai.String(content),
+			},
+		},
+	}
+}
+
 // extractContentString extracts text content from a message.
 func (a *SDKAdapter) extractContentString(msg *message.Msg) string {
 	if str, ok := msg.Content.(string); ok {
@@ -202,9 +329,17 @@ func (a *SDKAdapter) extractContentString(msg *message.Msg) string {
 	}
 
 	blocks := msg.GetContentBlocks()
+	return a.extractTextFromBlocks(blocks)
+}
+
+// extractTextFromBlocks extracts text from content blocks.
+func (a *SDKAdapter) extractTextFromBlocks(blocks []message.ContentBlock) string {
 	var textContent string
 	for _, block := range blocks {
 		if tb, ok := block.(*message.TextBlock); ok {
+			if textContent != "" {
+				textContent += "\n"
+			}
 			textContent += tb.Text
 		}
 	}
