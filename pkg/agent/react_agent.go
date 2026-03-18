@@ -47,6 +47,11 @@ func NewReActAgent(config *ReActAgentConfig) *ReActAgent {
 	}
 }
 
+// SetStreamingConfig sets the streaming configuration for real-time message display
+func (r *ReActAgent) SetStreamingConfig(streaming *StreamingConfig) {
+	r.config.Streaming = streaming
+}
+
 // Reply generates a response to the given message
 func (r *ReActAgent) Reply(ctx context.Context, input *message.Msg) (*message.Msg, error) {
 	// Start a new round when receiving a user message
