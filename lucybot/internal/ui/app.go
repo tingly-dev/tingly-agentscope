@@ -581,7 +581,10 @@ func (a *App) View() string {
 // Run starts the TUI application
 func Run(cfg *AppConfig) error {
 	app := NewApp(cfg)
-	p := tea.NewProgram(app, tea.WithAltScreen())
+	p := tea.NewProgram(app,
+		tea.WithAltScreen(),
+		tea.WithoutBracketedPaste(), // Disable bracketed paste to prevent OSC sequence leakage
+	)
 
 	_, err := p.Run()
 	return err

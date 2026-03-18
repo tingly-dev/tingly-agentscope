@@ -294,16 +294,6 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Filter out terminal escape sequences that leak from raw mode
-		// These include OSC (color detection), CSI (cursor position), and other control sequences
-		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-			inputStr := string(msg.Runes)
-			if isTerminalEscapeSequence(inputStr) {
-				// Drop this input - don't pass to textarea
-				return i, nil
-			}
-		}
-
 		switch msg.Type {
 		case tea.KeyTab:
 			// Tab cycles through popup items or inserts selected
