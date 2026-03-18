@@ -98,17 +98,17 @@ func (t *StdioTransport) Close() error {
 
 // Client represents an MCP client
 type Client struct {
-	transport      Transport
-	serverInfo     *Implementation
-	capabilities   ServerCapabilities
-	requestID      int64
-	tools          []Tool
-	resources      []Resource
-	prompts        []Prompt
-	toolsMu        sync.RWMutex
-	resourcesMu    sync.RWMutex
-	promptsMu      sync.RWMutex
-	initialized    bool
+	transport    Transport
+	serverInfo   *Implementation
+	capabilities ServerCapabilities
+	requestID    int64
+	tools        []Tool
+	resources    []Resource
+	prompts      []Prompt
+	toolsMu      sync.RWMutex
+	resourcesMu  sync.RWMutex
+	promptsMu    sync.RWMutex
+	initialized  bool
 }
 
 // NewClient creates a new MCP client

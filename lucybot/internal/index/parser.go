@@ -84,7 +84,7 @@ func (r *ParserRegistry) GetSupportedLanguages() []Language {
 
 // GetSupportedExtensions returns all supported file extensions
 func (r *ParserRegistry) GetSupportedExtensions() []string {
-	 exts := make([]string, 0, len(r.byExt))
+	exts := make([]string, 0, len(r.byExt))
 	for ext := range r.byExt {
 		exts = append(exts, ext)
 	}
@@ -94,14 +94,14 @@ func (r *ParserRegistry) GetSupportedExtensions() []string {
 // SimpleParser provides a basic parser implementation using regex/heuristics
 // for languages without Tree-sitter support
 type SimpleParser struct {
-	language    Language
+	language   Language
 	extensions []string
 }
 
 // NewSimpleParser creates a new simple parser
 func NewSimpleParser(language Language, extensions []string) *SimpleParser {
 	return &SimpleParser{
-		language:    language,
+		language:   language,
 		extensions: extensions,
 	}
 }

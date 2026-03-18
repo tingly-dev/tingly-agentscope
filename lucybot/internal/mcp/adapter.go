@@ -31,8 +31,8 @@ func (a *ToolAdapter) GetAllTools() []ToolInfo {
 		tools := client.GetCachedTools()
 		for _, t := range tools {
 			allTools = append(allTools, ToolInfo{
-				ServerName:  serverName,
-				Tool:        t,
+				ServerName: serverName,
+				Tool:       t,
 			})
 		}
 	}

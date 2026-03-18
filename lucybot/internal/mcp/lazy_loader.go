@@ -44,14 +44,14 @@ func DefaultLazyLoadingConfig() LazyLoadingConfig {
 
 // LazyLoader manages on-demand loading of MCP servers
 type LazyLoader struct {
-	registry        *Registry
+	registry         *Registry
 	keywordExtractor *KeywordExtractor
-	config          LazyLoadingConfig
-	loadHistory     []LoadResult
-	loadedServers   map[string]bool
-	serverKeywords  map[string][]string
-	preloadChains   map[string][]string
-	mu              sync.RWMutex
+	config           LazyLoadingConfig
+	loadHistory      []LoadResult
+	loadedServers    map[string]bool
+	serverKeywords   map[string][]string
+	preloadChains    map[string][]string
+	mu               sync.RWMutex
 }
 
 // NewLazyLoader creates a new lazy loader

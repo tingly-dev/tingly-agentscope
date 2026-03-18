@@ -10,10 +10,10 @@ import (
 
 // Input is a custom input component with autocomplete support
 type Input struct {
-	textarea      textarea.Model
-	placeholder   string
-	width         int
-	height        int
+	textarea    textarea.Model
+	placeholder string
+	width       int
+	height      int
 
 	// Popup state
 	commandPopup  *Popup
@@ -23,10 +23,10 @@ type Input struct {
 	popupStartPos int    // Cursor position when popup was triggered
 
 	// Agents for @ mention
-	agents        []AgentInfo
+	agents []AgentInfo
 
 	// ESC handling for double-ESC to clear
-	escPressed    bool
+	escPressed bool
 }
 
 // AgentInfo holds information about an agent
@@ -225,7 +225,7 @@ func (i *Input) shouldShowPopup() {
 		}
 
 		// Check no space between @ and cursor
-		afterAt := value[idx+1:cursorPos]
+		afterAt := value[idx+1 : cursorPos]
 		if !strings.Contains(afterAt, " ") {
 			if i.popupMode != PopupModeAgent {
 				i.showAgentPopup()

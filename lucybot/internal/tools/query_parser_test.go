@@ -9,16 +9,16 @@ import (
 
 func TestParseQuery(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		symbolType     string
-		wantType       QueryType
-		wantSymbol     string
-		wantFile       string
-		wantLineStart  int
-		wantLineEnd    int
-		wantWildcard   string
-		wantErr        bool
+		name          string
+		input         string
+		symbolType    string
+		wantType      QueryType
+		wantSymbol    string
+		wantFile      string
+		wantLineStart int
+		wantLineEnd   int
+		wantWildcard  string
+		wantErr       bool
 	}{
 		// 1. Simple names
 		{

@@ -12,30 +12,30 @@ import (
 	"github.com/muesli/termenv"
 	"github.com/tingly-dev/lucybot/internal/agent"
 	"github.com/tingly-dev/lucybot/internal/config"
+	agentscopeAgent "github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
-	agentscopeAgent "github.com/tingly-dev/tingly-agentscope/pkg/agent"
 )
 
 // App is the main TUI application
 type App struct {
 	// Core components
-	agent      *agent.LucyBotAgent
-	config     *config.Config
-	registry   *agent.Registry
+	agent    *agent.LucyBotAgent
+	config   *config.Config
+	registry *agent.Registry
 
 	// UI components
-	messages   *Messages
-	input      Input
-	statusBar  *StatusBar
-	spinner    spinner.Model
+	messages  *Messages
+	input     Input
+	statusBar *StatusBar
+	spinner   spinner.Model
 
 	// State
-	width        int
-	height       int
-	thinking     bool
-	quitting     bool
-	primaryAgents []agent.AgentDefinition
+	width           int
+	height          int
+	thinking        bool
+	quitting        bool
+	primaryAgents   []agent.AgentDefinition
 	currentAgentIdx int
 
 	// For agent mention handling
@@ -98,18 +98,18 @@ func NewApp(cfg *AppConfig) *App {
 
 	// Create app instance first
 	app := &App{
-		agent:         cfg.Agent,
-		config:        cfg.Config,
-		registry:      cfg.Registry,
-		messages:      NewMessages(),
-		input:         input,
-		statusBar:     statusBar,
-		spinner:       s,
-		primaryAgents: cfg.PrimaryAgents,
+		agent:           cfg.Agent,
+		config:          cfg.Config,
+		registry:        cfg.Registry,
+		messages:        NewMessages(),
+		input:           input,
+		statusBar:       statusBar,
+		spinner:         s,
+		primaryAgents:   cfg.PrimaryAgents,
 		currentAgentIdx: 0,
-		ctx:           ctx,
-		cancel:        cancel,
-		streamedMsgs:  make(chan *message.Msg, 100),
+		ctx:             ctx,
+		cancel:          cancel,
+		streamedMsgs:    make(chan *message.Msg, 100),
 	}
 
 	// Set up streaming callback for real-time message display during ReAct loop

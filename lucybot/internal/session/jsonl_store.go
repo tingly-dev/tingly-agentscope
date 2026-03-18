@@ -23,14 +23,14 @@ type JSONLMessage struct {
 
 // JSONLSessionMetadata represents session metadata stored in the first line
 type JSONLSessionMetadata struct {
-	Type        string    `json:"_type"`
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	WorkingDir  string    `json:"working_dir,omitempty"`
-	ModelName   string    `json:"model_name,omitempty"`
-	AgentName   string    `json:"agent_name,omitempty"`
+	Type       string    `json:"_type"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	WorkingDir string    `json:"working_dir,omitempty"`
+	ModelName  string    `json:"model_name,omitempty"`
+	AgentName  string    `json:"agent_name,omitempty"`
 }
 
 // JSONLStore implements Store using JSONL format (one JSON object per line)
@@ -121,8 +121,8 @@ func (s *JSONLStore) Save(session *Session) error {
 
 	// Write metadata as first line (as JSONLMessage with _type in metadata)
 	metadataMsg := JSONLMessage{
-		Role:    "system",
-		Content: "session_metadata",
+		Role:      "system",
+		Content:   "session_metadata",
 		Timestamp: session.CreatedAt,
 		Metadata: map[string]interface{}{
 			"_type":      "metadata",

@@ -19,11 +19,11 @@ import (
 // LucyBotAgent wraps ReActAgent with LucyBot-specific functionality
 type LucyBotAgent struct {
 	*agent.ReActAgent
-	config     *config.Config
-	toolkit    *tool.Toolkit
-	workDir    string
-	registry   *tools.Registry
-	mcpHelper  *mcp.IntegrationHelper
+	config    *config.Config
+	toolkit   *tool.Toolkit
+	workDir   string
+	registry  *tools.Registry
+	mcpHelper *mcp.IntegrationHelper
 }
 
 // LucyBotAgentConfig holds configuration for creating a LucyBotAgent

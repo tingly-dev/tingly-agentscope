@@ -116,8 +116,8 @@ func (r *Registry) BuildToolkit() *tool.Toolkit {
 		}
 
 		tk.Register(toolFunc, &tool.RegisterOptions{
-			GroupName: "lucybot",
-			FuncName:  toolInfo.Name,
+			GroupName:       "lucybot",
+			FuncName:        toolInfo.Name,
 			FuncDescription: toolInfo.Description,
 		})
 	}

@@ -29,27 +29,27 @@ type ToolUsage struct {
 
 // SessionMetrics contains metrics for a single session
 type SessionMetrics struct {
-	SessionID        string                 `json:"session_id"`
-	Duration         time.Duration          `json:"duration"`
-	MessageCount     int                    `json:"message_count"`
-	UserMessages     int                    `json:"user_messages"`
-	AssistantMessages int                   `json:"assistant_messages"`
-	ToolCalls        int                    `json:"tool_calls"`
-	ToolUsage        []ToolUsage            `json:"tool_usage"`
-	Patterns         []string               `json:"patterns"`
-	Metadata         map[string]interface{} `json:"metadata"`
+	SessionID         string                 `json:"session_id"`
+	Duration          time.Duration          `json:"duration"`
+	MessageCount      int                    `json:"message_count"`
+	UserMessages      int                    `json:"user_messages"`
+	AssistantMessages int                    `json:"assistant_messages"`
+	ToolCalls         int                    `json:"tool_calls"`
+	ToolUsage         []ToolUsage            `json:"tool_usage"`
+	Patterns          []string               `json:"patterns"`
+	Metadata          map[string]interface{} `json:"metadata"`
 }
 
 // AggregateMetrics contains aggregated metrics across multiple sessions
 type AggregateMetrics struct {
-	TotalSessions      int                    `json:"total_sessions"`
-	TotalDuration      time.Duration          `json:"total_duration"`
-	AvgDuration        time.Duration          `json:"avg_duration"`
-	TotalMessages      int                    `json:"total_messages"`
-	AvgMessagesPerSession float64             `json:"avg_messages_per_session"`
-	MostUsedTools      []ToolUsage            `json:"most_used_tools"`
-	CommonPatterns     []string               `json:"common_patterns"`
-	SessionsPerDay     map[string]int         `json:"sessions_per_day"`
+	TotalSessions         int            `json:"total_sessions"`
+	TotalDuration         time.Duration  `json:"total_duration"`
+	AvgDuration           time.Duration  `json:"avg_duration"`
+	TotalMessages         int            `json:"total_messages"`
+	AvgMessagesPerSession float64        `json:"avg_messages_per_session"`
+	MostUsedTools         []ToolUsage    `json:"most_used_tools"`
+	CommonPatterns        []string       `json:"common_patterns"`
+	SessionsPerDay        map[string]int `json:"sessions_per_day"`
 }
 
 // AnalyzeSession analyzes a single session and returns metrics

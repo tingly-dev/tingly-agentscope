@@ -54,21 +54,21 @@ const (
 
 // Symbol represents a code symbol definition
 type Symbol struct {
-	ID            string        `json:"id"`
-	Name          string        `json:"name"`
-	QualifiedName string        `json:"qualified_name"`
-	Kind          SymbolKind    `json:"kind"`
-	FilePath      string        `json:"file_path"`
-	StartLine     int           `json:"start_line"`
-	StartColumn   int           `json:"start_column"`
-	EndLine       int           `json:"end_line"`
-	EndColumn     int           `json:"end_column"`
-	Language      Language      `json:"language"`
-	ParentID      *string       `json:"parent_id,omitempty"`
-	Documentation string        `json:"documentation,omitempty"`
-	Signature     string        `json:"signature,omitempty"`
-	CreatedAt     time.Time     `json:"created_at"`
-	UpdatedAt     time.Time     `json:"updated_at"`
+	ID            string     `json:"id"`
+	Name          string     `json:"name"`
+	QualifiedName string     `json:"qualified_name"`
+	Kind          SymbolKind `json:"kind"`
+	FilePath      string     `json:"file_path"`
+	StartLine     int        `json:"start_line"`
+	StartColumn   int        `json:"start_column"`
+	EndLine       int        `json:"end_line"`
+	EndColumn     int        `json:"end_column"`
+	Language      Language   `json:"language"`
+	ParentID      *string    `json:"parent_id,omitempty"`
+	Documentation string     `json:"documentation,omitempty"`
+	Signature     string     `json:"signature,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 // SymbolReference represents a reference to a symbol
@@ -86,16 +86,16 @@ type SymbolReference struct {
 
 // Scope represents a lexical scope in the code
 type Scope struct {
-	ID             string    `json:"id"`
-	FilePath       string    `json:"file_path"`
-	StartLine      int       `json:"start_line"`
-	StartColumn    int       `json:"start_column"`
-	EndLine        int       `json:"end_line"`
-	EndColumn      int       `json:"end_column"`
-	ScopeKind      string    `json:"scope_kind"` // module, class, function, method, etc.
-	ParentScopeID  *string   `json:"parent_scope_id,omitempty"`
-	SymbolID       *string   `json:"symbol_id,omitempty"` // Associated symbol (if any)
-	CreatedAt      time.Time `json:"created_at"`
+	ID            string    `json:"id"`
+	FilePath      string    `json:"file_path"`
+	StartLine     int       `json:"start_line"`
+	StartColumn   int       `json:"start_column"`
+	EndLine       int       `json:"end_line"`
+	EndColumn     int       `json:"end_column"`
+	ScopeKind     string    `json:"scope_kind"` // module, class, function, method, etc.
+	ParentScopeID *string   `json:"parent_scope_id,omitempty"`
+	SymbolID      *string   `json:"symbol_id,omitempty"` // Associated symbol (if any)
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // Relationship represents a relationship between two symbols
@@ -108,13 +108,13 @@ type Relationship struct {
 
 // FileInfo stores information about indexed files
 type FileInfo struct {
-	Path         string    `json:"path"`
-	Language     Language  `json:"language"`
-	Size         int64     `json:"size"`
-	ModTime      time.Time `json:"mod_time"`
-	Hash         string    `json:"hash"`
-	SymbolCount  int       `json:"symbol_count"`
-	IndexedAt    time.Time `json:"indexed_at"`
+	Path        string    `json:"path"`
+	Language    Language  `json:"language"`
+	Size        int64     `json:"size"`
+	ModTime     time.Time `json:"mod_time"`
+	Hash        string    `json:"hash"`
+	SymbolCount int       `json:"symbol_count"`
+	IndexedAt   time.Time `json:"indexed_at"`
 }
 
 // IndexMetadata stores metadata about the index itself

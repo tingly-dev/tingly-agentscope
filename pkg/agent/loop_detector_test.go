@@ -10,27 +10,27 @@ func TestLoopDetector_DetectLoop(t *testing.T) {
 	detector := NewLoopDetector(3) // Max 3 occurrences
 
 	toolBlock1 := &message.ToolUseBlock{
-		ID:     "tool_1",
-		Name:   "test_tool",
-		Input:  map[string]any{"param": "value1"},
+		ID:    "tool_1",
+		Name:  "test_tool",
+		Input: map[string]any{"param": "value1"},
 	}
 
 	toolBlock2 := &message.ToolUseBlock{
-		ID:     "tool_2",
-		Name:   "test_tool",
-		Input:  map[string]any{"param": "value1"}, // Same name and input as toolBlock1
+		ID:    "tool_2",
+		Name:  "test_tool",
+		Input: map[string]any{"param": "value1"}, // Same name and input as toolBlock1
 	}
 
 	toolBlock3 := &message.ToolUseBlock{
-		ID:     "tool_3",
-		Name:   "test_tool",
-		Input:  map[string]any{"param": "value1"}, // Same again
+		ID:    "tool_3",
+		Name:  "test_tool",
+		Input: map[string]any{"param": "value1"}, // Same again
 	}
 
 	toolBlock4 := &message.ToolUseBlock{
-		ID:     "tool_4",
-		Name:   "other_tool",
-		Input:  map[string]any{"param": "value1"}, // Different name
+		ID:    "tool_4",
+		Name:  "other_tool",
+		Input: map[string]any{"param": "value1"}, // Different name
 	}
 
 	// First call - no loop
@@ -61,9 +61,9 @@ func TestLoopDetector_SameToolMultipleTimes(t *testing.T) {
 	detector := NewLoopDetector(2)
 
 	toolBlock := &message.ToolUseBlock{
-		ID:     "tool_1",
-		Name:   "test_tool",
-		Input:  map[string]any{"param": "value"},
+		ID:    "tool_1",
+		Name:  "test_tool",
+		Input: map[string]any{"param": "value"},
 	}
 
 	// First two calls are fine

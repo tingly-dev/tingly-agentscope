@@ -204,12 +204,12 @@ func (ct *CodeTools) viewByFileSymbol(filePath, symbol string) (*tool.ToolRespon
 
 	// Search for symbol definition patterns
 	patterns := []string{
-		fmt.Sprintf(`^func\s+%s\s*\(`, regexp.QuoteMeta(symbol)),               // Go function
-		fmt.Sprintf(`^func\s+\([^)]+\)\s*%s\s*\(`, regexp.QuoteMeta(symbol)),  // Go method
+		fmt.Sprintf(`^func\s+%s\s*\(`, regexp.QuoteMeta(symbol)),                         // Go function
+		fmt.Sprintf(`^func\s+\([^)]+\)\s*%s\s*\(`, regexp.QuoteMeta(symbol)),             // Go method
 		fmt.Sprintf(`^(?:type|class|struct|interface)\s+%s\b`, regexp.QuoteMeta(symbol)), // Type/Class
-		fmt.Sprintf(`^(?:var|const)\s+%s\b`, regexp.QuoteMeta(symbol)),        // Variable/Constant
-		fmt.Sprintf(`^\s*(?:def|function)\s+%s\s*\(`, regexp.QuoteMeta(symbol)), // Python/JS function
-		fmt.Sprintf(`^\s*%s\s*=`, regexp.QuoteMeta(symbol)),                   // Assignment
+		fmt.Sprintf(`^(?:var|const)\s+%s\b`, regexp.QuoteMeta(symbol)),                   // Variable/Constant
+		fmt.Sprintf(`^\s*(?:def|function)\s+%s\s*\(`, regexp.QuoteMeta(symbol)),          // Python/JS function
+		fmt.Sprintf(`^\s*%s\s*=`, regexp.QuoteMeta(symbol)),                              // Assignment
 	}
 
 	scanner := bufio.NewScanner(f)

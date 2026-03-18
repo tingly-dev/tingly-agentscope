@@ -19,9 +19,9 @@ import (
 
 func main() {
 	app := &cli.App{
-		Name:     "lucybot",
-		Version:  "v0.1.0",
-		Usage:    "AI Programming Assistant",
+		Name:    "lucybot",
+		Version: "v0.1.0",
+		Usage:   "AI Programming Assistant",
 		Commands: []*cli.Command{
 			chatCommand,
 			indexCommand,

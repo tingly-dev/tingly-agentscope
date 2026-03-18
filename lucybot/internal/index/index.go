@@ -14,15 +14,15 @@ import (
 
 // Index manages code indexing with file watching and SQLite storage
 type Index struct {
-	root      string
-	dbPath    string
-	db        *DB
-	watcher   *watcher.Watcher
-	registry  *ParserRegistry
-	touched   map[string]time.Time
-	mu        sync.RWMutex
-	ctx       context.Context
-	cancel    context.CancelFunc
+	root     string
+	dbPath   string
+	db       *DB
+	watcher  *watcher.Watcher
+	registry *ParserRegistry
+	touched  map[string]time.Time
+	mu       sync.RWMutex
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 // Config holds index configuration

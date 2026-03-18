@@ -57,7 +57,7 @@ type Config struct {
 	Agent   AgentConfig   `toml:"agent"`
 	Index   IndexConfig   `toml:"index"`
 	Session SessionConfig `toml:"session"`
-	MCP     mcp.MCPConfig  `toml:"mcp"`
+	MCP     mcp.MCPConfig `toml:"mcp"`
 }
 
 const (

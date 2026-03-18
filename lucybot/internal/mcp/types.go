@@ -77,9 +77,9 @@ type InitializeResponse struct {
 
 // ClientCapabilities represents client capabilities
 type ClientCapabilities struct {
-	Roots        *RootsCapability        `json:"roots,omitempty"`
-	Sampling     *SamplingCapability     `json:"sampling,omitempty"`
-	Experimental map[string]any          `json:"experimental,omitempty"`
+	Roots        *RootsCapability    `json:"roots,omitempty"`
+	Sampling     *SamplingCapability `json:"sampling,omitempty"`
+	Experimental map[string]any      `json:"experimental,omitempty"`
 }
 
 // RootsCapability represents roots capability
@@ -161,8 +161,8 @@ type ResourceContent struct {
 
 // Prompt represents an MCP prompt
 type Prompt struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description,omitempty"`
+	Name        string           `json:"name"`
+	Description string           `json:"description,omitempty"`
 	Arguments   []PromptArgument `json:"arguments,omitempty"`
 }
 

@@ -285,15 +285,15 @@ func TestTrajectoryAnalyzer_DetectPatterns(t *testing.T) {
 		CreatedAt: now,
 		UpdatedAt: now,
 		Messages: []Message{
-			{Role: "user", Content: "edit_file some code", Timestamp: now},      // file_editing
-			{Role: "user", Content: "view_file path/to/file", Timestamp: now},    // code_reading
-			{Role: "user", Content: "view_source symbol", Timestamp: now},        // code_reading
-			{Role: "user", Content: "grep search pattern", Timestamp: now},       // code_search
-			{Role: "user", Content: "search for something", Timestamp: now},      // code_search
-			{Role: "user", Content: "bash ls -la", Timestamp: now},               // command_execution
-			{Role: "user", Content: "run command", Timestamp: now},               // command_execution
-			{Role: "user", Content: "error occurred", Timestamp: now},            // error_handling
-			{Role: "assistant", Content: "operation failed", Timestamp: now},     // error_handling
+			{Role: "user", Content: "edit_file some code", Timestamp: now},    // file_editing
+			{Role: "user", Content: "view_file path/to/file", Timestamp: now}, // code_reading
+			{Role: "user", Content: "view_source symbol", Timestamp: now},     // code_reading
+			{Role: "user", Content: "grep search pattern", Timestamp: now},    // code_search
+			{Role: "user", Content: "search for something", Timestamp: now},   // code_search
+			{Role: "user", Content: "bash ls -la", Timestamp: now},            // command_execution
+			{Role: "user", Content: "run command", Timestamp: now},            // command_execution
+			{Role: "user", Content: "error occurred", Timestamp: now},         // error_handling
+			{Role: "assistant", Content: "operation failed", Timestamp: now},  // error_handling
 		},
 	}
 	err := store.Save(session)
