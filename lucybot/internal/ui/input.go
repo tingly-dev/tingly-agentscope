@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -291,6 +292,18 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Filter out OSC escape sequences that leak from terminal color detection
+		// These sequences start with ESC ] (0x1b 0x5d) and contain "rgb:" patterns
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+			// Check if this looks like an OSC sequence fragment
+			// OSC 11 (background color) sequences contain "rgb:" or look like "11;rgb:..."
+			inputStr := string(msg.Runes)
+			if isOSCEscapeSequence(inputStr) {
+				// Drop this input - don't pass to textarea
+				return i, nil
+			}
+		}
+
 		switch msg.Type {
 		case tea.KeyTab:
 			// Tab cycles through popup items or inserts selected
@@ -404,4 +417,35 @@ func isWordChar(c byte) bool {
 		(c >= 'A' && c <= 'Z') ||
 		(c >= '0' && c <= '9') ||
 		c == '_'
+}
+
+// isOSCEscapeSequence checks if the input string is part of a terminal OSC escape sequence
+// OSC sequences (like OSC 11 for background color) can leak into raw mode input
+// These sequences typically look like: ESC ] 11 ; rgb : xx / xx / xx BEL
+// Or fragments like: "11;rgb:0c0c/0c0c/0c0c"
+func isOSCEscapeSequence(s string) bool {
+	// Check for OSC sequence patterns
+	// Pattern 1: Starts with OSC introducer (ESC ] or just ] if ESC was consumed)
+	if strings.HasPrefix(s, "\x1b]") || strings.HasPrefix(s, "\x9d") {
+		return true
+	}
+
+	// Pattern 2: Contains "rgb:" which is typical of OSC color responses
+	if strings.Contains(s, "rgb:") {
+		return true
+	}
+
+	// Pattern 3: Looks like OSC 11 or similar numeric response
+	// Matches patterns like "11;rgb:", "10;rgb:", etc.
+	if matched, _ := regexp.MatchString(`^\d+;rgb:`, s); matched {
+		return true
+	}
+
+	// Pattern 4: Contains common OSC sequence fragments that shouldn't be typed
+	// These are fragments that appear when OSC sequences get split
+	if strings.Contains(s, "0c0c") || strings.Contains(s, ";rgb:") {
+		return true
+	}
+
+	return false
 }
