@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIsOSCEscapeSequence(t *testing.T) {
+func TestIsTerminalEscapeSequence(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -21,6 +21,24 @@ func TestIsOSCEscapeSequence(t *testing.T) {
 		{"rgb: fragment", ";rgb:", true},
 		{"0c0c fragment", "0c0c/0c0c", true},
 
+		// CSI sequences (Cursor Position Report)
+		{"CSI CPR", "[21;1R", true},
+		{"CSI with different numbers", "[1;1H", true},
+
+		// ] bracket fragments from OSC
+		{"multiple brackets", "]]]]]", true},
+		{"bracket with hex", "]0c", true},
+		{"bracket with slash", "]/0c", true},
+
+		// Escape characters
+		{"ESC character", "\x1b[2J", true},
+		{"CSI 8-bit", "\x9b[2J", true},
+		{"OSC 8-bit", "\x9d11;rgb:...", true},
+
+		// Hex color patterns
+		{"hex color pattern", "0c0c/0c0c", true},
+		{"hex with slash", "c0c/0c", true},
+
 		// Normal input should NOT be filtered
 		{"normal text", "hello world", false},
 		{"command with slash", "/help", false},
@@ -31,17 +49,20 @@ func TestIsOSCEscapeSequence(t *testing.T) {
 		{"empty string", "", false},
 		{"spaces", "   ", false},
 		{"sentence with rgb word", "The rgb values are set", false},
+		{"single bracket", "[", false},
+		{"bracket in text", "test [link] more", false},
+		{"file path with brackets", "config[1].json", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isOSCEscapeSequence(tt.input)
-			assert.Equal(t, tt.expected, result, "isOSCEscapeSequence(%q)", tt.input)
+			result := isTerminalEscapeSequence(tt.input)
+			assert.Equal(t, tt.expected, result, "isTerminalEscapeSequence(%q)", tt.input)
 		})
 	}
 }
 
-func TestIsOSCEscapeSequence_LongFragments(t *testing.T) {
+func TestIsTerminalEscapeSequence_LongFragments(t *testing.T) {
 	// Test actual fragments seen in the bug report
 	fragments := []string{
 		"]11;rgb:0c0c/0c0c/0c0c",
@@ -49,12 +70,22 @@ func TestIsOSCEscapeSequence_LongFragments(t *testing.T) {
 		"11;rgb:0c0c/0c0c0c/0c",
 		"rgb:0c0c/0cgb:0c0c/0crgb:0c0c/0cb:0c0c/0c",
 		"]11;rgb:0c0c/0c]11;rgb:0c0c/0c0c",
+		"]]]]]",
+		"[21;1R",
+		"]c0c/0c]]",
 	}
 
 	for _, fragment := range fragments {
-		t.Run("fragment_"+fragment[:10], func(t *testing.T) {
-			assert.True(t, isOSCEscapeSequence(fragment),
-				"Fragment should be detected as OSC escape sequence: %q", fragment)
+		t.Run("fragment_"+fragment[:min(10, len(fragment))], func(t *testing.T) {
+			assert.True(t, isTerminalEscapeSequence(fragment),
+				"Fragment should be detected as terminal escape sequence: %q", fragment)
 		})
 	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

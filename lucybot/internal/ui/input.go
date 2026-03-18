@@ -292,13 +292,11 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Filter out OSC escape sequences that leak from terminal color detection
-		// These sequences start with ESC ] (0x1b 0x5d) and contain "rgb:" patterns
+		// Filter out terminal escape sequences that leak from raw mode
+		// These include OSC (color detection), CSI (cursor position), and other control sequences
 		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
-			// Check if this looks like an OSC sequence fragment
-			// OSC 11 (background color) sequences contain "rgb:" or look like "11;rgb:..."
 			inputStr := string(msg.Runes)
-			if isOSCEscapeSequence(inputStr) {
+			if isTerminalEscapeSequence(inputStr) {
 				// Drop this input - don't pass to textarea
 				return i, nil
 			}
@@ -419,32 +417,74 @@ func isWordChar(c byte) bool {
 		c == '_'
 }
 
-// isOSCEscapeSequence checks if the input string is part of a terminal OSC escape sequence
-// OSC sequences (like OSC 11 for background color) can leak into raw mode input
-// These sequences typically look like: ESC ] 11 ; rgb : xx / xx / xx BEL
-// Or fragments like: "11;rgb:0c0c/0c0c/0c0c"
-func isOSCEscapeSequence(s string) bool {
-	// Check for OSC sequence patterns
-	// Pattern 1: Starts with OSC introducer (ESC ] or just ] if ESC was consumed)
-	if strings.HasPrefix(s, "\x1b]") || strings.HasPrefix(s, "\x9d") {
+// isTerminalEscapeSequence checks if the input string contains terminal escape sequence fragments
+// that leak into raw mode input. This includes OSC, CSI, and other control sequences.
+// Examples: OSC 11 (ESC ] 11 ; rgb : ...), CSI (ESC [ 21 ; 1 R), etc.
+func isTerminalEscapeSequence(s string) bool {
+	// Empty strings are fine
+	if s == "" {
+		return false
+	}
+
+	// Check for escape character (0x1b) or 8-bit control characters
+	// Note: Using strings.Contains for bytes, ContainsRune for runes
+	if strings.Contains(s, "\x1b") || strings.Contains(s, "\x9b") ||
+		strings.Contains(s, "\x9d") || strings.Contains(s, "\x8e") ||
+		strings.Contains(s, "\x8f") {
 		return true
 	}
 
-	// Pattern 2: Contains "rgb:" which is typical of OSC color responses
+	// Pattern 1: OSC sequence fragments (start with ] after ESC was consumed)
+	// OSC 11 for background color: ]11;rgb:... or just ]]]]] sequences
+	if strings.Contains(s, "]") {
+		// Check if it's just normal text with brackets
+		// If it contains typical OSC patterns, filter it
+		if matched, _ := regexp.MatchString(`\d+;rgb:`, s); matched {
+			return true
+		}
+		// Multiple ] in sequence suggests OSC fragments
+		if matched, _ := regexp.MatchString(`\]{2,}`, s); matched {
+			return true
+		}
+		// ] followed by hex patterns
+		if matched, _ := regexp.MatchString(`\][0-9a-fA-F]`, s); matched {
+			return true
+		}
+	}
+
+	// Pattern 2: CSI sequence fragments like [21;1R (Cursor Position Report)
+	// CSI sequences start with [ (after ESC) and end with a letter
+	if matched, _ := regexp.MatchString(`\[\d+;\d+[A-Za-z]`, s); matched {
+		return true
+	}
+
+	// Pattern 3: Contains "rgb:" which is typical of OSC color responses
 	if strings.Contains(s, "rgb:") {
 		return true
 	}
 
-	// Pattern 3: Looks like OSC 11 or similar numeric response
-	// Matches patterns like "11;rgb:", "10;rgb:", etc.
+	// Pattern 4: Looks like OSC 11 or similar numeric response
 	if matched, _ := regexp.MatchString(`^\d+;rgb:`, s); matched {
 		return true
 	}
 
-	// Pattern 4: Contains common OSC sequence fragments that shouldn't be typed
-	// These are fragments that appear when OSC sequences get split
-	if strings.Contains(s, "0c0c") || strings.Contains(s, ";rgb:") {
+	// Pattern 5: Contains hex color fragments typical of OSC responses
+	if matched, _ := regexp.MatchString(`[0-9a-fA-F]{4}/[0-9a-fA-F]{4}`, s); matched {
 		return true
+	}
+
+	// Pattern 6: Contains common OSC sequence fragments that shouldn't be typed
+	if strings.Contains(s, "0c0c") || strings.Contains(s, ";rgb:") ||
+		strings.Contains(s, "/0c") || strings.Contains(s, "c0c/") {
+		return true
+	}
+
+	// Pattern 7: Pure control characters or unusual combinations
+	// Check for any control characters (0x00-0x1f except common whitespace)
+	for _, r := range s {
+		if r < 0x20 && r != '\t' && r != '\n' && r != '\r' {
+			return true
+		}
 	}
 
 	return false
