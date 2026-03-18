@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -146,6 +148,7 @@ func (m *Messages) totalLines() int {
 
 // View renders the messages
 func (m *Messages) View() string {
+	fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View called, width=%d, height=%d, messages=%d\n", m.width, m.height, len(m.messages))
 	if m.width == 0 {
 		m.width = 80
 	}
@@ -202,9 +205,12 @@ func (m *Messages) View() string {
 
 		// Render content
 		if len(msg.Blocks) > 0 {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View: rendering message with %d blocks, role=%s\n", len(msg.Blocks), msg.Role)
 			// Use renderer for rich content
 			agentMsg := message.NewMsg(msg.Agent, msg.Blocks, types.Role(msg.Role))
+			fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View: calling renderer.Render...\n")
 			rendered := m.renderer.Render(agentMsg)
+			fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View: renderer.Render returned, rendered len=%d\n", len(rendered))
 			if rendered != "" {
 				lines := strings.Split(rendered, "\n")
 				allLines = append(allLines, lines...)

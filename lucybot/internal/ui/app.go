@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -219,13 +220,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case ResponseMsg:
+		fmt.Fprintf(os.Stderr, "[DEBUG] Received ResponseMsg, content len=%d, blocks=%d\n", len(msg.Content), len(msg.Blocks))
 		// Handle agent response
 		a.thinking = false
 		if len(msg.Blocks) > 0 {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Adding message with blocks\n")
 			a.messages.AddMessageWithBlocks("assistant", msg.Content, msg.AgentName, msg.Blocks)
 		} else {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Adding assistant message\n")
 			a.messages.AddAssistantMessage(msg.Content, msg.AgentName)
 		}
+		fmt.Fprintf(os.Stderr, "[DEBUG] ResponseMsg handled successfully\n")
 		// Continue to update input below - DO NOT return early
 		// Early return would skip input update, causing focus issues
 	}
@@ -264,42 +269,50 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 
 	// Send to agent
 	return func() tea.Msg {
-		fmt.Printf("[DEBUG] Starting agent.Reply for input: %q\n", input)
+		fmt.Fprintf(os.Stderr, "[DEBUG] Starting agent.Reply for input: %q\n", input)
 		msg := message.NewMsg(
 			"user",
 			[]message.ContentBlock{message.Text(input)},
 			types.RoleUser,
 		)
 
-		fmt.Printf("[DEBUG] Calling agent.Reply...\n")
+		fmt.Fprintf(os.Stderr, "[DEBUG] Calling agent.Reply...\n")
 		resp, err := a.agent.Reply(a.ctx, msg)
-		fmt.Printf("[DEBUG] agent.Reply returned, err=%v, resp nil=%v\n", err, resp == nil)
+		fmt.Fprintf(os.Stderr, "[DEBUG] agent.Reply returned, err=%v, resp nil=%v\n", err, resp == nil)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "[DEBUG] agent.Reply error: %v\n", err)
 			return ResponseMsg{
 				Content:   fmt.Sprintf("Error: %v", err),
 				AgentName: a.config.Agent.Name,
 			}
 		}
 
+		fmt.Fprintf(os.Stderr, "[DEBUG] Processing response content...\n")
 		// Extract content blocks and text from response
 		var content string
 		var blocks []message.ContentBlock
 		if resp != nil {
 			switch c := resp.Content.(type) {
 			case string:
+				fmt.Fprintf(os.Stderr, "[DEBUG] Response is string, len=%d\n", len(c))
 				content = c
 				blocks = []message.ContentBlock{message.Text(c)}
 			case []message.ContentBlock:
+				fmt.Fprintf(os.Stderr, "[DEBUG] Response is []ContentBlock, len=%d\n", len(c))
 				blocks = c
 				// Extract text for compatibility
-				for _, block := range c {
+				for i, block := range c {
+					fmt.Fprintf(os.Stderr, "[DEBUG] Processing block %d, type=%T\n", i, block)
 					if text, ok := block.(*message.TextBlock); ok {
 						content += text.Text
 					}
 				}
+			default:
+				fmt.Fprintf(os.Stderr, "[DEBUG] Response is unknown type: %T\n", c)
 			}
 		}
 
+		fmt.Fprintf(os.Stderr, "[DEBUG] Returning ResponseMsg, content len=%d, blocks len=%d\n", len(content), len(blocks))
 		return ResponseMsg{
 			Content:   content,
 			AgentName: a.config.Agent.Name,
