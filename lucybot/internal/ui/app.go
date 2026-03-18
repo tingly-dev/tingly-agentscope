@@ -14,6 +14,7 @@ import (
 	"github.com/tingly-dev/lucybot/internal/config"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
+	agentscopeAgent "github.com/tingly-dev/tingly-agentscope/pkg/agent"
 )
 
 // App is the main TUI application
@@ -42,6 +43,9 @@ type App struct {
 
 	// Cancel function for interrupting operations
 	cancel context.CancelFunc
+
+	// Streaming channel for intermediate messages from ReAct agent
+	streamedMsgs chan *message.Msg
 }
 
 // AppConfig holds configuration for creating the App
@@ -92,7 +96,8 @@ func NewApp(cfg *AppConfig) *App {
 	// Create cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return &App{
+	// Create app instance first
+	app := &App{
 		agent:         cfg.Agent,
 		config:        cfg.Config,
 		registry:      cfg.Registry,
@@ -104,7 +109,24 @@ func NewApp(cfg *AppConfig) *App {
 		currentAgentIdx: 0,
 		ctx:           ctx,
 		cancel:        cancel,
+		streamedMsgs:  make(chan *message.Msg, 100),
 	}
+
+	// Set up streaming callback for real-time message display during ReAct loop
+	if cfg.Agent != nil {
+		cfg.Agent.SetStreamingConfig(&agentscopeAgent.StreamingConfig{
+			OnMessage: func(msg *message.Msg) {
+				select {
+				case app.streamedMsgs <- msg:
+					fmt.Fprintf(os.Stderr, "[DEBUG] Streamed message queued, role=%s\n", msg.Role)
+				default:
+					fmt.Fprintf(os.Stderr, "[DEBUG] Streamed message channel full\n")
+				}
+			},
+		})
+	}
+
+	return app
 }
 
 // Init initializes the app
@@ -217,6 +239,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			a.spinner, cmd = a.spinner.Update(msg)
 			cmds = append(cmds, cmd)
+			// Also check for streamed messages during thinking
+			cmds = append(cmds, a.checkStreamedMessagesCmd())
 		}
 
 	case ResponseMsg:
@@ -233,6 +257,29 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		fmt.Fprintf(os.Stderr, "[DEBUG] ResponseMsg handled successfully\n")
 		// Continue to update input below - DO NOT return early
 		// Early return would skip input update, causing focus issues
+
+	case StreamedMsg:
+		// Handle streamed message from ReAct agent
+		if msg.Msg != nil {
+			blocks := msg.Msg.GetContentBlocks()
+			var content string
+			for _, block := range blocks {
+				if textBlock, ok := block.(*message.TextBlock); ok {
+					if content != "" {
+						content += "\n"
+					}
+					content += textBlock.Text
+				}
+			}
+			a.messages.AddMessageWithBlocks(
+				string(msg.Msg.Role),
+				content,
+				msg.Msg.Name,
+				blocks,
+			)
+			// Schedule another check for more streamed messages
+			cmds = append(cmds, a.checkStreamedMessagesCmd())
+		}
 	}
 
 	// Update input
@@ -248,6 +295,23 @@ type ResponseMsg struct {
 	Content   string
 	AgentName string
 	Blocks    []message.ContentBlock // Full content blocks for rich rendering
+}
+
+// StreamedMsg is sent when a message is streamed from the agent during ReAct loop
+type StreamedMsg struct {
+	Msg *message.Msg
+}
+
+// checkStreamedMessagesCmd creates a command that checks for streamed messages
+func (a *App) checkStreamedMessagesCmd() tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case msg := <-a.streamedMsgs:
+			return StreamedMsg{Msg: msg}
+		default:
+			return nil
+		}
+	}
 }
 
 // handleSubmit handles user input submission

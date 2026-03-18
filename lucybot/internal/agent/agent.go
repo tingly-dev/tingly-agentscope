@@ -123,3 +123,8 @@ func (a *LucyBotAgent) GetToolkit() *tool.Toolkit {
 func (a *LucyBotAgent) SetWorkDir(dir string) {
 	a.workDir = dir
 }
+
+// SetStreamingConfig sets the streaming configuration on the underlying ReAct agent
+func (a *LucyBotAgent) SetStreamingConfig(streaming *agent.StreamingConfig) {
+	a.ReActAgent.SetStreamingConfig(streaming)
+}
