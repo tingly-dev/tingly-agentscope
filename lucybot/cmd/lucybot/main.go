@@ -28,6 +28,7 @@ func main() {
 			toolsCommand,
 			diffCommand,
 			initConfigCommand,
+			mcpCommand,
 		},
 		DefaultCommand: "chat",
 	}
