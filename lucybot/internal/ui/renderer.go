@@ -178,7 +178,15 @@ func (r *MessageRenderer) renderToolUseBlock(sb *strings.Builder, block *message
 	sb.WriteString(" ")
 
 	// Format tool call
-	toolCall := r.formatToolCall(block.Name, block.Input)
+	// Convert input from any to map[string]types.JSONSerializable
+	var inputMap map[string]types.JSONSerializable
+	if m, ok := block.Input.(map[string]any); ok {
+		inputMap = make(map[string]types.JSONSerializable, len(m))
+		for k, v := range m {
+			inputMap[k] = v
+		}
+	}
+	toolCall := r.formatToolCall(block.Name, inputMap)
 	sb.WriteString(toolCall)
 }
 
