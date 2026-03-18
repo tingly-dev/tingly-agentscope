@@ -268,7 +268,18 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 	a.thinking = true
 
 	// Send to agent
-	return func() tea.Msg {
+	return func() (response tea.Msg) {
+		// Recover from any panics in the agent to prevent program crash
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "[DEBUG] PANIC in agent.Reply: %v\n", r)
+				response = ResponseMsg{
+					Content:   fmt.Sprintf("Error: agent panic - %v", r),
+					AgentName: a.config.Agent.Name,
+				}
+			}
+		}()
+
 		fmt.Fprintf(os.Stderr, "[DEBUG] Starting agent.Reply for input: %q\n", input)
 		msg := message.NewMsg(
 			"user",
@@ -281,10 +292,11 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 		fmt.Fprintf(os.Stderr, "[DEBUG] agent.Reply returned, err=%v, resp nil=%v\n", err, resp == nil)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[DEBUG] agent.Reply error: %v\n", err)
-			return ResponseMsg{
+			response = ResponseMsg{
 				Content:   fmt.Sprintf("Error: %v", err),
 				AgentName: a.config.Agent.Name,
 			}
+			return
 		}
 
 		fmt.Fprintf(os.Stderr, "[DEBUG] Processing response content...\n")
@@ -313,11 +325,12 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 		}
 
 		fmt.Fprintf(os.Stderr, "[DEBUG] Returning ResponseMsg, content len=%d, blocks len=%d\n", len(content), len(blocks))
-		return ResponseMsg{
+		response = ResponseMsg{
 			Content:   content,
 			AgentName: a.config.Agent.Name,
 			Blocks:    blocks,
 		}
+		return
 	}
 }
 

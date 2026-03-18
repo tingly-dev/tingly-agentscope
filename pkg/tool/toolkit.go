@@ -714,14 +714,25 @@ func callViaReflect(ctx context.Context, fn *RegisteredFunction, args any) (*Too
 	// ===== 3️⃣ Call function =====
 	results := fnVal.Call([]reflect.Value{ctxVal, argVal})
 
+	// Validate return count
+	if len(results) != 2 {
+		return nil, fmt.Errorf("tool %s must return (*ToolResponse, error), got %d return values", fn.Name, len(results))
+	}
+
 	// ===== 4️⃣ Parse return values =====
 	var resp *ToolResponse
 	if !results[0].IsNil() {
-		resp = results[0].Interface().(*ToolResponse)
+		if r, ok := results[0].Interface().(*ToolResponse); ok {
+			resp = r
+		}
 	}
 
 	if !results[1].IsNil() {
-		return resp, results[1].Interface().(error)
+		if err, ok := results[1].Interface().(error); ok {
+			return resp, err
+		}
+		// If not an error type, convert to string error
+		return resp, fmt.Errorf("tool %s returned non-error second value: %T", fn.Name, results[1].Interface())
 	}
 
 	return resp, nil
