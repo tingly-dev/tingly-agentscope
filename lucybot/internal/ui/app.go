@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"github.com/tingly-dev/lucybot/internal/agent"
 	"github.com/tingly-dev/lucybot/internal/config"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
@@ -52,6 +53,9 @@ type AppConfig struct {
 
 // NewApp creates a new TUI application
 func NewApp(cfg *AppConfig) *App {
+	// Set lipgloss to use a fixed color profile to prevent OSC sequence queries
+	lipgloss.SetColorProfile(termenv.ANSI256)
+
 	// Create spinner for thinking indicator
 	s := spinner.New()
 	s.Spinner = spinner.Dot

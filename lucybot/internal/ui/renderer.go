@@ -352,9 +352,11 @@ func (r *MessageRenderer) SetWidth(width int) {
 
 // renderMarkdown renders markdown text to formatted string
 func (r *MessageRenderer) renderMarkdown(text string) string {
-	// Create glamour renderer with custom styles
+	// Create glamour renderer with a fixed dark style
+	// Use WithStandardStyle instead of WithAutoStyle to avoid OSC 11 sequences
+	// that query terminal background color and leak into input
 	renderer, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
+		glamour.WithStandardStyle("dark"),
 		glamour.WithWordWrap(r.width-4),
 	)
 	if err != nil {
