@@ -121,6 +121,8 @@ func (i *Input) Cursor() int {
 func (i *Input) Reset() {
 	i.textarea.SetValue("")
 	i.hidePopups()
+	// Ensure textarea remains focused after reset
+	i.textarea.Focus()
 }
 
 // IsPopupVisible returns true if any popup is visible

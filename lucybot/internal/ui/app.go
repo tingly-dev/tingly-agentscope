@@ -222,7 +222,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			a.messages.AddAssistantMessage(msg.Content, msg.AgentName)
 		}
-		return a, nil
+		// Continue to update input below - DO NOT return early
+		// Early return would skip input update, causing focus issues
 	}
 
 	// Update input
