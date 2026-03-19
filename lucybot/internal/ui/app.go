@@ -244,39 +244,39 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case ResponseMsg:
-		fmt.Fprintf(os.Stderr, "[DEBUG] Received ResponseMsg, content len=%d, blocks=%d\n", len(msg.Content), len(msg.Blocks))
-		// Handle agent response
+		// Handle agent response - mark current turn as complete
 		a.thinking = false
-		if len(msg.Blocks) > 0 {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Adding message with blocks\n")
+
+		// Get current turn and mark it complete
+		currentTurn := a.messages.GetCurrentTurn()
+		if currentTurn != nil {
+			currentTurn.Complete = true
+		} else if len(msg.Blocks) > 0 {
+			// No current turn, add as new complete turn (fallback)
 			a.messages.AddMessageWithBlocks("assistant", msg.Content, msg.AgentName, msg.Blocks)
-		} else {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Adding assistant message\n")
-			a.messages.AddAssistantMessage(msg.Content, msg.AgentName)
 		}
-		fmt.Fprintf(os.Stderr, "[DEBUG] ResponseMsg handled successfully\n")
-		// Continue to update input below - DO NOT return early
-		// Early return would skip input update, causing focus issues
+
+		// Ensure final turn is marked complete
+		if finalTurn := a.messages.GetCurrentTurn(); finalTurn != nil {
+			finalTurn.Complete = true
+		}
 
 	case StreamedMsg:
 		// Handle streamed message from ReAct agent
 		if msg.Msg != nil {
 			blocks := msg.Msg.GetContentBlocks()
-			var content string
-			for _, block := range blocks {
-				if textBlock, ok := block.(*message.TextBlock); ok {
-					if content != "" {
-						content += "\n"
-					}
-					content += textBlock.Text
-				}
-			}
-			a.messages.AddMessageWithBlocks(
+
+			// Get or create current turn for this role
+			turn := a.messages.GetOrCreateCurrentTurn(
 				string(msg.Msg.Role),
-				content,
 				msg.Msg.Name,
-				blocks,
 			)
+
+			// Add blocks to the turn (blocks added to incomplete turns don't duplicate)
+			for _, block := range blocks {
+				turn.AddContentBlock(block)
+			}
+
 			// Schedule another check for more streamed messages
 			cmds = append(cmds, a.checkStreamedMessagesCmd())
 		}
