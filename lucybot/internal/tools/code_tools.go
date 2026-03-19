@@ -360,9 +360,8 @@ func (ct *CodeTools) viewByWildcard(pattern string) (*tool.ToolResponse, error) 
 
 // viewBySymbolName finds a symbol by name using index
 func (ct *CodeTools) viewBySymbolName(symbol string) (*tool.ToolResponse, error) {
-	ctx := context.Background()
 	// Try index first
-	idx, err := ct.getIndex(ctx)
+	idx, err := ct.getIndex(context.Background())
 	if err == nil && idx != nil {
 		symbols, findErr := idx.FindSymbol(symbol)
 		if findErr != nil {
