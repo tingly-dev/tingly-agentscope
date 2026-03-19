@@ -25,7 +25,12 @@ func NewInteractionTurn(role, agent string) *InteractionTurn {
 // AddContentBlock adds a content block to the turn
 func (t *InteractionTurn) AddContentBlock(block message.ContentBlock) {
 	t.Blocks = append(t.Blocks, block)
-	t.Complete = t.checkComplete()
+	// Only auto-update completeness for tool-related blocks
+	// Text blocks don't auto-complete the turn (supports streaming)
+	switch block.(type) {
+	case *message.ToolUseBlock, *message.ToolResultBlock:
+		t.Complete = t.checkComplete()
+	}
 }
 
 // checkComplete returns true if all tool uses have matching results

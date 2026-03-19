@@ -18,9 +18,9 @@ type Message struct {
 	Blocks  []message.ContentBlock // Content blocks for rich rendering
 }
 
-// Messages is a component for displaying chat history
+// Messages is a component for displaying chat history using InteractionTurns
 type Messages struct {
-	messages     []Message
+	turns        []*InteractionTurn // Grouped turns instead of flat messages
 	width        int
 	height       int
 	scrollOffset int // Line offset for scrolling
@@ -30,7 +30,7 @@ type Messages struct {
 // NewMessages creates a new messages component
 func NewMessages() *Messages {
 	return &Messages{
-		messages:     []Message{},
+		turns:        make([]*InteractionTurn, 0),
 		scrollOffset: 0,
 		renderer:     NewMessageRenderer(80),
 	}
@@ -43,61 +43,110 @@ func (m *Messages) SetSize(width, height int) {
 	m.renderer.SetWidth(width)
 }
 
-// AddMessage adds a message to the history
-func (m *Messages) AddMessage(msg Message) {
-	m.messages = append(m.messages, msg)
-	// Auto-scroll to bottom when new message is added
+// AddTurn adds an interaction turn to the history
+func (m *Messages) AddTurn(turn *InteractionTurn) {
+	m.turns = append(m.turns, turn)
+	// Auto-scroll to bottom when new turn is added
 	m.ScrollToBottom()
 }
 
-// AddUserMessage adds a user message
-func (m *Messages) AddUserMessage(content string) {
-	m.AddMessage(Message{
-		Role:    "user",
-		Content: content,
-	})
+// GetOrCreateCurrentTurn returns the current incomplete turn or creates a new one
+func (m *Messages) GetOrCreateCurrentTurn(role, agent string) *InteractionTurn {
+	// Check if last turn exists and is incomplete
+	if len(m.turns) > 0 {
+		lastTurn := m.turns[len(m.turns)-1]
+		if !lastTurn.IsComplete() && lastTurn.Role == role {
+			return lastTurn
+		}
+	}
+
+	// Create new turn
+	newTurn := NewInteractionTurn(role, agent)
+	m.turns = append(m.turns, newTurn)
+	return newTurn
 }
 
-// AddAssistantMessage adds an assistant message
+// GetCurrentTurn returns the current turn (may be incomplete)
+func (m *Messages) GetCurrentTurn() *InteractionTurn {
+	if len(m.turns) == 0 {
+		return nil
+	}
+	return m.turns[len(m.turns)-1]
+}
+
+// Clear clears all turns
+func (m *Messages) Clear() {
+	m.turns = make([]*InteractionTurn, 0)
+	m.scrollOffset = 0
+}
+
+// Legacy methods for backward compatibility - delegate to turn-based system
+
+// AddUserMessage adds a user message (creates new user turn)
+func (m *Messages) AddUserMessage(content string) {
+	turn := NewInteractionTurn("user", "")
+	turn.AddContentBlock(&message.TextBlock{Text: content})
+	m.AddTurn(turn)
+}
+
+// AddAssistantMessage adds an assistant message (creates new assistant turn)
 func (m *Messages) AddAssistantMessage(content, agent string) {
-	m.AddMessage(Message{
-		Role:    "assistant",
-		Content: content,
-		Agent:   agent,
-	})
+	turn := NewInteractionTurn("assistant", agent)
+	turn.AddContentBlock(&message.TextBlock{Text: content})
+	turn.Complete = true
+	m.AddTurn(turn)
 }
 
 // AddSystemMessage adds a system message
 func (m *Messages) AddSystemMessage(content string) {
-	m.AddMessage(Message{
-		Role:    "system",
-		Content: content,
-	})
+	turn := NewInteractionTurn("system", "")
+	turn.AddContentBlock(&message.TextBlock{Text: content})
+	m.AddTurn(turn)
 }
 
-// AddMessageWithBlocks adds a message with content blocks for rich rendering
+// AddMessageWithBlocks adds a message with content blocks
 func (m *Messages) AddMessageWithBlocks(role, content, agent string, blocks []message.ContentBlock) {
-	m.messages = append(m.messages, Message{
-		Role:    role,
-		Content: content,
-		Agent:   agent,
-		Blocks:  blocks,
-	})
-	m.ScrollToBottom()
+	turn := NewInteractionTurn(role, agent)
+	for _, block := range blocks {
+		turn.AddContentBlock(block)
+	}
+	m.AddTurn(turn)
 }
 
-// Clear clears all messages
-func (m *Messages) Clear() {
-	m.messages = []Message{}
-	m.scrollOffset = 0
+// AddMessage adds a message to the history (legacy method)
+func (m *Messages) AddMessage(msg Message) {
+	turn := NewInteractionTurn(msg.Role, msg.Agent)
+	if len(msg.Blocks) > 0 {
+		for _, block := range msg.Blocks {
+			turn.AddContentBlock(block)
+		}
+	} else {
+		turn.AddContentBlock(&message.TextBlock{Text: msg.Content})
+	}
+	m.AddTurn(turn)
 }
 
-// GetLastMessage returns the last message
+// GetLastMessage returns the last message (legacy method for compatibility)
 func (m *Messages) GetLastMessage() (Message, bool) {
-	if len(m.messages) == 0 {
+	if len(m.turns) == 0 {
 		return Message{}, false
 	}
-	return m.messages[len(m.messages)-1], true
+	lastTurn := m.turns[len(m.turns)-1]
+
+	// Convert turn back to message for backward compatibility
+	msg := Message{
+		Role:  lastTurn.Role,
+		Agent: lastTurn.Agent,
+	}
+
+	// Extract text content
+	textBlocks := lastTurn.GetTextBlocks()
+	if len(textBlocks) > 0 {
+		msg.Content = textBlocks[0].Text
+	}
+
+	msg.Blocks = lastTurn.Blocks
+	return msg, true
 }
 
 // ScrollUp scrolls up by the specified number of lines
@@ -134,21 +183,51 @@ func (m *Messages) GetScrollOffset() int {
 	return m.scrollOffset
 }
 
-// totalLines calculates the total number of lines in all messages
+// totalLines calculates the total number of lines in all turns
 func (m *Messages) totalLines() int {
 	total := 0
-	for _, msg := range m.messages {
-		// Header + wrapped content lines + separator
-		wrappedContent := wrapText(msg.Content, m.width-2)
-		contentLines := strings.Count(wrappedContent, "\n") + 1
-		total += 1 + contentLines + 1
+	for _, turn := range m.turns {
+		// Approximate line count from rendered turn
+		rendered := m.renderer.RenderTurn(turn)
+		lines := strings.Count(rendered, "\n") + 1
+		total += lines + 1 // +1 for separator
 	}
 	return total
 }
 
-// View renders the messages
+// View renders the turns
 func (m *Messages) View() string {
-	fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View called, width=%d, height=%d, messages=%d\n", m.width, m.height, len(m.messages))
+	fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View called, width=%d, height=%d, turns=%d\n", m.width, m.height, len(m.turns))
+	if m.width == 0 {
+		m.width = 80
+	}
+
+	// Build all lines first
+	var allLines []string
+
+	for _, turn := range m.turns {
+		rendered := m.renderer.RenderTurn(turn)
+		if rendered != "" {
+			lines := strings.Split(rendered, "\n")
+			allLines = append(allLines, lines...)
+
+			// Add separator after each turn
+			separatorStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#565f89"))
+			allLines = append(allLines, separatorStyle.Render(strings.Repeat("─", m.width)))
+		}
+	}
+
+	// Apply scroll offset and limit to visible height
+	visibleLines := m.getVisibleLines(allLines)
+
+	return strings.Join(visibleLines, "\n")
+}
+
+// Legacy View method for backward compatibility with flat messages
+// This is kept for reference - the new View above uses RenderTurn
+func (m *Messages) viewLegacy() string {
+	fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View called, width=%d, height=%d, messages=%d\n", m.width, m.height, len(m.turns))
 	if m.width == 0 {
 		m.width = 80
 	}
@@ -174,17 +253,19 @@ func (m *Messages) View() string {
 
 	// Build all lines first
 	var allLines []string
-	for _, msg := range m.messages {
+
+	// Convert turns back to messages for legacy rendering
+	for _, turn := range m.turns {
 		var header string
 		var headerStyle lipgloss.Style
 
-		switch msg.Role {
+		switch turn.Role {
 		case "user":
 			header = "You"
 			headerStyle = userStyle
 		case "assistant":
-			if msg.Agent != "" {
-				header = msg.Agent
+			if turn.Agent != "" {
+				header = turn.Agent
 			} else {
 				header = "Assistant"
 			}
@@ -193,21 +274,21 @@ func (m *Messages) View() string {
 			header = "System"
 			headerStyle = systemStyle
 		default:
-			header = msg.Role
+			header = turn.Role
 			headerStyle = systemStyle
 		}
 
 		// Header line (only for user/system, renderer handles assistant)
-		if msg.Role != "assistant" {
+		if turn.Role != "assistant" {
 			headerLine := headerStyle.Render(header)
 			allLines = append(allLines, headerLine)
 		}
 
 		// Render content
-		if len(msg.Blocks) > 0 {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View: rendering message with %d blocks, role=%s\n", len(msg.Blocks), msg.Role)
+		if len(turn.Blocks) > 0 {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View: rendering turn with %d blocks, role=%s\n", len(turn.Blocks), turn.Role)
 			// Use renderer for rich content
-			agentMsg := message.NewMsg(msg.Agent, msg.Blocks, types.Role(msg.Role))
+			agentMsg := message.NewMsg(turn.Agent, turn.Blocks, types.Role(turn.Role))
 			fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View: calling renderer.Render...\n")
 			rendered := m.renderer.Render(agentMsg)
 			fmt.Fprintf(os.Stderr, "[DEBUG] Messages.View: renderer.Render returned, rendered len=%d\n", len(rendered))
@@ -217,10 +298,14 @@ func (m *Messages) View() string {
 			}
 		} else {
 			// Fall back to simple content rendering
-			wrappedContent := wrapText(msg.Content, m.width-2)
-			contentLines := strings.Split(wrappedContent, "\n")
-			for _, line := range contentLines {
-				allLines = append(allLines, contentStyle.Render(line))
+			textBlocks := turn.GetTextBlocks()
+			if len(textBlocks) > 0 {
+				content := textBlocks[0].Text
+				wrappedContent := wrapText(content, m.width-2)
+				contentLines := strings.Split(wrappedContent, "\n")
+				for _, line := range contentLines {
+					allLines = append(allLines, contentStyle.Render(line))
+				}
 			}
 		}
 
@@ -251,9 +336,10 @@ func (m *Messages) getVisibleLines(allLines []string) []string {
 // Height returns the total height of the messages
 func (m *Messages) Height() int {
 	height := 0
-	for _, msg := range m.messages {
+	for _, turn := range m.turns {
 		// Header + content lines + separator
-		lines := strings.Count(msg.Content, "\n") + 1
+		rendered := m.renderer.RenderTurn(turn)
+		lines := strings.Count(rendered, "\n") + 1
 		height += 1 + lines + 1
 	}
 	return height
@@ -306,19 +392,35 @@ type ScrollPosition struct {
 	Offset int
 }
 
-// GetVisibleMessages returns messages visible in the given height
+// GetVisibleMessages returns messages visible in the given height (legacy method)
 func (m *Messages) GetVisibleMessages(height int, scroll ScrollPosition) []Message {
 	if scroll.Offset < 0 {
 		scroll.Offset = 0
 	}
-	if scroll.Offset >= len(m.messages) {
+	if scroll.Offset >= len(m.turns) {
 		return []Message{}
 	}
 
 	end := scroll.Offset + height
-	if end > len(m.messages) {
-		end = len(m.messages)
+	if end > len(m.turns) {
+		end = len(m.turns)
 	}
 
-	return m.messages[scroll.Offset:end]
+	// Convert turns to messages for backward compatibility
+	messages := make([]Message, 0, end-scroll.Offset)
+	for i := scroll.Offset; i < end; i++ {
+		turn := m.turns[i]
+		msg := Message{
+			Role:   turn.Role,
+			Agent:  turn.Agent,
+			Blocks: turn.Blocks,
+		}
+		textBlocks := turn.GetTextBlocks()
+		if len(textBlocks) > 0 {
+			msg.Content = textBlocks[0].Text
+		}
+		messages = append(messages, msg)
+	}
+
+	return messages
 }
