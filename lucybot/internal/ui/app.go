@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -118,9 +117,7 @@ func NewApp(cfg *AppConfig) *App {
 			OnMessage: func(msg *message.Msg) {
 				select {
 				case app.streamedMsgs <- msg:
-					fmt.Fprintf(os.Stderr, "[DEBUG] Streamed message queued, role=%s\n", msg.Role)
 				default:
-					fmt.Fprintf(os.Stderr, "[DEBUG] Streamed message channel full\n")
 				}
 			},
 		})
@@ -336,26 +333,20 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 		// Recover from any panics in the agent to prevent program crash
 		defer func() {
 			if r := recover(); r != nil {
-				fmt.Fprintf(os.Stderr, "[DEBUG] PANIC in agent.Reply: %v\n", r)
 				response = ResponseMsg{
 					Content:   fmt.Sprintf("Error: agent panic - %v", r),
 					AgentName: a.config.Agent.Name,
 				}
 			}
 		}()
-
-		fmt.Fprintf(os.Stderr, "[DEBUG] Starting agent.Reply for input: %q\n", input)
 		msg := message.NewMsg(
 			"user",
 			[]message.ContentBlock{message.Text(input)},
 			types.RoleUser,
 		)
 
-		fmt.Fprintf(os.Stderr, "[DEBUG] Calling agent.Reply...\n")
 		resp, err := a.agent.Reply(a.ctx, msg)
-		fmt.Fprintf(os.Stderr, "[DEBUG] agent.Reply returned, err=%v, resp nil=%v\n", err, resp == nil)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[DEBUG] agent.Reply error: %v\n", err)
 			response = ResponseMsg{
 				Content:   fmt.Sprintf("Error: %v", err),
 				AgentName: a.config.Agent.Name,
@@ -363,32 +354,24 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 			return
 		}
 
-		fmt.Fprintf(os.Stderr, "[DEBUG] Processing response content...\n")
 		// Extract content blocks and text from response
 		var content string
 		var blocks []message.ContentBlock
 		if resp != nil {
 			switch c := resp.Content.(type) {
 			case string:
-				fmt.Fprintf(os.Stderr, "[DEBUG] Response is string, len=%d\n", len(c))
 				content = c
 				blocks = []message.ContentBlock{message.Text(c)}
 			case []message.ContentBlock:
-				fmt.Fprintf(os.Stderr, "[DEBUG] Response is []ContentBlock, len=%d\n", len(c))
 				blocks = c
 				// Extract text for compatibility
-				for i, block := range c {
-					fmt.Fprintf(os.Stderr, "[DEBUG] Processing block %d, type=%T\n", i, block)
+				for _, block := range c {
 					if text, ok := block.(*message.TextBlock); ok {
 						content += text.Text
 					}
 				}
-			default:
-				fmt.Fprintf(os.Stderr, "[DEBUG] Response is unknown type: %T\n", c)
 			}
 		}
-
-		fmt.Fprintf(os.Stderr, "[DEBUG] Returning ResponseMsg, content len=%d, blocks len=%d\n", len(content), len(blocks))
 		response = ResponseMsg{
 			Content:   content,
 			AgentName: a.config.Agent.Name,

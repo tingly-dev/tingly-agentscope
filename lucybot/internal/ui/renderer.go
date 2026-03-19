@@ -3,7 +3,6 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -47,13 +46,10 @@ func NewMessageRenderer(width int) *MessageRenderer {
 // Render renders a complete message to string
 func (r *MessageRenderer) Render(msg *message.Msg) string {
 	var sb strings.Builder
-	fmt.Fprintf(os.Stderr, "[DEBUG] Render called, role=%s, content type=%T\n", msg.Role, msg.Content)
 
 	// Handle string content (legacy/simple messages)
 	if text, ok := msg.Content.(string); ok {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Rendering string content, len=%d\n", len(text))
 		r.renderStringContent(&sb, text, msg.Role)
-		fmt.Fprintf(os.Stderr, "[DEBUG] String content rendered, result len=%d\n", sb.Len())
 		return sb.String()
 	}
 
@@ -354,7 +350,6 @@ func (r *MessageRenderer) SetWidth(width int) {
 
 // renderMarkdown renders markdown text to formatted string
 func (r *MessageRenderer) renderMarkdown(text string) string {
-	fmt.Fprintf(os.Stderr, "[DEBUG] renderMarkdown called, text len=%d\n", len(text))
 	// Create glamour renderer with a fixed dark style
 	// Use WithStandardStyle instead of WithAutoStyle to avoid OSC 11 sequences
 	// that query terminal background color and leak into input
@@ -363,18 +358,14 @@ func (r *MessageRenderer) renderMarkdown(text string) string {
 		glamour.WithWordWrap(r.width-4),
 	)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG] glamour.NewTermRenderer error: %v\n", err)
 		// Fall back to plain text
 		return text
 	}
 
-	fmt.Fprintf(os.Stderr, "[DEBUG] Calling glamour.Render...\n")
 	rendered, err := renderer.Render(text)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG] glamour.Render error: %v\n", err)
 		return text
 	}
-	fmt.Fprintf(os.Stderr, "[DEBUG] glamour.Render succeeded, result len=%d\n", len(rendered))
 
 	return rendered
 }
