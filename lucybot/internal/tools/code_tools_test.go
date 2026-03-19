@@ -404,3 +404,136 @@ func AnotherFunction() int {
 		t.Errorf("Expected output to contain 'Callers of 'HelperFunction'', got: %s", text)
 	}
 }
+
+func TestCodeTools_FindChildren(t *testing.T) {
+	// Test findChildren using index for struct methods
+	tmpDir, err := os.MkdirTemp("", "lucybot-test-")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create test file with struct and methods
+	testFile := filepath.Join(tmpDir, "test.go")
+	content := `package main
+
+type MyStruct struct {
+	Name string
+}
+
+func (m *MyStruct) Method1() string {
+	return m.Name
+}
+
+func (m *MyStruct) Method2() int {
+	return 42
+}
+`
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	// Build the index
+	indexPath := filepath.Join(tmpDir, "index.db")
+	idx, err := index.New(&index.Config{
+		Root:   tmpDir,
+		DBPath: indexPath,
+		Watch:  false,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
+
+	if err := idx.Build(); err != nil {
+		idx.Stop()
+		t.Fatalf("Failed to build index: %v", err)
+	}
+	defer idx.Stop()
+
+	// Test findChildren via TraverseCode
+	ft := NewFileTools(tmpDir)
+	ct := NewCodeTools(ft, indexPath)
+	defer ct.Close()
+
+	resp, err := ct.TraverseCode(context.Background(), TraverseCodeParams{
+		Symbol:    "MyStruct",
+		Direction: "children",
+	})
+	if err != nil {
+		t.Fatalf("TraverseCode with children direction failed: %v", err)
+	}
+
+	text := getTextFromResponse(resp)
+	if !strings.Contains(text, "Method1") {
+		t.Errorf("Expected output to contain 'Method1', got: %s", text)
+	}
+	if !strings.Contains(text, "Method2") {
+		t.Errorf("Expected output to contain 'Method2', got: %s", text)
+	}
+	if !strings.Contains(text, "Children of 'MyStruct'") {
+		t.Errorf("Expected output to contain 'Children of 'MyStruct'', got: %s", text)
+	}
+}
+
+func TestCodeTools_FindParents(t *testing.T) {
+	// Test findParents using index for method's parent struct
+	tmpDir, err := os.MkdirTemp("", "lucybot-test-")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create test file with struct and method
+	testFile := filepath.Join(tmpDir, "test.go")
+	content := `package main
+
+type MyStruct struct {
+	Name string
+}
+
+func (m *MyStruct) Method1() string {
+	return m.Name
+}
+`
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	// Build the index
+	indexPath := filepath.Join(tmpDir, "index.db")
+	idx, err := index.New(&index.Config{
+		Root:   tmpDir,
+		DBPath: indexPath,
+		Watch:  false,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
+
+	if err := idx.Build(); err != nil {
+		idx.Stop()
+		t.Fatalf("Failed to build index: %v", err)
+	}
+	defer idx.Stop()
+
+	// Test findParents via TraverseCode
+	ft := NewFileTools(tmpDir)
+	ct := NewCodeTools(ft, indexPath)
+	defer ct.Close()
+
+	resp, err := ct.TraverseCode(context.Background(), TraverseCodeParams{
+		Symbol:    "Method1",
+		Direction: "parents",
+	})
+	if err != nil {
+		t.Fatalf("TraverseCode with parents direction failed: %v", err)
+	}
+
+	text := getTextFromResponse(resp)
+	if !strings.Contains(text, "MyStruct") {
+		t.Errorf("Expected output to contain 'MyStruct', got: %s", text)
+	}
+	if !strings.Contains(text, "Parents of 'Method1'") {
+		t.Errorf("Expected output to contain 'Parents of 'Method1'', got: %s", text)
+	}
+}

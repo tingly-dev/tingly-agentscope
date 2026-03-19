@@ -461,10 +461,14 @@ func (ct *CodeTools) TraverseCode(ctx context.Context, params TraverseCodeParams
 		return ct.findCallers(params.Symbol)
 	case "callees":
 		return ct.findCallees(params.Symbol)
+	case "children":
+		return ct.findChildren(params.Symbol)
+	case "parents":
+		return ct.findParents(params.Symbol)
 	case "references":
 		return ct.findReferences(params.Symbol)
 	default:
-		return tool.TextResponse(fmt.Sprintf("Unsupported direction: %s (use: callers, callees, references)", params.Direction)), nil
+		return tool.TextResponse(fmt.Sprintf("Unsupported direction: %s (use: callers, callees, children, parents, references)", params.Direction)), nil
 	}
 }
 
@@ -561,4 +565,88 @@ func (ct *CodeTools) findReferences(symbol string) (*tool.ToolResponse, error) {
 		HeadLimit:  30,
 	}
 	return ct.fileTools.Grep(context.Background(), params)
+}
+
+// findChildren finds symbols contained within the given symbol (e.g., methods in a struct)
+func (ct *CodeTools) findChildren(symbol string) (*tool.ToolResponse, error) {
+	idx, err := ct.getIndex(context.Background())
+	if err != nil {
+		return tool.TextResponse(fmt.Sprintf("Error loading index: %v", err)), nil
+	}
+	if idx == nil {
+		return tool.TextResponse("No code index available. Run 'lucybot index build' first."), nil
+	}
+
+	// Find the symbol
+	symbols, err := idx.FindSymbol(symbol)
+	if err != nil {
+		return tool.TextResponse(fmt.Sprintf("Error finding symbol: %v", err)), nil
+	}
+	if len(symbols) == 0 {
+		return tool.TextResponse(fmt.Sprintf("Symbol '%s' not found", symbol)), nil
+	}
+
+	// Get children for each matching symbol
+	var allChildren []*index.Symbol
+	for _, s := range symbols {
+		children, err := idx.DB().GetChildren(context.Background(), s.ID)
+		if err != nil {
+			continue
+		}
+		allChildren = append(allChildren, children...)
+	}
+
+	if len(allChildren) == 0 {
+		return tool.TextResponse(fmt.Sprintf("No children found for '%s'", symbol)), nil
+	}
+
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("Children of '%s':\n\n", symbol))
+	for _, child := range allChildren {
+		result.WriteString(fmt.Sprintf("  - %s (%s:%d)\n", child.QualifiedName, child.FilePath, child.StartLine))
+	}
+
+	return tool.TextResponse(result.String()), nil
+}
+
+// findParents finds containing symbols (e.g., struct for a method)
+func (ct *CodeTools) findParents(symbol string) (*tool.ToolResponse, error) {
+	idx, err := ct.getIndex(context.Background())
+	if err != nil {
+		return tool.TextResponse(fmt.Sprintf("Error loading index: %v", err)), nil
+	}
+	if idx == nil {
+		return tool.TextResponse("No code index available. Run 'lucybot index build' first."), nil
+	}
+
+	// Find the symbol
+	symbols, err := idx.FindSymbol(symbol)
+	if err != nil {
+		return tool.TextResponse(fmt.Sprintf("Error finding symbol: %v", err)), nil
+	}
+	if len(symbols) == 0 {
+		return tool.TextResponse(fmt.Sprintf("Symbol '%s' not found", symbol)), nil
+	}
+
+	// Get parents for each matching symbol
+	var allParents []*index.Symbol
+	for _, s := range symbols {
+		parents, err := idx.DB().GetParents(context.Background(), s.ID)
+		if err != nil {
+			continue
+		}
+		allParents = append(allParents, parents...)
+	}
+
+	if len(allParents) == 0 {
+		return tool.TextResponse(fmt.Sprintf("No parents found for '%s'", symbol)), nil
+	}
+
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("Parents of '%s':\n\n", symbol))
+	for _, parent := range allParents {
+		result.WriteString(fmt.Sprintf("  - %s (%s:%d)\n", parent.QualifiedName, parent.FilePath, parent.StartLine))
+	}
+
+	return tool.TextResponse(result.String()), nil
 }

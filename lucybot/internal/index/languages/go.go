@@ -56,6 +56,7 @@ func (p *GoParser) Parse(ctx context.Context, content []byte, filePath string) (
 
 	var commentBlock []string
 	var currentFunction *index.Symbol
+	typeSymbols := make(map[string]*index.Symbol) // Track type symbols for methods
 
 	for lineNum, line := range lines {
 		originalLine := line // Keep original for column calculations
@@ -78,18 +79,19 @@ func (p *GoParser) Parse(ctx context.Context, content []byte, filePath string) (
 			continue
 		}
 
-		// Parse method declarations
-		if symbol := p.parseMethod(line, lineNum+1, packageName, filePath, commentBlock); symbol != nil {
+		// Parse type declarations (structs, interfaces) - must be before methods
+		if symbol := p.parseType(line, lineNum+1, packageName, filePath, commentBlock); symbol != nil {
 			result.Symbols = append(result.Symbols, symbol)
+			typeSymbols[symbol.Name] = symbol // Track for methods
 			commentBlock = nil
-			currentFunction = symbol
 			continue
 		}
 
-		// Parse type declarations (structs, interfaces)
-		if symbol := p.parseType(line, lineNum+1, packageName, filePath, commentBlock); symbol != nil {
+		// Parse method declarations
+		if symbol := p.parseMethod(line, lineNum+1, packageName, filePath, commentBlock, typeSymbols); symbol != nil {
 			result.Symbols = append(result.Symbols, symbol)
 			commentBlock = nil
+			currentFunction = symbol
 			continue
 		}
 
@@ -254,7 +256,7 @@ func (p *GoParser) parseFunction(line string, lineNum int, packageName, filePath
 	}
 }
 
-func (p *GoParser) parseMethod(line string, lineNum int, packageName, filePath string, comments []string) *index.Symbol {
+func (p *GoParser) parseMethod(line string, lineNum int, packageName, filePath string, comments []string, typeSymbols map[string]*index.Symbol) *index.Symbol {
 	// Match: func (r *Receiver) Name(...) or func (r Receiver) Name(...)
 	re := regexp.MustCompile(`^func\s+\(\s*(?:\w+\s+)?\*?(\w+)\s*\)\s*(\w+)\s*(?:\[.*?\])?\s*\(`)
 	matches := re.FindStringSubmatch(line)
@@ -267,7 +269,7 @@ func (p *GoParser) parseMethod(line string, lineNum int, packageName, filePath s
 	doc := strings.Join(comments, "\n")
 	sig := p.extractSignature(line, "func")
 
-	return &index.Symbol{
+	symbol := &index.Symbol{
 		ID:            index.GenerateSymbolID(filePath, lineNum, 0),
 		Name:          name,
 		QualifiedName: p.qualifiedName(packageName, receiver, name),
@@ -279,6 +281,14 @@ func (p *GoParser) parseMethod(line string, lineNum int, packageName, filePath s
 		Documentation: doc,
 		Signature:     sig,
 	}
+
+	// Set parent_id if the receiver type is found in typeSymbols
+	if typeSymbol, exists := typeSymbols[receiver]; exists {
+		parentID := typeSymbol.ID
+		symbol.ParentID = &parentID
+	}
+
+	return symbol
 }
 
 func (p *GoParser) parseType(line string, lineNum int, packageName, filePath string, comments []string) *index.Symbol {
@@ -412,6 +422,18 @@ func (p *GoParser) qualifiedName(packageName, receiver, name string) string {
 	}
 	parts = append(parts, name)
 	return strings.Join(parts, ".")
+}
+
+// extractReceiver extracts the receiver type name from a method declaration
+// For example, from "func (m *MyStruct) MethodName()" it extracts "MyStruct"
+func (p *GoParser) extractReceiver(line string) string {
+	// Match: func (r *Receiver) or func (r Receiver) or func (*Receiver)
+	re := regexp.MustCompile(`^func\s+\(\s*(?:\w+\s+)?\*?(\w+)\s*\)`)
+	matches := re.FindStringSubmatch(line)
+	if matches == nil {
+		return ""
+	}
+	return matches[1]
 }
 
 func (p *GoParser) extractSignature(line, prefix string) string {
