@@ -87,6 +87,7 @@ func World() {
 	// Test getIndex
 	ft := NewFileTools(tmpDir)
 	ct := NewCodeTools(ft, indexPath)
+	defer ct.Close()
 
 	loadedIdx, err := ct.getIndex(context.Background())
 	if err != nil {
@@ -107,7 +108,7 @@ func World() {
 }
 
 func TestCodeTools_getIndex_ThreadSafety(t *testing.T) {
-	// Test that getIndex is thread-safe
+	// Test that getIndex is thread-safe and returns the same instance
 	tmpDir, err := os.MkdirTemp("", "lucybot-test-")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -144,20 +145,33 @@ func TestFunc() {}
 	// Test concurrent access
 	ft := NewFileTools(tmpDir)
 	ct := NewCodeTools(ft, indexPath)
+	defer ct.Close()
 
-	done := make(chan bool)
+	type result struct {
+		idx *index.Index
+		err error
+	}
+	results := make(chan result, 10)
+
 	for i := 0; i < 10; i++ {
 		go func() {
-			_, err := ct.getIndex(context.Background())
-			if err != nil {
-				t.Errorf("Concurrent getIndex failed: %v", err)
-			}
-			done <- true
+			loadedIdx, err := ct.getIndex(context.Background())
+			results <- result{idx: loadedIdx, err: err}
 		}()
 	}
 
+	// Verify all goroutines return the same instance without error
+	var firstIdx *index.Index
 	for i := 0; i < 10; i++ {
-		<-done
+		res := <-results
+		if res.err != nil {
+			t.Fatalf("Concurrent getIndex failed: %v", res.err)
+		}
+		if firstIdx == nil {
+			firstIdx = res.idx
+		} else if firstIdx != res.idx {
+			t.Error("Expected same index instance from all concurrent calls")
+		}
 	}
 }
 
@@ -207,6 +221,7 @@ func AnotherFunction() string {
 	// Test viewBySymbolName
 	ft := NewFileTools(tmpDir)
 	ct := NewCodeTools(ft, indexPath)
+	defer ct.Close()
 
 	resp, err := ct.viewBySymbolName("MyFunction")
 	if err != nil {

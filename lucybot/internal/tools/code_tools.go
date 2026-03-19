@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -48,7 +49,6 @@ func (ct *CodeTools) getIndex(ctx context.Context) (*index.Index, error) {
 	ct.indexMu.RUnlock()
 
 	// Use sync.Once for thread-safe initialization
-	var loadedIdx *index.Index
 	ct.indexOnce.Do(func() {
 		// Check if index exists
 		if _, err := os.Stat(ct.indexPath); os.IsNotExist(err) {
@@ -62,21 +62,37 @@ func (ct *CodeTools) getIndex(ctx context.Context) (*index.Index, error) {
 			Watch:  false,
 		})
 		if err != nil {
-			ct.indexErr = err
+			ct.indexErr = fmt.Errorf("failed to create index: %w", err)
 			return
 		}
 
-		loadedIdx = idx
 		ct.indexMu.Lock()
 		ct.index = idx
 		ct.indexMu.Unlock()
 	})
 
+	ct.indexMu.RLock()
+	defer ct.indexMu.RUnlock()
+
 	if ct.indexErr != nil {
 		return nil, ct.indexErr
 	}
 
-	return loadedIdx, nil
+	return ct.index, nil
+}
+
+// Close releases resources held by the CodeTools
+// It stops the index if it was loaded
+func (ct *CodeTools) Close() error {
+	ct.indexMu.Lock()
+	defer ct.indexMu.Unlock()
+
+	if ct.index != nil {
+		err := ct.index.Stop()
+		ct.index = nil
+		return err
+	}
+	return nil
 }
 
 // ViewSourceParams holds parameters for view_source tool
@@ -344,11 +360,16 @@ func (ct *CodeTools) viewByWildcard(pattern string) (*tool.ToolResponse, error) 
 
 // viewBySymbolName finds a symbol by name using index
 func (ct *CodeTools) viewBySymbolName(symbol string) (*tool.ToolResponse, error) {
+	ctx := context.Background()
 	// Try index first
-	idx, err := ct.getIndex(context.Background())
+	idx, err := ct.getIndex(ctx)
 	if err == nil && idx != nil {
-		symbols, err := idx.FindSymbol(symbol)
-		if err == nil && len(symbols) > 0 {
+		symbols, findErr := idx.FindSymbol(symbol)
+		if findErr != nil {
+			// Log error but fall back to grep
+			log.Printf("[DEBUG] Index FindSymbol failed for '%s': %v, falling back to grep", symbol, findErr)
+		}
+		if findErr == nil && len(symbols) > 0 {
 			var result strings.Builder
 			result.WriteString(fmt.Sprintf("Found %d symbol(s) matching '%s':\n\n", len(symbols), symbol))
 			for _, s := range symbols {
