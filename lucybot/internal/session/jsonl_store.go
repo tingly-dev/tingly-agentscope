@@ -17,6 +17,7 @@ type JSONLMessage struct {
 	Role      string                 `json:"role"`
 	Content   interface{}            `json:"content"`
 	Agent     string                 `json:"agent,omitempty"`
+	Name      string                 `json:"name,omitempty"`
 	Timestamp time.Time              `json:"timestamp"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
@@ -74,7 +75,7 @@ func (s *JSONLStore) SaveMessage(sessionID string, msg JSONLMessage) error {
 	return nil
 }
 
-// LoadMessages loads all messages from a session
+// LoadMessages loads all messages from a session (skips header line)
 func (s *JSONLStore) LoadMessages(sessionID string) ([]JSONLMessage, error) {
 	path := s.sessionPath(sessionID)
 	file, err := os.Open(path)
@@ -88,7 +89,22 @@ func (s *JSONLStore) LoadMessages(sessionID string) ([]JSONLMessage, error) {
 
 	var messages []JSONLMessage
 	scanner := bufio.NewScanner(file)
+	var isFirstLine bool = true
+
 	for scanner.Scan() {
+		if isFirstLine {
+			isFirstLine = false
+			// Check if first line is a header
+			var firstLine map[string]interface{}
+			if err := json.Unmarshal(scanner.Bytes(), &firstLine); err == nil {
+				if headerType, ok := firstLine["_type"].(string); ok && headerType == "header" {
+					// Skip header line
+					continue
+				}
+			}
+			// If not a header, fall through to message parsing below
+		}
+
 		var msg JSONLMessage
 		if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
 			// Skip malformed lines but continue
@@ -104,7 +120,7 @@ func (s *JSONLStore) LoadMessages(sessionID string) ([]JSONLMessage, error) {
 	return messages, nil
 }
 
-// Save persists a session to disk in JSONL format
+// Save persists a session to disk in JSONL format with metadata header
 func (s *JSONLStore) Save(session *Session) error {
 	if err := os.MkdirAll(s.baseDir, 0755); err != nil {
 		return fmt.Errorf("failed to create session directory: %w", err)
@@ -119,21 +135,20 @@ func (s *JSONLStore) Save(session *Session) error {
 
 	encoder := json.NewEncoder(file)
 
-	// Write metadata as first line (as JSONLMessage with _type in metadata)
-	metadataMsg := JSONLMessage{
-		Role:      "system",
-		Content:   "session_metadata",
-		Timestamp: session.CreatedAt,
-		Metadata: map[string]interface{}{
-			"_type":      "metadata",
-			"id":         session.ID,
-			"name":       session.Name,
-			"created_at": session.CreatedAt.Format(time.RFC3339),
-			"updated_at": session.UpdatedAt.Format(time.RFC3339),
-		},
+	// Write metadata header as first line
+	header := map[string]interface{}{
+		"_type":       "header",
+		"id":          session.ID,
+		"name":        session.Name,
+		"created_at":  session.CreatedAt.Format(time.RFC3339),
+		"updated_at":  session.UpdatedAt.Format(time.RFC3339),
+		"agent_name":  session.AgentName,
+		"working_dir": session.WorkingDir,
+		"model_name":  session.ModelName,
+		"last_message": session.LastMessage,
 	}
-	if err := encoder.Encode(metadataMsg); err != nil {
-		return fmt.Errorf("failed to encode metadata: %w", err)
+	if err := encoder.Encode(header); err != nil {
+		return fmt.Errorf("failed to encode header: %w", err)
 	}
 
 	// Write messages
@@ -141,7 +156,9 @@ func (s *JSONLStore) Save(session *Session) error {
 		jsonlMsg := JSONLMessage{
 			Role:      msg.Role,
 			Content:   msg.Content,
+			Name:      msg.Name,
 			Timestamp: msg.Timestamp,
+			Metadata:  msg.Metadata,
 		}
 		if err := encoder.Encode(jsonlMsg); err != nil {
 			return fmt.Errorf("failed to encode message: %w", err)
@@ -153,43 +170,76 @@ func (s *JSONLStore) Save(session *Session) error {
 
 // Load retrieves a session from disk
 func (s *JSONLStore) Load(id string) (*Session, error) {
-	messages, err := s.LoadMessages(id)
+	path := s.sessionPath(id)
+	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("session not found: %s", id)
+		}
+		return nil, fmt.Errorf("failed to open session file: %w", err)
 	}
+	defer file.Close()
 
 	session := &Session{
 		ID: id,
 	}
 
-	var metadataFound bool
-	for _, msg := range messages {
-		// Check if this is metadata by checking for "_type" in the raw JSON
-		// Since JSONLMessage doesn't have a "_type" field, we need to check the Content or Metadata
-		if msg.Metadata != nil {
-			if metaType, ok := msg.Metadata["_type"]; ok && metaType == "metadata" {
-				metadataFound = true
-				// Extract timestamps from metadata
-				if created, ok := msg.Metadata["created_at"].(string); ok {
-					if t, err := time.Parse(time.RFC3339, created); err == nil {
-						session.CreatedAt = t
+	scanner := bufio.NewScanner(file)
+	var isFirstLine bool = true
+
+	for scanner.Scan() {
+		if isFirstLine {
+			// First line is the header
+			isFirstLine = false
+
+			// Try to parse as header
+			var header map[string]interface{}
+			if err := json.Unmarshal(scanner.Bytes(), &header); err == nil {
+				if headerType, ok := header["_type"].(string); ok && headerType == "header" {
+					// Extract header fields
+					if name, ok := header["name"].(string); ok {
+						session.Name = name
 					}
-				}
-				if updated, ok := msg.Metadata["updated_at"].(string); ok {
-					if t, err := time.Parse(time.RFC3339, updated); err == nil {
-						session.UpdatedAt = t
+					if created, ok := header["created_at"].(string); ok {
+						if t, err := time.Parse(time.RFC3339, created); err == nil {
+							session.CreatedAt = t
+						}
 					}
+					if updated, ok := header["updated_at"].(string); ok {
+						if t, err := time.Parse(time.RFC3339, updated); err == nil {
+							session.UpdatedAt = t
+						}
+					}
+					if agentName, ok := header["agent_name"].(string); ok {
+						session.AgentName = agentName
+					}
+					if workingDir, ok := header["working_dir"].(string); ok {
+						session.WorkingDir = workingDir
+					}
+					if modelName, ok := header["model_name"].(string); ok {
+						session.ModelName = modelName
+					}
+					if lastMessage, ok := header["last_message"].(string); ok {
+						session.LastMessage = lastMessage
+					}
+					continue
 				}
-				continue
 			}
+			// If not a header, fall through to message parsing
 		}
 
-		// Regular message
+		// Parse as message
+		var msg JSONLMessage
+		if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
+			// Skip malformed lines
+			continue
+		}
+
+		// Convert to Message
 		content := ""
 		if str, ok := msg.Content.(string); ok {
 			content = str
 		} else {
-			// Try to marshal non-string content
 			if bytes, err := json.Marshal(msg.Content); err == nil {
 				content = string(bytes)
 			}
@@ -198,17 +248,76 @@ func (s *JSONLStore) Load(id string) (*Session, error) {
 		session.Messages = append(session.Messages, Message{
 			Role:      msg.Role,
 			Content:   content,
+			Name:      msg.Name,
 			Timestamp: msg.Timestamp,
+			Metadata:  msg.Metadata,
 		})
 	}
 
-	if !metadataFound && len(messages) > 0 {
-		// Set timestamps from first/last message
-		session.CreatedAt = messages[0].Timestamp
-		session.UpdatedAt = messages[len(messages)-1].Timestamp
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read session file: %w", err)
+	}
+
+	// Set default timestamps if not found in header
+	if session.CreatedAt.IsZero() && len(session.Messages) > 0 {
+		session.CreatedAt = session.Messages[0].Timestamp
+	}
+	if session.UpdatedAt.IsZero() && len(session.Messages) > 0 {
+		session.UpdatedAt = session.Messages[len(session.Messages)-1].Timestamp
 	}
 
 	return session, nil
+}
+
+// loadHeader reads just the header from a session file
+func (s *JSONLStore) loadHeader(id string) (*JSONLSessionMetadata, error) {
+	path := s.sessionPath(id)
+	file, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("session not found: %s", id)
+		}
+		return nil, fmt.Errorf("failed to open session file: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	if scanner.Scan() {
+		var header map[string]interface{}
+		if err := json.Unmarshal(scanner.Bytes(), &header); err == nil {
+			if headerType, ok := header["_type"].(string); ok && headerType == "header" {
+				metadata := &JSONLSessionMetadata{
+					Type: headerType,
+					ID: id,
+				}
+				if name, ok := header["name"].(string); ok {
+					metadata.Name = name
+				}
+				if created, ok := header["created_at"].(string); ok {
+					if t, err := time.Parse(time.RFC3339, created); err == nil {
+						metadata.CreatedAt = t
+					}
+				}
+				if updated, ok := header["updated_at"].(string); ok {
+					if t, err := time.Parse(time.RFC3339, updated); err == nil {
+						metadata.UpdatedAt = t
+					}
+				}
+				if workingDir, ok := header["working_dir"].(string); ok {
+					metadata.WorkingDir = workingDir
+				}
+				if modelName, ok := header["model_name"].(string); ok {
+					metadata.ModelName = modelName
+				}
+				if agentName, ok := header["agent_name"].(string); ok {
+					metadata.AgentName = agentName
+				}
+				return metadata, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no header found in session file")
 }
 
 // List returns metadata for all stored sessions
@@ -228,38 +337,31 @@ func (s *JSONLStore) List() ([]*SessionInfo, error) {
 		}
 
 		id := entry.Name()[:len(entry.Name())-6] // Remove .jsonl
-		messages, err := s.LoadMessages(id)
-		if err != nil {
-			continue // Skip invalid sessions
-		}
 
 		info := &SessionInfo{
-			ID:           id,
-			MessageCount: len(messages),
+			ID: id,
 		}
 
-		// Try to extract metadata from first line
-		if len(messages) > 0 {
-			firstMsg := messages[0]
-			if metaType, ok := firstMsg.Metadata["_type"]; ok && metaType == "metadata" {
-				if name, ok := firstMsg.Metadata["name"].(string); ok {
-					info.Name = name
-				}
-				if created, ok := firstMsg.Metadata["created_at"].(string); ok {
-					if t, err := time.Parse(time.RFC3339, created); err == nil {
-						info.CreatedAt = t
-					}
-				}
-				if updated, ok := firstMsg.Metadata["updated_at"].(string); ok {
-					if t, err := time.Parse(time.RFC3339, updated); err == nil {
-						info.UpdatedAt = t
-					}
-				}
-			} else {
-				// Use first message timestamp
-				info.CreatedAt = firstMsg.Timestamp
-				info.UpdatedAt = firstMsg.Timestamp
-			}
+		// Try to read header
+		header, err := s.loadHeader(id)
+		if err == nil {
+			info.Name = header.Name
+			info.CreatedAt = header.CreatedAt
+			info.UpdatedAt = header.UpdatedAt
+			info.AgentName = header.AgentName
+			info.WorkingDir = header.WorkingDir
+			info.ModelName = header.ModelName
+		}
+
+		// Count messages (LoadMessages skips header)
+		messages, err := s.LoadMessages(id)
+		if err == nil {
+			info.MessageCount = len(messages)
+		}
+
+		// Get file size
+		if fileInfo, err := os.Stat(s.sessionPath(id)); err == nil {
+			info.FileSize = fileInfo.Size()
 		}
 
 		sessions = append(sessions, info)

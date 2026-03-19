@@ -3,6 +3,7 @@ package session
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -259,4 +260,77 @@ func TestJSONLStore_Decompress_NotFound(t *testing.T) {
 	err := store.Decompress("nonexistent")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestJSONLStoreWithHeader(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir)
+
+	// Create a session with metadata
+	session := &Session{
+		ID:         "test-session",
+		Name:       "Test Session",
+		CreatedAt:  time.Now().Truncate(time.Second),
+		UpdatedAt:  time.Now().Truncate(time.Second),
+		AgentName:  "lucybot",
+		WorkingDir: "/home/user/project",
+		ModelName:  "gpt-4o",
+		Messages: []Message{
+			{Role: "user", Content: "Hello", Timestamp: time.Now()},
+		},
+	}
+
+	// Save session
+	if err := store.Save(session); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Verify file exists
+	sessionPath := store.sessionPath(session.ID)
+	if _, err := os.Stat(sessionPath); os.IsNotExist(err) {
+		t.Error("Session file was not created")
+	}
+
+	// Verify first line is metadata header
+	data, _ := os.ReadFile(sessionPath)
+	lines := strings.Split(string(data), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("Expected at least 2 lines, got %d", len(lines))
+	}
+
+	// First line should be metadata with _type: "header"
+	firstLine := lines[0]
+	if !strings.Contains(firstLine, "\"_type\"") || !strings.Contains(firstLine, "\"header\"") {
+		t.Errorf("First line should be metadata header with _type=header, got: %s", firstLine)
+	}
+}
+
+func TestJSONLStoreAppendMessage(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir)
+
+	sessionID := "append-test"
+	msg := JSONLMessage{
+		Role:      "user",
+		Content:   "Test message",
+		Timestamp: time.Now(),
+	}
+
+	// Append message
+	if err := store.SaveMessage(sessionID, msg); err != nil {
+		t.Fatalf("SaveMessage failed: %v", err)
+	}
+
+	// Load and verify
+	messages, err := store.LoadMessages(sessionID)
+	if err != nil {
+		t.Fatalf("LoadMessages failed: %v", err)
+	}
+
+	if len(messages) != 1 {
+		t.Errorf("Expected 1 message, got %d", len(messages))
+	}
+	if messages[0].Content != "Test message" {
+		t.Errorf("Content mismatch: %v", messages[0].Content)
+	}
 }
