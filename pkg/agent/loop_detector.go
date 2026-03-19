@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 )
@@ -35,8 +36,11 @@ func (l *LoopDetector) DetectLoop(toolBlock *message.ToolUseBlock) bool {
 
 	signature := l.getToolSignature(toolBlock)
 	l.toolCounts[signature]++
+	count := l.toolCounts[signature]
 
-	return l.toolCounts[signature] > l.maxOccurrences
+	fmt.Fprintf(os.Stderr, "[LOOP] Tool=%s, Signature=%s, Count=%d/%d\n", toolBlock.Name, signature[:8], count, l.maxOccurrences)
+
+	return count > l.maxOccurrences
 }
 
 // Reset clears the detection history

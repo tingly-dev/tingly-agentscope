@@ -107,12 +107,9 @@ func (r *Registry) BuildToolkit() *tool.Toolkit {
 
 	for _, info := range r.tools {
 		toolInfo := info // capture for closure
-		toolFunc := func(ctx context.Context, kwargs map[string]any) *tool.ToolResponse {
-			resp, err := toolInfo.Func(ctx, kwargs)
-			if err != nil {
-				return tool.TextResponse(fmt.Sprintf("Error: %v", err))
-			}
-			return resp
+		// Preserve the original function signature that returns (*ToolResponse, error)
+		toolFunc := func(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
+			return toolInfo.Func(ctx, kwargs)
 		}
 
 		tk.Register(toolFunc, &tool.RegisterOptions{

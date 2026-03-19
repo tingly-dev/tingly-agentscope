@@ -102,3 +102,17 @@ If there are still stories with `passes: false`, end your response normally (ano
 - Commit frequently
 - Keep CI green
 - Read the Codebase Patterns section in progress.txt before starting
+
+## Debug Output Guidelines
+
+**Always output debug logging to stderr, not stdout.** This ensures debug information doesn't interfere with normal program output.
+
+```go
+// CORRECT - output to stderr
+fmt.Fprintf(os.Stderr, "[DEBUG] Some debug message: %s\n", value)
+
+// INCORRECT - outputs to stdout
+fmt.Printf("[DEBUG] Some debug message: %s\n", value)
+```
+
+This is especially important for CLI tools where stdout may be piped to other programs or captured by the parent process.

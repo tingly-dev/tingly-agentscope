@@ -23,9 +23,9 @@ func InitTools(workDir string, mcpHelper *mcp.IntegrationHelper) *Registry {
 		"File Operations",
 		func(ctx context.Context, args map[string]any) (*tool.ToolResponse, error) {
 			params := ViewFileParams{
-				FilePath: getString(args, "file_path"),
-				Offset:   getInt(args, "offset"),
-				Limit:    getInt(args, "limit"),
+				Path:   getString(args, "path"),
+				Offset: getInt(args, "offset"),
+				Limit:  getInt(args, "limit"),
 			}
 			return fileTools.ViewFile(ctx, params)
 		},
@@ -333,7 +333,17 @@ func InitTools(workDir string, mcpHelper *mcp.IntegrationHelper) *Registry {
 }
 
 // Helper functions for type conversion
+
+// unwrapArgs extracts the actual arguments from the kwargs wrapper if present
+func unwrapArgs(args map[string]any) map[string]any {
+	if kwargs, ok := args["kwargs"].(map[string]any); ok {
+		return kwargs
+	}
+	return args
+}
+
 func getString(m map[string]any, key string) string {
+	m = unwrapArgs(m)
 	if v, ok := m[key]; ok {
 		if s, ok := v.(string); ok {
 			return s
@@ -343,6 +353,7 @@ func getString(m map[string]any, key string) string {
 }
 
 func getInt(m map[string]any, key string) int {
+	m = unwrapArgs(m)
 	if v, ok := m[key]; ok {
 		switch i := v.(type) {
 		case int:
@@ -357,6 +368,7 @@ func getInt(m map[string]any, key string) int {
 }
 
 func getBool(m map[string]any, key string) bool {
+	m = unwrapArgs(m)
 	if v, ok := m[key]; ok {
 		if b, ok := v.(bool); ok {
 			return b

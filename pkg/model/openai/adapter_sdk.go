@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/packages/ssestream"
@@ -60,6 +61,31 @@ func (a *SDKAdapter) Call(ctx context.Context, messages []*message.Msg, options 
 	if options == nil {
 		options = &model.CallOptions{}
 	}
+
+	// Debug: Print messages being sent to model
+	fmt.Fprintf(os.Stderr, "\n[OPENAI] === Sending %d messages to model ===\n", len(messages))
+	for i, msg := range messages {
+		blocks := msg.GetContentBlocks()
+		fmt.Fprintf(os.Stderr, "[OPENAI] Message %d [%s]: %d blocks\n", i, msg.Role, len(blocks))
+		for j, block := range blocks {
+			switch b := block.(type) {
+			case *message.TextBlock:
+				text := b.Text
+				if len(text) > 80 {
+					text = text[:80] + "..."
+				}
+				fmt.Fprintf(os.Stderr, "[OPENAI]   Block %d: Text=%q\n", j, text)
+			case *message.ToolUseBlock:
+				fmt.Fprintf(os.Stderr, "[OPENAI]   Block %d: ToolUse=%s\n", j, b.Name)
+			case *message.ToolResultBlock:
+				outputLen := len(b.Output)
+				fmt.Fprintf(os.Stderr, "[OPENAI]   Block %d: ToolResult=%s (output=%d blocks)\n", j, b.Name, outputLen)
+			default:
+				fmt.Fprintf(os.Stderr, "[OPENAI]   Block %d: %T\n", j, block)
+			}
+		}
+	}
+	fmt.Fprintf(os.Stderr, "[OPENAI] ======================================\n\n")
 
 	// Build SDK request parameters
 	params, err := a.buildCompletionParams(messages, options, false)
@@ -284,6 +310,12 @@ func (a *SDKAdapter) convertToolUseBlocks(toolUses []*message.ToolUseBlock) []op
 			args = "{}"
 		}
 
+		argsPreview := args
+		if len(argsPreview) > 60 {
+			argsPreview = argsPreview[:60] + "..."
+		}
+		fmt.Fprintf(os.Stderr, "[OPENAI] Converting ToolUse: ID=%s, Name=%s, Args=%s\n", tu.ID, tu.Name, argsPreview)
+
 		result[i] = openai.ChatCompletionMessageToolCallUnionParam{
 			OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
 				ID:   tu.ID,
@@ -310,6 +342,12 @@ func (a *SDKAdapter) convertToolResultBlock(tr *message.ToolResultBlock) openai.
 			content += tb.Text
 		}
 	}
+
+	contentPreview := content
+	if len(contentPreview) > 80 {
+		contentPreview = contentPreview[:80] + "..."
+	}
+	fmt.Fprintf(os.Stderr, "[OPENAI] Converting ToolResult: ID=%s, Name=%s, ContentLen=%d, Content=%q\n", tr.ID, tr.Name, len(content), contentPreview)
 
 	return openai.ChatCompletionMessageParamUnion{
 		OfTool: &openai.ChatCompletionToolMessageParam{
@@ -425,7 +463,7 @@ func (a *SDKAdapter) parseChoiceContent(choice *openai.ChatCompletionChoice) []m
 
 	// Tool calls
 	for _, tc := range choice.Message.ToolCalls {
-		input := make(map[string]types.JSONSerializable)
+		input := make(map[string]any)
 		if tc.Function.Arguments != "" {
 			json.Unmarshal([]byte(tc.Function.Arguments), &input)
 		}

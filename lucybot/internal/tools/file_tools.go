@@ -51,14 +51,14 @@ func (ft *FileTools) resolvePath(path string) string {
 
 // ViewFileParams holds parameters for view_source tool
 type ViewFileParams struct {
-	FilePath string `json:"file_path" description:"The path to the file to read (absolute or relative)"`
-	Offset   int    `json:"offset,omitempty" description:"The line number to start reading from (1-indexed)"`
-	Limit    int    `json:"limit,omitempty" description:"The number of lines to read. Omit to read entire file."`
+	Path   string `json:"path" description:"The path to the file to read (absolute or relative)"`
+	Offset int    `json:"offset,omitempty" description:"The line number to start reading from (1-indexed)"`
+	Limit  int    `json:"limit,omitempty" description:"The number of lines to read. Omit to read entire file."`
 }
 
 // ViewFile reads a file with line numbers
 func (ft *FileTools) ViewFile(ctx context.Context, params ViewFileParams) (*tool.ToolResponse, error) {
-	fullPath := ft.resolvePath(params.FilePath)
+	fullPath := ft.resolvePath(params.Path)
 
 	f, err := os.Open(fullPath)
 	if err != nil {
