@@ -3,11 +3,13 @@ package agent
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/tingly-dev/lucybot/internal/config"
 	"github.com/tingly-dev/lucybot/internal/mcp"
+	"github.com/tingly-dev/lucybot/internal/session"
 	"github.com/tingly-dev/lucybot/internal/tools"
-	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
+	agentscopeAgent "github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/formatter"
 	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model"
@@ -18,12 +20,15 @@ import (
 
 // LucyBotAgent wraps ReActAgent with LucyBot-specific functionality
 type LucyBotAgent struct {
-	*agent.ReActAgent
-	config    *config.Config
-	toolkit   *tool.Toolkit
-	workDir   string
-	registry  *tools.Registry
-	mcpHelper *mcp.IntegrationHelper
+	*agentscopeAgent.ReActAgent
+	config         *config.Config
+	toolkit        *tool.Toolkit
+	workDir        string
+	registry       *tools.Registry
+	mcpHelper      *mcp.IntegrationHelper
+	sessionManager *session.Manager // Session manager for persistence
+	sessionID      string           // Current session ID
+	memory         memory.Memory    // Agent memory for session resumption
 }
 
 // LucyBotAgentConfig holds configuration for creating a LucyBotAgent
@@ -126,7 +131,7 @@ func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 	systemPrompt := buildSystemPrompt(cfg.Config, mcpHelper)
 
 	// Create ReAct agent
-	agentConfig := &agent.ReActAgentConfig{
+	agentConfig := &agentscopeAgent.ReActAgentConfig{
 		Name:          cfg.Config.Agent.Name,
 		SystemPrompt:  systemPrompt,
 		Model:         chatModel,
@@ -135,19 +140,51 @@ func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 		MaxIterations: cfg.Config.Agent.MaxIters,
 	}
 
-	reactAgent := agent.NewReActAgent(agentConfig)
+	reactAgent := agentscopeAgent.NewReActAgent(agentConfig)
 
 	// Set formatter for rich output
 	reactAgent.SetFormatter(formatter.NewTeaFormatter())
 
-	return &LucyBotAgent{
+	lucyAgent := &LucyBotAgent{
 		ReActAgent: reactAgent,
 		config:     cfg.Config,
 		toolkit:    toolkit,
 		workDir:    cfg.WorkDir,
 		registry:   registry,
 		mcpHelper:  mcpHelper,
-	}, nil
+		memory:     mem,
+	}
+
+	// Initialize session manager if enabled
+	if cfg.Config.Session.Enabled {
+		mgr, err := session.NewManager(
+			&cfg.Config.Session,
+			cfg.Config.Agent.Name,
+			cfg.WorkDir,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create session manager: %w", err)
+		}
+		lucyAgent.sessionManager = mgr
+
+		// Generate or use provided session ID
+		sessionID := cfg.Config.Session.SessionID
+		if sessionID == "" {
+			sessionID = generateSessionID()
+		}
+
+		// Initialize session
+		if _, err := mgr.GetOrCreate(sessionID, cfg.Config.Agent.Name); err != nil {
+			return nil, fmt.Errorf("failed to initialize session: %w", err)
+		}
+
+		lucyAgent.sessionID = sessionID
+	}
+
+	// Setup compression configuration from LucyBot config
+	lucyAgent.SetupCompression()
+
+	return lucyAgent, nil
 }
 
 // GetConfig returns the agent configuration
@@ -175,15 +212,71 @@ func (a *LucyBotAgent) GetMCPHelper() *mcp.IntegrationHelper {
 	return a.mcpHelper
 }
 
+// GetSessionManager returns the session manager
+func (a *LucyBotAgent) GetSessionManager() *session.Manager {
+	return a.sessionManager
+}
+
+// SetSessionManager sets the session manager and session ID
+func (a *LucyBotAgent) SetSessionManager(mgr *session.Manager, sessionID string) {
+	a.sessionManager = mgr
+	a.sessionID = sessionID
+}
+
+// GetMemory returns the agent's memory (needed for session resumption)
+func (a *LucyBotAgent) GetMemory() memory.Memory {
+	return a.memory
+}
+
 // SetWorkDir updates the working directory
 func (a *LucyBotAgent) SetWorkDir(dir string) {
 	a.workDir = dir
 }
 
 // SetStreamingConfig sets the streaming configuration on the underlying ReAct agent
-func (a *LucyBotAgent) SetStreamingConfig(streaming *agent.StreamingConfig) {
+func (a *LucyBotAgent) SetStreamingConfig(streaming *agentscopeAgent.StreamingConfig) {
 	a.ReActAgent.SetStreamingConfig(streaming)
 }
+
+// CompactMemory manually triggers memory compression.
+// Returns (wasCompressed, originalTokens, compressedTokens, error).
+func (a *LucyBotAgent) CompactMemory(ctx context.Context) (bool, int, int, error) {
+	result, err := a.ReActAgent.CompressMemory(ctx)
+	if err != nil {
+		return false, 0, 0, err
+	}
+	if result != nil {
+		return true, result.OriginalTokenCount, result.CompressedTokenCount, nil
+	}
+
+	count := a.ReActAgent.GetMemoryTokenCount(ctx)
+	return false, count, count, nil
+}
+
+// GetMemoryTokenCount returns the total token count of all messages in memory.
+func (a *LucyBotAgent) GetMemoryTokenCount(ctx context.Context) int {
+	return a.ReActAgent.GetMemoryTokenCount(ctx)
+}
+
+// SetupCompression initializes compression configuration from LucyBot config.
+func (a *LucyBotAgent) SetupCompression() {
+	cfg := a.config.Agent.Compression
+
+	threshold := cfg.Threshold
+	if threshold == 0 && cfg.ContextWindow > 0 && cfg.TriggerThresholdPercent > 0 {
+		threshold = cfg.ContextWindow * cfg.TriggerThresholdPercent / 100
+	}
+
+	compressionCfg := &agentscopeAgent.CompressionConfig{
+		Enable:           cfg.Enabled,
+		TokenCounter:     agentscopeAgent.NewSimpleTokenCounter(),
+		TriggerThreshold: threshold,
+		KeepRecent:       cfg.KeepRecent,
+	}
+
+	a.ReActAgent.SetCompressionConfig(compressionCfg)
+}
+
 
 // AnalyzeInput analyzes user input for MCP lazy loading triggers
 func (a *LucyBotAgent) AnalyzeInput(ctx context.Context, input string) error {
@@ -214,4 +307,9 @@ func (a *LucyBotAgent) AnalyzeInput(ctx context.Context, input string) error {
 	}
 
 	return nil
+}
+
+// generateSessionID generates a unique session ID based on timestamp
+func generateSessionID() string {
+	return fmt.Sprintf("%08x", time.Now().UnixNano())[:8]
 }
