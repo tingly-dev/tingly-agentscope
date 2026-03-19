@@ -2,19 +2,60 @@ package tools
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/tingly-dev/lucybot/internal/index"
 	"github.com/tingly-dev/lucybot/internal/mcp"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 )
 
+// ensureIndex builds the code index if needed
+// It checks if the index exists and is recent enough, and builds it if not
+func ensureIndex(workDir, indexPath string) error {
+	// Check if index exists and is recent
+	info, err := os.Stat(indexPath)
+	if err == nil {
+		// Index exists, check if it's recent enough
+		// Use 10 minutes as the freshness threshold
+		if time.Since(info.ModTime()) < 10*time.Minute {
+			return nil // Index is fresh
+		}
+	}
+
+	// Need to build index
+	idx, err := index.New(&index.Config{
+		Root:   workDir,
+		DBPath: indexPath,
+		Watch:  false,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create index: %w", err)
+	}
+	defer idx.Stop()
+
+	if err := idx.Build(); err != nil {
+		return fmt.Errorf("failed to build index: %w", err)
+	}
+
+	return nil
+}
+
 // InitTools initializes and registers all LucyBot tools
 // mcpHelper is optional and can be nil if MCP is not configured
 func InitTools(workDir string, mcpHelper *mcp.IntegrationHelper) *Registry {
 	registry := NewRegistry()
-	fileTools := NewFileTools(workDir)
 	indexPath := filepath.Join(workDir, ".lucybot", "index.db")
+
+	// Build index if it doesn't exist or is stale
+	if err := ensureIndex(workDir, indexPath); err != nil {
+		fmt.Fprintf(os.Stderr, "[WARN] Failed to build code index: %v\n", err)
+	}
+
+	fileTools := NewFileTools(workDir)
 	codeTools := NewCodeTools(fileTools, indexPath)
 	todoTools := NewTodoTools(workDir)
 
