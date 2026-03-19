@@ -5,10 +5,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/tingly-dev/lucybot/internal/index"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
 )
@@ -16,7 +19,11 @@ import (
 // CodeTools provides code navigation capabilities
 type CodeTools struct {
 	fileTools *FileTools
+	index     *index.Index // Add index field
 	indexPath string
+	indexOnce sync.Once   // For thread-safe lazy loading
+	indexErr  error       // Any error from loading
+	indexMu   sync.RWMutex
 }
 
 // NewCodeTools creates a new CodeTools instance
@@ -25,6 +32,51 @@ func NewCodeTools(fileTools *FileTools, indexPath string) *CodeTools {
 		fileTools: fileTools,
 		indexPath: indexPath,
 	}
+}
+
+// getIndex lazily loads the code index (thread-safe)
+func (ct *CodeTools) getIndex(ctx context.Context) (*index.Index, error) {
+	ct.indexMu.RLock()
+	if ct.index != nil {
+		ct.indexMu.RUnlock()
+		return ct.index, nil
+	}
+	if ct.indexErr != nil {
+		ct.indexMu.RUnlock()
+		return nil, ct.indexErr
+	}
+	ct.indexMu.RUnlock()
+
+	// Use sync.Once for thread-safe initialization
+	var loadedIdx *index.Index
+	ct.indexOnce.Do(func() {
+		// Check if index exists
+		if _, err := os.Stat(ct.indexPath); os.IsNotExist(err) {
+			ct.indexErr = nil // Index not built yet, not an error
+			return
+		}
+
+		idx, err := index.New(&index.Config{
+			Root:   filepath.Dir(ct.indexPath),
+			DBPath: ct.indexPath,
+			Watch:  false,
+		})
+		if err != nil {
+			ct.indexErr = err
+			return
+		}
+
+		loadedIdx = idx
+		ct.indexMu.Lock()
+		ct.index = idx
+		ct.indexMu.Unlock()
+	})
+
+	if ct.indexErr != nil {
+		return nil, ct.indexErr
+	}
+
+	return loadedIdx, nil
 }
 
 // ViewSourceParams holds parameters for view_source tool
@@ -290,8 +342,26 @@ func (ct *CodeTools) viewByWildcard(pattern string) (*tool.ToolResponse, error) 
 	return ct.fileTools.Grep(context.Background(), params)
 }
 
-// viewBySymbolName finds a symbol by name
+// viewBySymbolName finds a symbol by name using index
 func (ct *CodeTools) viewBySymbolName(symbol string) (*tool.ToolResponse, error) {
+	// Try index first
+	idx, err := ct.getIndex(context.Background())
+	if err == nil && idx != nil {
+		symbols, err := idx.FindSymbol(symbol)
+		if err == nil && len(symbols) > 0 {
+			var result strings.Builder
+			result.WriteString(fmt.Sprintf("Found %d symbol(s) matching '%s':\n\n", len(symbols), symbol))
+			for _, s := range symbols {
+				result.WriteString(fmt.Sprintf("%s:%d - %s\n", s.FilePath, s.StartLine, s.QualifiedName))
+				if s.Documentation != "" {
+					result.WriteString(fmt.Sprintf("  %s\n", s.Documentation))
+				}
+			}
+			return tool.TextResponse(result.String()), nil
+		}
+	}
+
+	// Fallback to grep
 	// Try to find the symbol definition
 	patterns := []string{
 		fmt.Sprintf(`^func\s+%s\s*\(`, regexp.QuoteMeta(symbol)),
