@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/tingly-dev/lucybot/internal/session"
 )
 
@@ -19,19 +20,27 @@ type SessionPickerCloseMsg struct{}
 
 // sessionPickerModel is the Bubble Tea model for session selection
 type sessionPickerModel struct {
+	list     list.Model
 	sessions []*session.SessionInfo
-	cursor   int
-	selected *session.SessionInfo
 	quitting bool
 }
 
 // newSessionPickerModel creates a new session picker model for testing
 func newSessionPickerModel(sessions []*session.SessionInfo) *sessionPickerModel {
+	items := make([]list.Item, len(sessions))
+	for i, s := range sessions {
+		items[i] = sessionItem{*s}
+	}
+
+	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	l.Title = "Available Sessions"
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false)
+	l.DisableQuitKeybindings()
+
 	return &sessionPickerModel{
+		list:     l,
 		sessions: sessions,
-		cursor:   0,
-		selected: nil,
-		quitting: false,
 	}
 }
 
@@ -55,28 +64,16 @@ func (m *sessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case tea.KeyEnter:
-			if m.cursor >= 0 && m.cursor < len(m.sessions) {
-				selected := m.sessions[m.cursor]
-				m.selected = selected
+			if m.list.Cursor() >= 0 && m.list.Cursor() < len(m.sessions) {
+				selected := m.sessions[m.list.Cursor()]
 				return m, func() tea.Msg {
 					return SessionPickerMsg{SessionID: selected.ID}
 				}
 			}
 
-		case tea.KeyDown:
-			if m.cursor < len(m.sessions)-1 {
-				m.cursor++
-			}
-
-		case tea.KeyUp:
-			if m.cursor > 0 {
-				m.cursor--
-			}
-
 		case tea.KeyDelete:
-			// Delete selected session
-			if m.cursor >= 0 && m.cursor < len(m.sessions) {
-				selected := m.sessions[m.cursor]
+			if m.list.Cursor() >= 0 && m.list.Cursor() < len(m.sessions) {
+				selected := m.sessions[m.list.Cursor()]
 				return m, func() tea.Msg {
 					return DeleteSessionMsg{SessionID: selected.ID}
 				}
@@ -84,7 +81,9 @@ func (m *sessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
 }
 
 // View implements tea.Model
@@ -92,22 +91,7 @@ func (m *sessionPickerModel) View() string {
 	if m.quitting {
 		return ""
 	}
-
-	if len(m.sessions) == 0 {
-		return "No sessions available"
-	}
-
-	var s string
-	s += "\nAvailable Sessions\n\n"
-	for i, sess := range m.sessions {
-		cursor := " "
-		if i == m.cursor {
-			cursor = ">"
-		}
-		s += fmt.Sprintf("%s %s - %d messages\n", cursor, sess.Name, sess.MessageCount)
-	}
-	s += "\n"
-	return s
+	return "\n" + m.list.View() + "\n"
 }
 
 // DeleteSessionMsg is sent to delete a session
