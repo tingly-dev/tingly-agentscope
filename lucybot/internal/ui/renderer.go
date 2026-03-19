@@ -9,9 +9,15 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
+
+// ResultLabelStyle is the style for result labels
+var ResultLabelStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#7aa2f7")).
+	Bold(true)
 
 // StructuredThought represents JSON thought format
 type StructuredThought struct {
@@ -440,4 +446,210 @@ func detectLanguage(code string) string {
 		return "c"
 	}
 	return ""
+}
+
+// RenderTurn renders a complete InteractionTurn to string
+func (r *MessageRenderer) RenderTurn(turn *InteractionTurn) string {
+	var sb strings.Builder
+
+	// Render based on role
+	switch turn.Role {
+	case "user":
+		r.renderUserTurn(&sb, turn)
+	case "assistant":
+		r.renderAssistantTurn(&sb, turn)
+	case "system":
+		r.renderSystemTurn(&sb, turn)
+	}
+
+	return sb.String()
+}
+
+// renderUserTurn renders a user turn
+func (r *MessageRenderer) renderUserTurn(sb *strings.Builder, turn *InteractionTurn) {
+	sb.WriteString(UserStyle.Render("You"))
+	sb.WriteString("\n")
+
+	// Extract text content
+	textBlocks := turn.GetTextBlocks()
+	if len(textBlocks) > 0 {
+		content := textBlocks[0].Text
+		sb.WriteString(ContentStyle.Render(content))
+	}
+}
+
+// renderAssistantTurn renders an assistant turn with tree structure
+func (r *MessageRenderer) renderAssistantTurn(sb *strings.Builder, turn *InteractionTurn) {
+	// Header with model symbol and agent name
+	sb.WriteString(ModelSymbolStyle.Render(ModelSymbol))
+	sb.WriteString(" ")
+	sb.WriteString(AgentEmojiStyle.Render("🤖"))
+	sb.WriteString(" ")
+
+	agentName := turn.Agent
+	if agentName == "" {
+		agentName = "Assistant"
+	}
+	sb.WriteString(AssistantStyle.Render(agentName))
+	sb.WriteString("\n")
+
+	// Get tool pairs for rendering
+	toolPairs := turn.GetToolPairs()
+	toolPairMap := make(map[string]*ToolPair)
+	for i := range toolPairs {
+		toolPairMap[toolPairs[i].Use.ID] = &toolPairs[i]
+	}
+
+	// Render blocks in order
+	renderedText := false
+	lastWasTool := false
+
+	for _, block := range turn.Blocks {
+		switch b := block.(type) {
+		case *message.TextBlock:
+			if renderedText && !lastWasTool {
+				sb.WriteString("\n")
+			}
+			r.renderTextBlockInTurn(sb, b, len(toolPairs) > 0)
+			renderedText = true
+			lastWasTool = false
+
+		case *message.ToolUseBlock:
+			// Add spacing before tool if we rendered text
+			if renderedText {
+				sb.WriteString("\n")
+			}
+			r.renderToolUseBlockInTurn(sb, b)
+
+			// Check if we have a result for this tool
+			if pair, ok := toolPairMap[b.ID]; ok {
+				r.renderToolResultBlockInTurn(sb, pair.Result)
+			}
+
+			renderedText = false
+			lastWasTool = true
+		}
+	}
+}
+
+// renderSystemTurn renders a system turn
+func (r *MessageRenderer) renderSystemTurn(sb *strings.Builder, turn *InteractionTurn) {
+	sb.WriteString(SystemStyle.Render("System"))
+	sb.WriteString("\n")
+
+	textBlocks := turn.GetTextBlocks()
+	if len(textBlocks) > 0 {
+		content := textBlocks[0].Text
+		sb.WriteString(ContentStyle.Render(content))
+	}
+}
+
+// renderTextBlockInTurn renders a text block within a turn
+func (r *MessageRenderer) renderTextBlockInTurn(sb *strings.Builder, block *message.TextBlock, hasTools bool) {
+	text := strings.TrimSpace(block.Text)
+	if text == "" {
+		return
+	}
+
+	// Try to parse as structured thought (JSON)
+	if r.tryRenderStructuredThought(sb, text) {
+		return
+	}
+
+	// Use tree indentation
+	indent := ModelIndent
+	if hasTools {
+		indent = TreeVertical + " "
+	}
+
+	// Render with markdown
+	rendered := r.renderMarkdown(text)
+	lines := strings.Split(rendered, "\n")
+	for _, line := range lines {
+		sb.WriteString(indent)
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+}
+
+// renderToolUseBlockInTurn renders a tool use within a turn
+func (r *MessageRenderer) renderToolUseBlockInTurn(sb *strings.Builder, block *message.ToolUseBlock) {
+	// Tool symbol and call
+	sb.WriteString(ToolSymbolStyle.Render(ToolSymbol))
+	sb.WriteString(" ")
+
+	// Format tool call - convert input from any to map[string]types.JSONSerializable
+	var inputMap map[string]types.JSONSerializable
+	if m, ok := block.Input.(map[string]any); ok {
+		inputMap = make(map[string]types.JSONSerializable, len(m))
+		for k, v := range m {
+			inputMap[k] = v
+		}
+	}
+	toolCall := r.formatToolCall(block.Name, inputMap)
+	sb.WriteString(toolCall)
+	sb.WriteString("\n")
+}
+
+// renderToolResultBlockInTurn renders a tool result within a turn
+func (r *MessageRenderer) renderToolResultBlockInTurn(sb *strings.Builder, block *message.ToolResultBlock) {
+	// Extract text content
+	output := r.extractToolOutput(block)
+	if output == "" {
+		return
+	}
+
+	// Result indicator with tree indentation
+	sb.WriteString(ResultIndent)
+	sb.WriteString(TreeEndStyle.Render(TreeEnd))
+	sb.WriteString(" ")
+	sb.WriteString(ResultLabelStyle.Render("Result:"))
+	sb.WriteString("\n")
+
+	// Check render mode
+	showFull := r.isFullOutputTool(block.Name)
+	contentType := DetectContentType(output)
+
+	if showFull {
+		r.renderFullResult(sb, output, contentType)
+	} else {
+		r.renderTruncatedResult(sb, output, contentType)
+	}
+}
+
+// renderFullResult renders complete tool output
+func (r *MessageRenderer) renderFullResult(sb *strings.Builder, output string, contentType ContentType) {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		sb.WriteString(ResultIndent)
+		sb.WriteString("   ")
+		sb.WriteString(r.truncateLine(line))
+		sb.WriteString("\n")
+	}
+}
+
+// renderTruncatedResult renders truncated tool output
+func (r *MessageRenderer) renderTruncatedResult(sb *strings.Builder, output string, contentType ContentType) {
+	lines := strings.Split(output, "\n")
+
+	const defaultLines = 3
+	showLines := defaultLines
+	if len(lines) <= showLines {
+		showLines = len(lines)
+	}
+
+	for i := 0; i < showLines; i++ {
+		sb.WriteString(ResultIndent)
+		sb.WriteString("   ")
+		sb.WriteString(r.truncateLine(lines[i]))
+		sb.WriteString("\n")
+	}
+
+	if len(lines) > defaultLines {
+		omitted := len(lines) - defaultLines
+		sb.WriteString(ResultIndent)
+		sb.WriteString("   ")
+		sb.WriteString(ResultTruncatedStyle.Render(fmt.Sprintf("… +%d lines", omitted)))
+		sb.WriteString("\n")
+	}
 }

@@ -128,3 +128,54 @@ func TestDetectLanguage(t *testing.T) {
 		}
 	}
 }
+
+func TestMessageRenderer_RenderTurn(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+
+	// Create a turn with text and tool use
+	turn := NewInteractionTurn("assistant", "Lucy")
+	turn.AddContentBlock(&message.TextBlock{Text: "I'll search for files"})
+
+	// Render the turn
+	output := renderer.RenderTurn(turn)
+
+	// Verify output contains expected elements
+	if output == "" {
+		t.Error("RenderTurn should return non-empty output")
+	}
+
+	// Should contain model symbol
+	if !strings.Contains(output, ModelSymbol) {
+		t.Error("Output should contain ModelSymbol")
+	}
+}
+
+func TestMessageRenderer_RenderTurnWithTool(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+
+	// Create a turn with tool use and result
+	turn := NewInteractionTurn("assistant", "Lucy")
+	turn.AddContentBlock(&message.TextBlock{Text: "Searching..."})
+	turn.AddContentBlock(&message.ToolUseBlock{
+		ID:    "tool_1",
+		Name:  "Glob",
+		Input: map[string]any{"pattern": "*.go"},
+	})
+	turn.AddContentBlock(&message.ToolResultBlock{
+		ID:     "tool_1",
+		Name:   "Glob",
+		Output: []message.ContentBlock{message.Text("main.go")},
+	})
+
+	output := renderer.RenderTurn(turn)
+
+	// Should contain tool symbol
+	if !strings.Contains(output, ToolSymbol) {
+		t.Error("Output should contain ToolSymbol")
+	}
+
+	// Should contain result indicator
+	if !strings.Contains(output, "Result:") {
+		t.Error("Output should contain 'Result:'")
+	}
+}
