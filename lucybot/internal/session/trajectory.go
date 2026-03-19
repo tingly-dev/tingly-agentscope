@@ -76,7 +76,8 @@ func (a *TrajectoryAnalyzer) AnalyzeSession(sessionID string) (*SessionMetrics, 
 		}
 
 		// Analyze content for tool calls
-		if strings.Contains(msg.Content, "ToolCall") || strings.Contains(msg.Content, "tool_use") {
+		contentStr, _ := msg.Content.(string)
+		if strings.Contains(contentStr, "ToolCall") || strings.Contains(contentStr, "tool_use") {
 			metrics.ToolCalls++
 		}
 	}
@@ -124,7 +125,8 @@ func (a *TrajectoryAnalyzer) AnalyzeAllSessions() (*AggregateMetrics, error) {
 
 		for _, msg := range session.Messages {
 			// Extract tool usage
-			if toolName := extractToolName(msg.Content); toolName != "" {
+			contentStr, _ := msg.Content.(string)
+			if toolName := extractToolName(contentStr); toolName != "" {
 				if _, ok := toolUsage[toolName]; !ok {
 					toolUsage[toolName] = &ToolUsage{ToolName: toolName}
 				}
@@ -172,19 +174,19 @@ func (a *TrajectoryAnalyzer) detectPatterns(messages []Message) []string {
 	patternCounts := make(map[string]int)
 
 	for _, msg := range messages {
-		content := msg.Content
+		contentStr, _ := msg.Content.(string)
 
 		// Detect patterns
 		switch {
-		case strings.Contains(content, "edit_file"):
+		case strings.Contains(contentStr, "edit_file"):
 			patternCounts["file_editing"]++
-		case strings.Contains(content, "view_source") || strings.Contains(content, "view_file"):
+		case strings.Contains(contentStr, "view_source") || strings.Contains(contentStr, "view_file"):
 			patternCounts["code_reading"]++
-		case strings.Contains(content, "grep") || strings.Contains(content, "search"):
+		case strings.Contains(contentStr, "grep") || strings.Contains(contentStr, "search"):
 			patternCounts["code_search"]++
-		case strings.Contains(content, "bash") || strings.Contains(content, "command"):
+		case strings.Contains(contentStr, "bash") || strings.Contains(contentStr, "command"):
 			patternCounts["command_execution"]++
-		case strings.Contains(content, "error") || strings.Contains(content, "fail"):
+		case strings.Contains(contentStr, "error") || strings.Contains(contentStr, "fail"):
 			patternCounts["error_handling"]++
 		}
 	}
