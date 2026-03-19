@@ -76,7 +76,11 @@ func (a *TrajectoryAnalyzer) AnalyzeSession(sessionID string) (*SessionMetrics, 
 		}
 
 		// Analyze content for tool calls
-		contentStr, _ := msg.Content.(string)
+		contentStr, ok := msg.Content.(string)
+		if !ok {
+			// Skip non-string content (structured data doesn't contain tool call patterns)
+			continue
+		}
 		if strings.Contains(contentStr, "ToolCall") || strings.Contains(contentStr, "tool_use") {
 			metrics.ToolCalls++
 		}
@@ -125,7 +129,11 @@ func (a *TrajectoryAnalyzer) AnalyzeAllSessions() (*AggregateMetrics, error) {
 
 		for _, msg := range session.Messages {
 			// Extract tool usage
-			contentStr, _ := msg.Content.(string)
+			contentStr, ok := msg.Content.(string)
+			if !ok {
+				// Skip non-string content
+				continue
+			}
 			if toolName := extractToolName(contentStr); toolName != "" {
 				if _, ok := toolUsage[toolName]; !ok {
 					toolUsage[toolName] = &ToolUsage{ToolName: toolName}
@@ -174,7 +182,11 @@ func (a *TrajectoryAnalyzer) detectPatterns(messages []Message) []string {
 	patternCounts := make(map[string]int)
 
 	for _, msg := range messages {
-		contentStr, _ := msg.Content.(string)
+		contentStr, ok := msg.Content.(string)
+		if !ok {
+			// Skip non-string content in pattern detection
+			continue
+		}
 
 		// Detect patterns
 		switch {
