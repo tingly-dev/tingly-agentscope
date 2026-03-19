@@ -273,3 +273,134 @@ func TestFunction(x int) int {
 		t.Errorf("Expected output to contain 'TestFunction', got: %s", text)
 	}
 }
+
+func TestCodeTools_FindCallees(t *testing.T) {
+	// Test findCallees using index
+	tmpDir, err := os.MkdirTemp("", "lucybot-test-")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create test file with function calls
+	testFile := filepath.Join(tmpDir, "test.go")
+	content := `package main
+
+func HelperFunction(x int) int {
+	return x + 1
+}
+
+func MainFunction() int {
+	return HelperFunction(42)
+}
+
+func AnotherFunction() int {
+	return HelperFunction(100)
+}
+`
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	// Build the index
+	indexPath := filepath.Join(tmpDir, "index.db")
+	idx, err := index.New(&index.Config{
+		Root:   tmpDir,
+		DBPath: indexPath,
+		Watch:  false,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
+
+	if err := idx.Build(); err != nil {
+		idx.Stop()
+		t.Fatalf("Failed to build index: %v", err)
+	}
+	defer idx.Stop()
+
+	// Test findCallees
+	ft := NewFileTools(tmpDir)
+	ct := NewCodeTools(ft, indexPath)
+	defer ct.Close()
+
+	resp, err := ct.findCallees("MainFunction")
+	if err != nil {
+		t.Fatalf("findCallees failed: %v", err)
+	}
+
+	text := getTextFromResponse(resp)
+	if !strings.Contains(text, "HelperFunction") {
+		t.Errorf("Expected output to contain 'HelperFunction', got: %s", text)
+	}
+	if !strings.Contains(text, "Callees of 'MainFunction'") {
+		t.Errorf("Expected output to contain 'Callees of 'MainFunction'', got: %s", text)
+	}
+}
+
+func TestCodeTools_FindCallers(t *testing.T) {
+	// Test findCallers using index
+	tmpDir, err := os.MkdirTemp("", "lucybot-test-")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create test file with function calls
+	testFile := filepath.Join(tmpDir, "test.go")
+	content := `package main
+
+func HelperFunction(x int) int {
+	return x + 1
+}
+
+func MainFunction() int {
+	return HelperFunction(42)
+}
+
+func AnotherFunction() int {
+	return HelperFunction(100)
+}
+`
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	// Build the index
+	indexPath := filepath.Join(tmpDir, "index.db")
+	idx, err := index.New(&index.Config{
+		Root:   tmpDir,
+		DBPath: indexPath,
+		Watch:  false,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
+
+	if err := idx.Build(); err != nil {
+		idx.Stop()
+		t.Fatalf("Failed to build index: %v", err)
+	}
+	defer idx.Stop()
+
+	// Test findCallers
+	ft := NewFileTools(tmpDir)
+	ct := NewCodeTools(ft, indexPath)
+	defer ct.Close()
+
+	resp, err := ct.findCallers("HelperFunction")
+	if err != nil {
+		t.Fatalf("findCallers failed: %v", err)
+	}
+
+	text := getTextFromResponse(resp)
+	if !strings.Contains(text, "MainFunction") {
+		t.Errorf("Expected output to contain 'MainFunction', got: %s", text)
+	}
+	if !strings.Contains(text, "AnotherFunction") {
+		t.Errorf("Expected output to contain 'AnotherFunction', got: %s", text)
+	}
+	if !strings.Contains(text, "Callers of 'HelperFunction'") {
+		t.Errorf("Expected output to contain 'Callers of 'HelperFunction'', got: %s", text)
+	}
+}

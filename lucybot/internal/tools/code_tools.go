@@ -468,41 +468,88 @@ func (ct *CodeTools) TraverseCode(ctx context.Context, params TraverseCodeParams
 	}
 }
 
-// findCallers finds functions that call the given symbol
+// findCallers finds functions that call the given symbol using index
 func (ct *CodeTools) findCallers(symbol string) (*tool.ToolResponse, error) {
-	// Look for calls to the symbol
-	patterns := []string{
-		fmt.Sprintf(`%s\s*\(`, regexp.QuoteMeta(symbol)),
-		fmt.Sprintf(`\.%s\s*\(`, regexp.QuoteMeta(symbol)),
+	idx, err := ct.getIndex(context.Background())
+	if err != nil {
+		return tool.TextResponse(fmt.Sprintf("Error loading index: %v", err)), nil
+	}
+	if idx == nil {
+		return tool.TextResponse("No code index available. Run 'lucybot index build' first."), nil
 	}
 
-	var allResults []string
-	for _, pattern := range patterns {
-		params := GrepParams{
-			Pattern:    pattern,
-			OutputMode: "content",
-			HeadLimit:  20,
-		}
-		resp, _ := ct.fileTools.Grep(context.Background(), params)
-		if resp != nil {
-			text := getTextFromResponse(resp)
-			if text != "" && !strings.Contains(text, "No matches") {
-				allResults = append(allResults, text)
-			}
-		}
+	// Find the symbol
+	symbols, err := idx.FindSymbol(symbol)
+	if err != nil {
+		return tool.TextResponse(fmt.Sprintf("Error finding symbol: %v", err)), nil
+	}
+	if len(symbols) == 0 {
+		return tool.TextResponse(fmt.Sprintf("Symbol '%s' not found", symbol)), nil
 	}
 
-	if len(allResults) == 0 {
+	// Get callers for each matching symbol
+	var allCallers []*index.Symbol
+	for _, s := range symbols {
+		callers, err := idx.DB().GetCallers(context.Background(), s.ID)
+		if err != nil {
+			continue
+		}
+		allCallers = append(allCallers, callers...)
+	}
+
+	if len(allCallers) == 0 {
 		return tool.TextResponse(fmt.Sprintf("No callers found for '%s'", symbol)), nil
 	}
 
-	return tool.TextResponse(fmt.Sprintf("Callers of '%s':\n\n%s", symbol, strings.Join(allResults, "\n"))), nil
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("Callers of '%s':\n\n", symbol))
+	for _, caller := range allCallers {
+		result.WriteString(fmt.Sprintf("  - %s (%s:%d)\n", caller.QualifiedName, caller.FilePath, caller.StartLine))
+	}
+
+	return tool.TextResponse(result.String()), nil
 }
 
-// findCallees finds functions called by the given symbol
-// This requires parsing the function body, which is complex without an index
+// findCallees finds functions called by the given symbol using index
 func (ct *CodeTools) findCallees(symbol string) (*tool.ToolResponse, error) {
-	return tool.TextResponse("Finding callees requires code index. Feature coming soon."), nil
+	idx, err := ct.getIndex(context.Background())
+	if err != nil {
+		return tool.TextResponse(fmt.Sprintf("Error loading index: %v", err)), nil
+	}
+	if idx == nil {
+		return tool.TextResponse("No code index available. Run 'lucybot index build' first."), nil
+	}
+
+	// Find the symbol
+	symbols, err := idx.FindSymbol(symbol)
+	if err != nil {
+		return tool.TextResponse(fmt.Sprintf("Error finding symbol: %v", err)), nil
+	}
+	if len(symbols) == 0 {
+		return tool.TextResponse(fmt.Sprintf("Symbol '%s' not found", symbol)), nil
+	}
+
+	// Get callees for each matching symbol
+	var allCallees []*index.Symbol
+	for _, s := range symbols {
+		callees, err := idx.DB().GetCallees(context.Background(), s.ID)
+		if err != nil {
+			continue
+		}
+		allCallees = append(allCallees, callees...)
+	}
+
+	if len(allCallees) == 0 {
+		return tool.TextResponse(fmt.Sprintf("No callees found for '%s'", symbol)), nil
+	}
+
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("Callees of '%s':\n\n", symbol))
+	for _, callee := range allCallees {
+		result.WriteString(fmt.Sprintf("  - %s (%s:%d)\n", callee.QualifiedName, callee.FilePath, callee.StartLine))
+	}
+
+	return tool.TextResponse(result.String()), nil
 }
 
 // findReferences finds all references to a symbol
