@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/tingly-dev/lucybot/internal/config"
@@ -12,6 +13,7 @@ import (
 	agentscopeAgent "github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/formatter"
 	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model/anthropic"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
@@ -307,6 +309,33 @@ func (a *LucyBotAgent) AnalyzeInput(ctx context.Context, input string) error {
 	}
 
 	return nil
+}
+
+// Reply processes a user message and returns the agent's response
+// with automatic message recording if sessions are enabled
+func (a *LucyBotAgent) Reply(ctx context.Context, msg *message.Msg) (*message.Msg, error) {
+	// Record incoming message
+	if a.sessionManager != nil && a.config.Session.AutoRecord {
+		if err := a.sessionManager.GetRecorder().RecordMessage(ctx, a.sessionID, msg); err != nil {
+			// Log but don't fail - recording is optional
+			fmt.Fprintf(os.Stderr, "[DEBUG] Failed to record message: %v\n", err)
+		}
+	}
+
+	// Call underlying ReActAgent's Reply
+	resp, err := a.ReActAgent.Reply(ctx, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Record response
+	if a.sessionManager != nil && a.config.Session.AutoRecord && resp != nil {
+		if err := a.sessionManager.GetRecorder().RecordMessage(ctx, a.sessionID, resp); err != nil {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Failed to record response: %v\n", err)
+		}
+	}
+
+	return resp, nil
 }
 
 // generateSessionID generates a unique session ID based on timestamp
