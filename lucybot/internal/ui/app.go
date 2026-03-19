@@ -371,9 +371,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ResumeSessionMsg:
 		// Handle session resumption request
-		// This will be processed by the main app logic in Task 13
-		a.messages.AddSystemMessage(fmt.Sprintf("Session resumption requested: %s (will be implemented in Task 13)", msg.SessionID))
-		a.messages.ScrollToBottom()
+		return a, func() tea.Msg {
+			if err := a.resumeSession(msg.SessionID); err != nil {
+				return SystemMsg{Content: fmt.Sprintf("Resume failed: %v", err)}
+			}
+			return SystemMsg{Content: fmt.Sprintf("Session %s resumed", msg.SessionID)}
+		}
 	}
 
 	// Update input
@@ -807,6 +810,33 @@ func (a *App) handleSession() tea.Cmd {
 	}
 
 	a.messages.AddSystemMessage(sb.String())
+	return nil
+}
+
+// resumeSession loads messages from a saved session into memory
+func (a *App) resumeSession(sessionID string) error {
+	if a.agent == nil {
+		return fmt.Errorf("no agent available")
+	}
+
+	mgr := a.agent.GetSessionManager()
+	if mgr == nil {
+		return fmt.Errorf("session manager not available")
+	}
+
+	resumer := mgr.GetResumer()
+	mem := a.agent.GetMemory()
+
+	// Load messages into memory
+	count, err := resumer.LoadIntoMemory(context.Background(), sessionID, mem)
+	if err != nil {
+		return fmt.Errorf("failed to load session: %w", err)
+	}
+
+	// Clear current messages and show success
+	a.messages.Clear()
+	a.messages.AddSystemMessage(fmt.Sprintf("Resumed session %s (%d messages loaded)\n", sessionID, count))
+
 	return nil
 }
 
