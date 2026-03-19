@@ -130,7 +130,7 @@ var chatCommand = &cli.Command{
 		// Initialize session manager if enabled
 		var sessionMgr *session.Manager
 		if cfg.Session.Enabled {
-			sessionMgr, err = session.NewManager(&cfg.Session)
+			sessionMgr, err = session.NewManager(&cfg.Session, cfg.Agent.Name, workDir)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to initialize session manager: %v\n", err)
 			}

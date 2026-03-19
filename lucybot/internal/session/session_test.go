@@ -89,7 +89,7 @@ func TestManager(t *testing.T) {
 		StoragePath: tmpDir,
 	}
 
-	mgr, err := NewManager(cfg)
+	mgr, err := NewManager(cfg, "test-agent", "/work/dir")
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
