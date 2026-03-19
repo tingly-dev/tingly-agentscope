@@ -23,7 +23,37 @@ func NewInteractionTurn(role, agent string) *InteractionTurn {
 }
 
 // AddContentBlock adds a content block to the turn
+// Prevents duplicate blocks (by ID for tool blocks, by content for text blocks)
 func (t *InteractionTurn) AddContentBlock(block message.ContentBlock) {
+	// Check for duplicates before adding
+	switch b := block.(type) {
+	case *message.ToolUseBlock:
+		// Check if a tool use with this ID already exists
+		for _, existing := range t.Blocks {
+			if existingUse, ok := existing.(*message.ToolUseBlock); ok && existingUse.ID == b.ID {
+				return // Duplicate tool use, don't add
+			}
+		}
+	case *message.ToolResultBlock:
+		// Check if a tool result with this ID already exists
+		for _, existing := range t.Blocks {
+			if existingResult, ok := existing.(*message.ToolResultBlock); ok && existingResult.ID == b.ID {
+				return // Duplicate tool result, don't add
+			}
+		}
+	case *message.TextBlock:
+		// Check if an identical text block already exists (last 3 blocks)
+		start := len(t.Blocks) - 3
+		if start < 0 {
+			start = 0
+		}
+		for _, existing := range t.Blocks[start:] {
+			if existingText, ok := existing.(*message.TextBlock); ok && existingText.Text == b.Text {
+				return // Duplicate text, don't add
+			}
+		}
+	}
+
 	t.Blocks = append(t.Blocks, block)
 	// Only auto-update completeness for tool-related blocks
 	// Text blocks don't auto-complete the turn (supports streaming)

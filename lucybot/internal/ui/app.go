@@ -244,36 +244,56 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle agent response - add final content and mark turn complete
 		a.thinking = false
 
-		// Get current turn
-		currentTurn := a.messages.GetCurrentTurn()
-		if currentTurn != nil {
-			// Add any final content blocks from the response
-			for _, block := range msg.Blocks {
-				currentTurn.AddContentBlock(block)
-			}
-			currentTurn.Complete = true
-		} else if len(msg.Blocks) > 0 || msg.Content != "" {
-			// No current turn, create new complete turn with the response
-			a.messages.AddMessageWithBlocks("assistant", msg.Content, msg.AgentName, msg.Blocks)
+		// Get or create current turn for assistant
+		currentTurn := a.messages.GetOrCreateCurrentTurn("assistant", msg.AgentName)
+
+		// Add any final content blocks from the response
+		for _, block := range msg.Blocks {
+			currentTurn.AddContentBlock(block)
 		}
+		currentTurn.Complete = true
 
 	case StreamedMsg:
 		// Handle streamed message from ReAct agent
 		if msg.Msg != nil {
 			blocks := msg.Msg.GetContentBlocks()
 
-			// Get or create current turn for this role
-			turn := a.messages.GetOrCreateCurrentTurn(
-				string(msg.Msg.Role),
-				msg.Msg.Name,
-			)
+			// Check if this is a tool result that should be added to the assistant turn
+			// Tool results have RoleUser but contain ToolResultBlock - they belong with tool use
+			hasToolResult := false
+			for _, block := range blocks {
+				if _, ok := block.(*message.ToolResultBlock); ok {
+					hasToolResult = true
+					break
+				}
+			}
+
+			var turn *InteractionTurn
+			if hasToolResult {
+				// Tool results go to the current assistant turn (they pair with tool uses)
+				turn = a.messages.GetCurrentTurn()
+				if turn == nil || turn.Role != "assistant" {
+					// No assistant turn exists, create one for the tool result
+					turn = a.messages.GetOrCreateCurrentTurn("assistant", msg.Msg.Name)
+				}
+			} else {
+				// Get or create current turn for this role
+				turn = a.messages.GetOrCreateCurrentTurn(
+					string(msg.Msg.Role),
+					msg.Msg.Name,
+				)
+			}
 
 			// Add blocks to the turn (blocks added to incomplete turns don't duplicate)
 			for _, block := range blocks {
 				turn.AddContentBlock(block)
 			}
 
-			// Schedule another check for more streamed messages
+			// Auto-scroll to show new content
+			a.messages.ScrollToBottom()
+
+			// Immediately check for more streamed messages to process queue faster
+			// This ensures all intermediate steps are displayed without waiting for next spinner tick
 			cmds = append(cmds, a.checkStreamedMessagesCmd())
 		}
 	}
@@ -282,6 +302,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	input, inputCmd := a.input.Update(msg)
 	a.input = input
 	cmds = append(cmds, inputCmd)
+
+	// Always check for streamed messages when thinking
+	// This ensures messages are processed even between spinner ticks
+	if a.thinking {
+		cmds = append(cmds, a.checkStreamedMessagesCmd())
+	}
 
 	return a, tea.Batch(cmds...)
 }
@@ -327,8 +353,8 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 	a.input.Reset()
 	a.thinking = true
 
-	// Send to agent
-	return func() (response tea.Msg) {
+	// Send to agent and start spinner
+	agentCmd := func() (response tea.Msg) {
 		// Recover from any panics in the agent to prevent program crash
 		defer func() {
 			if r := recover(); r != nil {
@@ -378,6 +404,8 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 		}
 		return
 	}
+	// Return both agent command and spinner tick
+	return tea.Batch(agentCmd, a.spinner.Tick)
 }
 
 // handleSlashCommand handles built-in slash commands

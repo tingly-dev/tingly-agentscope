@@ -476,6 +476,27 @@ func (r *MessageRenderer) renderAssistantTurn(sb *strings.Builder, turn *Interac
 	sb.WriteString(AssistantStyle.Render(agentName))
 	sb.WriteString("\n")
 
+	// Check if there's text content before any tool calls
+	hasTextContent := false
+	for _, block := range turn.Blocks {
+		if _, ok := block.(*message.TextBlock); ok {
+			hasTextContent = true
+			break
+		}
+		// Stop checking if we hit a tool use first
+		if _, ok := block.(*message.ToolUseBlock); ok {
+			break
+		}
+	}
+	if hasTextContent {
+		// Add short branch line connecting header to text content
+		sb.WriteString(TreeEndStyle.Render(TreeEnd))
+		sb.WriteString("\n")
+	} else {
+		// No text content before first tool - add empty line
+		sb.WriteString("\n")
+	}
+
 	// Get tool pairs for rendering
 	toolPairs := turn.GetToolPairs()
 	toolPairMap := make(map[string]*ToolPair)
@@ -539,17 +560,14 @@ func (r *MessageRenderer) renderTextBlockInTurn(sb *strings.Builder, block *mess
 		return
 	}
 
-	// Use tree indentation
-	indent := ModelIndent
-	if hasTools {
-		indent = TreeVertical + " "
-	}
-
 	// Render with markdown
 	rendered := r.renderMarkdown(text)
 	lines := strings.Split(rendered, "\n")
+
+	// Content lines are plain (no vertical line on the left)
+	// The branch line is already drawn in renderAssistantTurn
 	for _, line := range lines {
-		sb.WriteString(indent)
+		sb.WriteString(ModelIndent)
 		sb.WriteString(line)
 		sb.WriteString("\n")
 	}
