@@ -241,21 +241,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case ResponseMsg:
-		// Handle agent response - mark current turn as complete
+		// Handle agent response - add final content and mark turn complete
 		a.thinking = false
 
-		// Get current turn and mark it complete
+		// Get current turn
 		currentTurn := a.messages.GetCurrentTurn()
 		if currentTurn != nil {
+			// Add any final content blocks from the response
+			for _, block := range msg.Blocks {
+				currentTurn.AddContentBlock(block)
+			}
 			currentTurn.Complete = true
-		} else if len(msg.Blocks) > 0 {
-			// No current turn, add as new complete turn (fallback)
+		} else if len(msg.Blocks) > 0 || msg.Content != "" {
+			// No current turn, create new complete turn with the response
 			a.messages.AddMessageWithBlocks("assistant", msg.Content, msg.AgentName, msg.Blocks)
-		}
-
-		// Ensure final turn is marked complete
-		if finalTurn := a.messages.GetCurrentTurn(); finalTurn != nil {
-			finalTurn.Complete = true
 		}
 
 	case StreamedMsg:
