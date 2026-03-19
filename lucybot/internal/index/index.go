@@ -220,6 +220,13 @@ func (idx *Index) indexFile(path string, info os.FileInfo) (int, error) {
 		}
 	}
 
+	// Save relationships
+	for _, rel := range result.Relationships {
+		if err := idx.db.SaveRelationship(idx.ctx, rel); err != nil {
+			return 0, err
+		}
+	}
+
 	// Save scopes
 	for _, scope := range result.Scopes {
 		if err := idx.db.SaveScope(idx.ctx, scope); err != nil {

@@ -119,6 +119,45 @@ import "fmt"
 	assert.True(t, hasFmt, "should find fmt import")
 }
 
+func TestGoParser_ExtractsRelationships(t *testing.T) {
+	parser := NewGoParser()
+	code := []byte(`package main
+
+func callee() {}
+
+func caller1() {
+	callee()
+}
+
+func caller2() {
+	callee()
+}
+`)
+
+	result, err := parser.Parse(context.Background(), code, "test.go")
+	require.NoError(t, err)
+
+	// Should find symbols
+	require.GreaterOrEqual(t, len(result.Symbols), 3)
+
+	// Should find call references
+	var callRefs []*index.SymbolReference
+	for _, ref := range result.References {
+		if ref.ReferenceKind == index.ReferenceKindCall {
+			callRefs = append(callRefs, ref)
+		}
+	}
+	require.GreaterOrEqual(t, len(callRefs), 2)
+
+	// Should build relationships
+	require.GreaterOrEqual(t, len(result.Relationships), 2)
+
+	// Verify relationships are of type "calls"
+	for _, rel := range result.Relationships {
+		assert.Equal(t, "calls", rel.RelationshipType)
+	}
+}
+
 func TestPythonParser_ParseClass(t *testing.T) {
 	parser := NewPythonParser()
 	code := []byte(`"""Module docstring"""
