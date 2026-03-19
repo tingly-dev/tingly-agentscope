@@ -25,8 +25,11 @@ type ModelConfig struct {
 
 // CompressionConfig holds message compression settings
 type CompressionConfig struct {
-	Enabled   bool `toml:"enabled"`
-	Threshold int  `toml:"threshold"`
+	Enabled                 bool `toml:"enabled"`
+	Threshold               int  `toml:"threshold"`                 // Absolute token threshold (0 = derive from percent)
+	ContextWindow           int  `toml:"context_window"`            // Model context window size
+	TriggerThresholdPercent int  `toml:"trigger_threshold_percent"` // Percentage of context window to trigger compression
+	KeepRecent              int  `toml:"keep_recent"`               // Number of recent messages to preserve during compression
 }
 
 // AgentConfig holds agent-specific configuration
@@ -50,6 +53,7 @@ type SessionConfig struct {
 	Enabled     bool   `toml:"enabled"`
 	StoragePath string `toml:"storage_path"`
 	SessionID   string `toml:"session_id"`
+	AutoRecord  bool   `toml:"auto_record"` // Automatically record messages
 }
 
 // Config holds the complete configuration for LucyBot
@@ -138,8 +142,11 @@ func GetDefaultConfig() *Config {
 				Stream:      true,
 			},
 			Compression: CompressionConfig{
-				Enabled:   true,
-				Threshold: 50,
+				Enabled:                 true,
+				Threshold:               0,
+				ContextWindow:           8192,
+				TriggerThresholdPercent: 92,
+				KeepRecent:              3,
 			},
 		},
 		Index: IndexConfig{
@@ -150,6 +157,7 @@ func GetDefaultConfig() *Config {
 			Enabled:     false,
 			StoragePath: "",
 			SessionID:   "",
+			AutoRecord:  true, // Default to true when enabled
 		},
 	}
 }
@@ -295,6 +303,20 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Agent.Model.BaseURL == "" {
 		cfg.Agent.Model.BaseURL = DefaultBaseURL
+	}
+
+	// Compression defaults
+	if cfg.Agent.Compression.ContextWindow == 0 {
+		cfg.Agent.Compression.ContextWindow = 8192
+	}
+	if cfg.Agent.Compression.TriggerThresholdPercent == 0 {
+		cfg.Agent.Compression.TriggerThresholdPercent = 92
+	}
+	if cfg.Agent.Compression.KeepRecent == 0 {
+		cfg.Agent.Compression.KeepRecent = 3
+	}
+	if cfg.Agent.Compression.Threshold == 0 && cfg.Agent.Compression.ContextWindow > 0 {
+		cfg.Agent.Compression.Threshold = cfg.Agent.Compression.ContextWindow * cfg.Agent.Compression.TriggerThresholdPercent / 100
 	}
 }
 
