@@ -8,15 +8,15 @@ import (
 
 func TestSessionWithMetadata(t *testing.T) {
 	session := &Session{
-		ID:            "test-id",
-		Name:          "Test Session",
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-		AgentName:     "lucybot",
-		WorkingDir:    "/home/user/project",
-		ModelName:     "gpt-4o",
-		LastMessage:   "Hello, world!",
-		Messages:      []Message{},
+		ID:          "test-id",
+		Name:        "Test Session",
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		AgentName:   "lucybot",
+		WorkingDir:  "/home/user/project",
+		ModelName:   "gpt-4o",
+		LastMessage: "Hello, world!",
+		Messages:    []Message{},
 	}
 
 	if session.AgentName != "lucybot" {
@@ -61,7 +61,7 @@ func TestMessageContentTypes(t *testing.T) {
 
 	// Test structured content (map)
 	msg2 := Message{
-		Role:      "assistant",
+		Role: "assistant",
 		Content: map[string]interface{}{
 			"text":    "structured data",
 			"tool":    "search",
@@ -142,11 +142,11 @@ func TestSessionWithStructuredContentMessages(t *testing.T) {
 			{
 				Role: "assistant",
 				Content: map[string]interface{}{
-					"tool":      "list_directory",
-					"path":      "/home/user/project",
-					"files":     []string{"main.go", "README.md"},
-					"count":     2,
-					"success":   true,
+					"tool":    "list_directory",
+					"path":    "/home/user/project",
+					"files":   []string{"main.go", "README.md"},
+					"count":   2,
+					"success": true,
 				},
 				Timestamp: now.Add(time.Second),
 			},
