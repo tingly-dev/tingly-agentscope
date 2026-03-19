@@ -26,10 +26,11 @@ type App struct {
 	registry *agent.Registry
 
 	// UI components
-	messages  *Messages
-	input     Input
-	statusBar *StatusBar
-	spinner   spinner.Model
+	messages        *Messages
+	input           Input
+	statusBar       *StatusBar
+	spinner         spinner.Model
+	sessionPicker   *sessionPickerModel // Session picker for selecting sessions
 
 	// State
 	width           int
@@ -147,6 +148,34 @@ func (a *App) Init() tea.Cmd {
 // Update handles messages
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
+
+	// Handle session picker messages first
+	if a.sessionPicker != nil {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			if msg.Type == tea.KeyEsc {
+				a.sessionPicker = nil
+				return a, nil
+			}
+
+		case SessionPickerMsg:
+			a.sessionPicker = nil
+			// Resume the selected session
+			return a, func() tea.Msg {
+				return ResumeSessionMsg{SessionID: msg.SessionID}
+			}
+
+		case SessionPickerCloseMsg:
+			a.sessionPicker = nil
+			return a, nil
+		}
+
+		// Update picker
+		var cmd tea.Cmd
+		model, cmd := a.sessionPicker.Update(msg)
+		a.sessionPicker = model.(*sessionPickerModel)
+		return a, cmd
+	}
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -336,16 +365,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.messages.ScrollToBottom()
 
 	case ShowSessionPickerMsg:
-		// Show the session picker (will be wired in Task 10)
-		// For now, show the list inline
-		var sb strings.Builder
-		sb.WriteString("Available Sessions:\n\n")
-		for i, s := range msg.Sessions {
-			sb.WriteString(fmt.Sprintf("  %d. %s", i+1, FormatSessionItem(s)))
-		}
-		sb.WriteString("\nUse /resume <id> to resume a session")
-		a.messages.AddSystemMessage(sb.String())
-		a.messages.ScrollToBottom()
+		// Show the session picker
+		a.sessionPicker = newSessionPicker(msg.Sessions, nil)
+		return a, nil
 
 	case ResumeSessionMsg:
 		// Handle session resumption request
@@ -792,6 +814,11 @@ func (a *App) handleSession() tea.Cmd {
 func (a *App) View() string {
 	if a.quitting {
 		return "👋 Goodbye!\n"
+	}
+
+	// If picker is active, show it
+	if a.sessionPicker != nil {
+		return a.sessionPicker.View()
 	}
 
 	// Build the layout

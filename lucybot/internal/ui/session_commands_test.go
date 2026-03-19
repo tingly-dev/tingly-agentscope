@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/tingly-dev/lucybot/internal/config"
 	"github.com/tingly-dev/lucybot/internal/session"
 )
@@ -206,5 +207,60 @@ func TestFormatSessionItem_EmptyName(t *testing.T) {
 	// Should use ID when name is empty
 	if !strings.Contains(result, "test-id") {
 		t.Errorf("Expected to use ID when name is empty, got %q", result)
+	}
+}
+
+func TestSessionPickerIntegration(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.SessionConfig{
+		Enabled:     true,
+		StoragePath: tmpDir,
+	}
+
+	// Create a session manager with test sessions
+	mgr, _ := session.NewManager(cfg, "test", "/work")
+	mgr.Create("1", "Session 1")
+	mgr.Create("2", "Session 2")
+
+	// Get session info
+	sessions, _ := mgr.List()
+
+	app := &App{
+		config: &config.Config{Session: *cfg},
+		input:  NewInput(),
+	}
+
+	// Send ShowSessionPickerMsg to display picker
+	msg := ShowSessionPickerMsg{Sessions: sessions}
+	model, cmd := app.Update(msg)
+
+	if cmd != nil {
+		t.Error("Expected no command from ShowSessionPickerMsg")
+	}
+
+	// Check that the picker is now set
+	updatedApp := model.(*App)
+	if updatedApp.sessionPicker == nil {
+		t.Fatal("Expected sessionPicker to be set after ShowSessionPickerMsg")
+	}
+
+	// Verify view shows picker instead of normal app
+	view := updatedApp.View()
+	if view == "" {
+		t.Error("Expected non-empty view when picker is active")
+	}
+
+	// Test that ESC closes the picker
+	escMsg := tea.KeyMsg{Type: tea.KeyEsc}
+	model, cmd = updatedApp.Update(escMsg)
+
+	if cmd != nil {
+		t.Error("Expected no command from ESC key")
+	}
+
+	// Picker should be closed
+	updatedApp = model.(*App)
+	if updatedApp.sessionPicker != nil {
+		t.Error("Expected sessionPicker to be nil after ESC")
 	}
 }
