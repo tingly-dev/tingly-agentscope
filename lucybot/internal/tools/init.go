@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"path/filepath"
 
 	"github.com/tingly-dev/lucybot/internal/mcp"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
@@ -13,7 +14,8 @@ import (
 func InitTools(workDir string, mcpHelper *mcp.IntegrationHelper) *Registry {
 	registry := NewRegistry()
 	fileTools := NewFileTools(workDir)
-	codeTools := NewCodeTools(fileTools, "")
+	indexPath := filepath.Join(workDir, ".lucybot", "index.db")
+	codeTools := NewCodeTools(fileTools, indexPath)
 	todoTools := NewTodoTools(workDir)
 
 	// File tools

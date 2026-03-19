@@ -9,10 +9,11 @@ import (
 
 // ParseResult contains the results of parsing a file
 type ParseResult struct {
-	Symbols    []*Symbol
-	References []*SymbolReference
-	Scopes     []*Scope
-	FileInfo   *FileInfo
+	Symbols      []*Symbol
+	References   []*SymbolReference
+	Scopes       []*Scope
+	Relationships []*Relationship
+	FileInfo     *FileInfo
 }
 
 // LanguageParser defines the interface for language-specific parsers
