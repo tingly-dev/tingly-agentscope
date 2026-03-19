@@ -516,8 +516,8 @@ func (a *App) handleSlashCommand(input string) tea.Cmd {
   /agents           - List available agents
   /compact          - Manually compress conversation memory
   /session          - Show session/memory statistics
-  /sessions         - List all sessions
-  /resume [id]      - Resume a session (by ID or interactively)
+  /sessions         - List all saved sessions
+  /resume [id]      - Resume a previous session (or show picker)
 
 Navigation:
   PageUp/PageDown   - Scroll messages up/down
@@ -529,7 +529,8 @@ Navigation:
 Tips:
   - Type / to see command suggestions
   - Type @ to mention an agent
-  - Use Ctrl+J for multi-line input`
+  - Use Ctrl+J for multi-line input
+  - Sessions are automatically saved when enabled`
 		a.messages.AddSystemMessage(help)
 
 	case "/clear", "/c":
