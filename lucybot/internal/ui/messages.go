@@ -38,7 +38,14 @@ func NewMessages() *Messages {
 func (m *Messages) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+
+	// Update renderer width
 	m.renderer.SetWidth(width)
+}
+
+// HasMessages returns true if there are any messages
+func (m *Messages) HasMessages() bool {
+	return len(m.turns) > 0
 }
 
 // AddTurn adds an interaction turn to the history
@@ -316,6 +323,11 @@ func (m *Messages) viewLegacy() string {
 func (m *Messages) getVisibleLines(allLines []string) []string {
 	if m.scrollOffset >= len(allLines) {
 		return []string{}
+	}
+
+	// If height is not set (0), show all lines
+	if m.height == 0 {
+		return allLines[m.scrollOffset:]
 	}
 
 	end := m.scrollOffset + m.height

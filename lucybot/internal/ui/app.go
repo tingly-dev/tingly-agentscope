@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -15,6 +16,7 @@ import (
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
+
 
 // App is the main TUI application
 type App struct {
@@ -87,7 +89,12 @@ func NewApp(cfg *AppConfig) *App {
 	statusBar := NewStatusBar()
 	statusBar.SetAgentName(cfg.Config.Agent.Name)
 	statusBar.SetModelName(cfg.Config.Agent.Model.ModelName)
-	statusBar.SetWorkingDir(cfg.Config.Agent.WorkingDirectory)
+	// Use absolute path for working directory in status bar
+	workDir := cfg.Config.Agent.WorkingDirectory
+	if absPath, err := filepath.Abs(workDir); err == nil {
+		workDir = absPath
+	}
+	statusBar.SetWorkingDir(workDir)
 
 	// Disable console output on agent - TUI handles display
 	cfg.Agent.SetConsoleOutputEnabled(false)
@@ -95,12 +102,15 @@ func NewApp(cfg *AppConfig) *App {
 	// Create cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Create messages component
+	messages := NewMessages()
+
 	// Create app instance first
 	app := &App{
 		agent:           cfg.Agent,
 		config:          cfg.Config,
 		registry:        cfg.Registry,
-		messages:        NewMessages(),
+		messages:        messages,
 		input:           input,
 		statusBar:       statusBar,
 		spinner:         s,
@@ -144,9 +154,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.height = msg.Height
 
 		// Update component sizes
+		// Input height is dynamic based on content (number of lines)
 		statusHeight := 1
-		inputHeight := 3
-		messagesHeight := a.height - statusHeight - inputHeight - 2
+		inputHeight := a.input.GetContentHeight()
+		if inputHeight < 1 {
+			inputHeight = 1
+		}
+		if inputHeight > a.height/2 {
+			inputHeight = a.height / 2 // Cap at half screen height
+		}
+		messagesHeight := a.height - statusHeight - inputHeight - 4 // -4 for separators and padding
+		if messagesHeight < 5 {
+			messagesHeight = 5 // Minimum messages area
+		}
 
 		a.messages.SetSize(a.width, messagesHeight)
 		a.input.SetSize(a.width, inputHeight)
@@ -175,9 +195,22 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 
+		case tea.KeyCtrlJ:
+			// Ctrl+J inserts a new line (reliably detected in terminals)
+			// Note: Ctrl+Enter cannot be detected reliably (same as Enter)
+			input, inputCmd := a.input.Update(msg)
+			a.input = input
+			cmds = append(cmds, inputCmd)
+			return a, tea.Batch(cmds...)
+
 		case tea.KeyEnter:
-			// Submit message if input focused and no popup visible
-			if !a.input.IsPopupVisible() && !a.thinking {
+			if a.input.IsPopupVisible() {
+				// Let input handle Enter for popup selection
+				input, inputCmd := a.input.Update(msg)
+				a.input = input
+				cmds = append(cmds, inputCmd)
+			} else if !a.thinking {
+				// Submit message if input focused and no popup visible
 				value := a.input.Value()
 				if value != "" {
 					cmd := a.handleSubmit(value)
@@ -302,6 +335,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	input, inputCmd := a.input.Update(msg)
 	a.input = input
 	cmds = append(cmds, inputCmd)
+
+	// Adjust input height based on content
+	a.adjustInputHeight()
 
 	// Always check for streamed messages when thinking
 	// This ensures messages are processed even between spinner ticks
@@ -441,7 +477,7 @@ Navigation:
 Tips:
   - Type / to see command suggestions
   - Type @ to mention an agent
-  - Use Shift+Enter for multi-line input`
+  - Use Ctrl+J for multi-line input`
 		a.messages.AddSystemMessage(help)
 
 	case "/clear", "/c":
@@ -646,6 +682,24 @@ func (a *App) View() string {
 	// Build the layout
 	var sections []string
 
+	// Show banner if no messages yet
+	if !a.messages.HasMessages() {
+		bannerStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#c0caf5"))
+		// Get absolute path for working directory
+		workDir := a.config.Agent.WorkingDirectory
+		if absPath, err := filepath.Abs(workDir); err == nil {
+			workDir = absPath
+		}
+		banner := `
+   \🎀/     LucyBot v0.1.0
+    ||      Your personal assistant
+   /||\     ` + workDir + `
+  (_/\_)
+`
+		sections = append(sections, bannerStyle.Render(banner))
+	}
+
 	// Messages area (scrollable)
 	messagesView := a.messages.View()
 	sections = append(sections, messagesView)
@@ -658,9 +712,18 @@ func (a *App) View() string {
 		sections = append(sections, thinkingStyle.Render(a.spinner.View()+" Thinking..."))
 	}
 
+	// Separator line above input
+	separatorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#565f89"))
+	separator := separatorStyle.Render(strings.Repeat("─", a.width))
+	sections = append(sections, separator)
+
 	// Input area with popup
 	inputView := a.input.View()
 	sections = append(sections, inputView)
+
+	// Separator line below input
+	sections = append(sections, separator)
 
 	// Status bar at bottom
 	statusView := a.statusBar.View()
@@ -668,18 +731,35 @@ func (a *App) View() string {
 	// Combine sections
 	mainContent := strings.Join(sections, "\n")
 
-	// Calculate available space for messages
-	inputHeight := 3
-	if a.input.IsPopupVisible() {
-		inputHeight += 8 // Popup height
-	}
-
 	// Join everything
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		mainContent,
 		statusView,
 	)
+}
+
+// adjustInputHeight adjusts the input height based on content
+func (a *App) adjustInputHeight() {
+	if a.width == 0 || a.height == 0 {
+		return
+	}
+
+	// Calculate dynamic input height based on content
+	contentHeight := a.input.GetContentHeight()
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
+	// Cap at half screen height
+	maxHeight := a.height / 2
+	if contentHeight > maxHeight {
+		contentHeight = maxHeight
+	}
+
+	// Only update if height changed
+	if contentHeight != a.input.height {
+		a.input.SetSize(a.width, contentHeight)
+	}
 }
 
 // Run starts the TUI application

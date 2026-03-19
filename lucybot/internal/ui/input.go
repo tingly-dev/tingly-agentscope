@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -48,9 +49,20 @@ const (
 // NewInput creates a new input component
 func NewInput() Input {
 	ta := textarea.New()
-	ta.Placeholder = "Type your message... (Enter to submit, Shift+Enter for new line)"
+	ta.Placeholder = "Type your message... (Enter to submit, Ctrl+J for new line)"
 	ta.ShowLineNumbers = false
-	ta.Prompt = "➜ "
+	// MaxHeight is 0 (unlimited) to allow arbitrary number of lines
+	// Use SetPromptFunc to only show ">" on the first line
+	ta.SetPromptFunc(2, func(lineIdx int) string {
+		if lineIdx == 0 {
+			return "> "
+		}
+		return "  "
+	})
+	// Configure keymap to handle Ctrl+J for newlines
+	// Note: Ctrl+Enter cannot be reliably detected in terminals (same as Enter)
+	// Ctrl+J sends ASCII 10 (Line Feed) and IS reliably detected
+	ta.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("ctrl+j"), key.WithHelp("ctrl+j", "insert newline"))
 	ta.Focus()
 
 	return Input{
@@ -128,6 +140,16 @@ func (i *Input) Reset() {
 // IsPopupVisible returns true if any popup is visible
 func (i *Input) IsPopupVisible() bool {
 	return i.popupMode != PopupModeNone
+}
+
+// GetContentHeight returns the number of lines in the input
+func (i *Input) GetContentHeight() int {
+	value := i.textarea.Value()
+	if value == "" {
+		return 1
+	}
+	lines := strings.Count(value, "\n") + 1
+	return lines
 }
 
 // GetSelectedPopupItem returns the currently selected popup item

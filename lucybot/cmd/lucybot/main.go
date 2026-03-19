@@ -21,7 +21,7 @@ func main() {
 	app := &cli.App{
 		Name:    "lucybot",
 		Version: "v0.1.0",
-		Usage:   "AI Programming Assistant",
+		Usage:   "Your personal assistant",
 		Commands: []*cli.Command{
 			chatCommand,
 			indexCommand,
@@ -483,7 +483,7 @@ func runTUIMode(lucybotAgent *agent.LucyBotAgent, cfg *config.Config) error {
 
 // runSimpleMode runs the simple interactive mode (no TUI)
 func runSimpleMode(lucybotAgent *agent.LucyBotAgent) error {
-	fmt.Printf("🤖 %s - AI Programming Assistant\n", lucybotAgent.GetConfig().Agent.Name)
+	fmt.Printf("🤖 %s - Your personal assistant\n", lucybotAgent.GetConfig().Agent.Name)
 	fmt.Println("Type /quit to exit, /help for commands")
 	fmt.Println(strings.Repeat("=", 50))
 

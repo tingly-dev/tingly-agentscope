@@ -15,6 +15,7 @@ type Popup struct {
 	Visible  bool
 	width    int
 	height   int
+	allItems []PopupItem // Stores original unfiltered items
 }
 
 // PopupItem represents an item in the popup
@@ -39,6 +40,7 @@ func NewPopup(title string, height int) *Popup {
 
 // SetItems updates the popup items
 func (p *Popup) SetItems(items []PopupItem) {
+	p.allItems = items
 	p.Items = items
 	if p.Selected >= len(p.Items) {
 		p.Selected = 0
@@ -194,16 +196,24 @@ func AgentPopup() *Popup {
 	return NewPopup("Agents", 6)
 }
 
-// Filter filters items based on prefix
+// Filter filters items based on prefix (matching against Title without the command/mention prefix)
 func (p *Popup) Filter(prefix string) {
 	if prefix == "" {
+		// Restore all items when prefix is empty
+		p.Items = p.allItems
+		p.Selected = 0
 		return
 	}
 
 	prefix = strings.ToLower(prefix)
 	var filtered []PopupItem
-	for _, item := range p.Items {
-		if strings.HasPrefix(strings.ToLower(item.Title), prefix) {
+	for _, item := range p.allItems {
+		// Strip the prefix character (/ or @) from the title for matching
+		title := item.Title
+		if len(title) > 0 && (title[0] == '/' || title[0] == '@') {
+			title = title[1:]
+		}
+		if strings.HasPrefix(strings.ToLower(title), prefix) {
 			filtered = append(filtered, item)
 		}
 	}
