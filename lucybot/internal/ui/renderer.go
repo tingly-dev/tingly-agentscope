@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tingly-dev/lucybot/internal/tools"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
@@ -330,16 +331,7 @@ func (r *MessageRenderer) extractToolOutput(block *message.ToolResultBlock) stri
 
 // isFullOutputTool checks if a tool should show full output
 func (r *MessageRenderer) isFullOutputTool(name string) bool {
-	fullOutputTools := []string{
-		"edit_file", "patch_file", "create_file",
-		"file_edit", "file_patch", "file_create",
-	}
-	for _, tool := range fullOutputTools {
-		if tool == name {
-			return true
-		}
-	}
-	return false
+	return tools.IsFullOutputTool(name)
 }
 
 // truncateLine truncates a line if it's too long
