@@ -329,6 +329,29 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// This ensures all intermediate steps are displayed without waiting for next spinner tick
 			cmds = append(cmds, a.checkStreamedMessagesCmd())
 		}
+
+	case SystemMsg:
+		// Handle system messages
+		a.messages.AddSystemMessage(msg.Content)
+		a.messages.ScrollToBottom()
+
+	case ShowSessionPickerMsg:
+		// Show the session picker (will be wired in Task 10)
+		// For now, show the list inline
+		var sb strings.Builder
+		sb.WriteString("Available Sessions:\n\n")
+		for i, s := range msg.Sessions {
+			sb.WriteString(fmt.Sprintf("  %d. %s", i+1, FormatSessionItem(s)))
+		}
+		sb.WriteString("\nUse /resume <id> to resume a session")
+		a.messages.AddSystemMessage(sb.String())
+		a.messages.ScrollToBottom()
+
+	case ResumeSessionMsg:
+		// Handle session resumption request
+		// This will be processed by the main app logic in Task 13
+		a.messages.AddSystemMessage(fmt.Sprintf("Session resumption requested: %s (will be implemented in Task 13)", msg.SessionID))
+		a.messages.ScrollToBottom()
 	}
 
 	// Update input
@@ -466,6 +489,10 @@ func (a *App) handleSlashCommand(input string) tea.Cmd {
   /tools            - List available tools
   /model            - Show current model
   /agents           - List available agents
+  /compact          - Manually compress conversation memory
+  /session          - Show session/memory statistics
+  /sessions         - List all sessions
+  /resume [id]      - Resume a session (by ID or interactively)
 
 Navigation:
   PageUp/PageDown   - Scroll messages up/down
@@ -498,6 +525,22 @@ Tips:
 
 	case "/agents":
 		a.showAgents()
+
+	case "/compact":
+		return a.handleCompact()
+
+	case "/session":
+		return a.handleSession()
+
+	case "/sessions":
+		return a.handleSessionsCommand()
+
+	case "/resume":
+		args := ""
+		if len(parts) > 1 {
+			args = strings.Join(parts[1:], " ")
+		}
+		return a.handleResumeCommand(args)
 
 	default:
 		a.messages.AddSystemMessage(fmt.Sprintf("Unknown command: %s. Type /help for available commands.", cmd))
@@ -671,6 +714,78 @@ func parseAgentMention(input string) (agentName, remaining string, ok bool) {
 	}
 
 	return agentName, remaining, true
+}
+
+// handleCompact manually triggers memory compression
+func (a *App) handleCompact() tea.Cmd {
+	a.input.Reset()
+	a.thinking = true
+
+	return func() tea.Msg {
+		wasCompressed, originalTokens, compressedTokens, err := a.agent.CompactMemory(a.ctx)
+		if err != nil {
+			return ResponseMsg{
+				Content:   fmt.Sprintf("Compression failed: %v", err),
+				AgentName: a.config.Agent.Name,
+			}
+		}
+
+		if wasCompressed {
+			msg := fmt.Sprintf("✓ Memory compressed\n  Before: %d tokens\n  After: %d tokens\n  Saved: %d tokens (%.1f%%)",
+				originalTokens, compressedTokens, originalTokens-compressedTokens,
+				float64(originalTokens-compressedTokens)/float64(originalTokens)*100)
+			return ResponseMsg{
+				Content:   msg,
+				AgentName: a.config.Agent.Name,
+			}
+		}
+
+		count := a.agent.GetMemoryTokenCount(a.ctx)
+		msg := fmt.Sprintf("No compression needed\n  Current tokens: %d\n  Compression threshold not met", count)
+		return ResponseMsg{
+			Content:   msg,
+			AgentName: a.config.Agent.Name,
+		}
+	}
+}
+
+// handleSession shows session/memory statistics
+func (a *App) handleSession() tea.Cmd {
+	a.input.Reset()
+
+	tokenCount := a.agent.GetMemoryTokenCount(a.ctx)
+	cfg := a.config.Agent.Compression
+
+	var threshold int
+	if cfg.Threshold > 0 {
+		threshold = cfg.Threshold
+	} else if cfg.ContextWindow > 0 && cfg.TriggerThresholdPercent > 0 {
+		threshold = cfg.ContextWindow * cfg.TriggerThresholdPercent / 100
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Session Statistics:\n\n")
+	sb.WriteString(fmt.Sprintf("  Current tokens: %d\n", tokenCount))
+	sb.WriteString(fmt.Sprintf("  Compression threshold: %d\n", threshold))
+	sb.WriteString(fmt.Sprintf("  Keep recent: %d messages\n", cfg.KeepRecent))
+	sb.WriteString(fmt.Sprintf("  Compression enabled: %v\n", cfg.Enabled))
+
+	if cfg.ContextWindow > 0 {
+		sb.WriteString(fmt.Sprintf("  Context window: %d\n", cfg.ContextWindow))
+		if cfg.TriggerThresholdPercent > 0 {
+			sb.WriteString(fmt.Sprintf("  Trigger threshold: %d%% (%d tokens)\n",
+				cfg.TriggerThresholdPercent, threshold))
+		}
+	}
+
+	usagePercent := 0.0
+	if threshold > 0 {
+		usagePercent = float64(tokenCount) / float64(threshold) * 100
+		sb.WriteString(fmt.Sprintf("\n  Threshold usage: %.1f%%", usagePercent))
+	}
+
+	a.messages.AddSystemMessage(sb.String())
+	return nil
 }
 
 // View renders the app
