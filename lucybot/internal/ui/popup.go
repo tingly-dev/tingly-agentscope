@@ -186,7 +186,6 @@ func (p *Popup) SetCommandItems() {
 		{Title: "/help", Description: "Show help", Icon: "❓", Value: "help"},
 		{Title: "/clear", Description: "Clear screen", Icon: "🧹", Value: "clear"},
 		{Title: "/resume", Description: "Resume previous session", Icon: "🔄", Value: "resume"},
-		{Title: "/session", Description: "Show session info", Icon: "📋", Value: "session"},
 		{Title: "/compact", Description: "Compact conversation", Icon: "🗜️", Value: "compact"},
 		{Title: "/tools", Description: "List tools", Icon: "🔧", Value: "tools"},
 		{Title: "/model", Description: "Show model info", Icon: "🧠", Value: "model"},

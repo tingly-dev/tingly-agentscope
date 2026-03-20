@@ -530,7 +530,6 @@ func (a *App) handleSlashCommand(input string) tea.Cmd {
   /model            - Show current model
   /agents           - List available agents
   /compact          - Manually compress conversation memory
-  /session          - Show session picker (resume previous session)
   /resume           - Show session picker (resume previous session)
 
 Navigation:
@@ -569,11 +568,8 @@ Tips:
 	case "/compact":
 		return a.handleCompact()
 
-	case "/session":
-		return a.handleResumeCommand("")
-
 	case "/resume":
-		// Always show picker, ignore any args
+		// Show session picker to resume previous session
 		return a.handleResumeCommand("")
 
 	default:

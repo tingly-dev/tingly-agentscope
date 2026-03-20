@@ -2,47 +2,12 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/tingly-dev/lucybot/internal/session"
 )
 
-// handleSessionsCommand lists all sessions
-func (a *App) handleSessionsCommand() tea.Cmd {
-	a.input.Reset()
-
-	return func() tea.Msg {
-		if a.config == nil || !a.config.Session.Enabled {
-			return SystemMsg{
-				Content: "Session persistence is not enabled.\nEnable it in your config with [session.enabled] = true",
-			}
-		}
-
-		// This would be called with proper session manager integration
-		sessions, err := a.listSessions()
-		if err != nil {
-			return SystemMsg{Content: fmt.Sprintf("Error listing sessions: %v", err)}
-		}
-
-		if len(sessions) == 0 {
-			return SystemMsg{Content: "No sessions found. Start a conversation to create your first session!"}
-		}
-
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("Sessions for %s:\n\n", a.config.Agent.WorkingDirectory))
-
-		for i, s := range sessions {
-			sb.WriteString(fmt.Sprintf("  %d. %s", i+1, FormatSessionItem(s)))
-		}
-
-		sb.WriteString("\nUse /resume <number> to resume a session")
-
-		return SystemMsg{Content: sb.String()}
-	}
-}
-
-// handleResumeCommand shows session picker or resumes by number
+// handleResumeCommand shows session picker
 func (a *App) handleResumeCommand(args string) tea.Cmd {
 	a.input.Reset()
 	// Always show interactive picker
