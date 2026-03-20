@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/tingly-dev/lucybot/internal/index"
-	_ "github.com/tingly-dev/lucybot/internal/index/languages" // Register parsers
+	_ "github.com/tingly-dev/lucybot/internal/parsers" // Register parsers
 )
 
 func TestNewCodeTools(t *testing.T) {

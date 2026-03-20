@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tingly-dev/lucybot/internal/index"
-	_ "github.com/tingly-dev/lucybot/internal/index/languages"
+	_ "github.com/tingly-dev/lucybot/internal/parsers"
 )
 
 func TestNew(t *testing.T) {

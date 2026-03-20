@@ -1,11 +1,12 @@
-package languages
+package parsers
 
 import (
 	"context"
 	"regexp"
 	"strings"
 
-	"github.com/tingly-dev/lucybot/internal/index"
+	"github.com/tingly-dev/lucybot/internal/index/registry"
+	"github.com/tingly-dev/lucybot/internal/index/types"
 )
 
 // PythonParser parses Python source files
@@ -17,8 +18,8 @@ func NewPythonParser() *PythonParser {
 }
 
 // GetLanguage returns the language identifier
-func (p *PythonParser) GetLanguage() index.Language {
-	return index.LanguagePython
+func (p *PythonParser) GetLanguage() types.Language {
+	return types.LanguagePython
 }
 
 // GetFileExtensions returns the file extensions this parser handles
@@ -32,14 +33,14 @@ func (p *PythonParser) CanParse(filePath string) bool {
 }
 
 // Parse parses Python source code and extracts symbols
-func (p *PythonParser) Parse(ctx context.Context, content []byte, filePath string) (*index.ParseResult, error) {
-	result := &index.ParseResult{
-		Symbols:    make([]*index.Symbol, 0),
-		References: make([]*index.SymbolReference, 0),
-		Scopes:     make([]*index.Scope, 0),
-		FileInfo: &index.FileInfo{
+func (p *PythonParser) Parse(ctx context.Context, content []byte, filePath string) (*types.ParseResult, error) {
+	result := &types.ParseResult{
+		Symbols:    make([]*types.Symbol, 0),
+		References: make([]*types.SymbolReference, 0),
+		Scopes:     make([]*types.Scope, 0),
+		FileInfo: &types.FileInfo{
 			Path:     filePath,
-			Language: index.LanguagePython,
+			Language: types.LanguagePython,
 			Size:     int64(len(content)),
 		},
 	}
@@ -113,7 +114,7 @@ func (p *PythonParser) Parse(ctx context.Context, content []byte, filePath strin
 	return result, nil
 }
 
-func (p *PythonParser) parseClass(line string, lineNum int, filePath string, docstring []string) *index.Symbol {
+func (p *PythonParser) parseClass(line string, lineNum int, filePath string, docstring []string) *types.Symbol {
 	// Match: class Name or class Name(Base)
 	re := regexp.MustCompile(`^class\s+(\w+)\s*(?:\(([^)]*)\))?:`)
 	matches := re.FindStringSubmatch(line)
@@ -124,21 +125,21 @@ func (p *PythonParser) parseClass(line string, lineNum int, filePath string, doc
 	name := matches[1]
 	doc := strings.Join(docstring, "\n")
 
-	return &index.Symbol{
-		ID:            index.GenerateSymbolID(filePath, lineNum, 0),
+	return &types.Symbol{
+		ID:            types.GenerateSymbolID(filePath, lineNum, 0),
 		Name:          name,
 		QualifiedName: name,
-		Kind:          index.SymbolKindClass,
+		Kind:          types.SymbolKindClass,
 		FilePath:      filePath,
 		StartLine:     lineNum,
 		EndLine:       lineNum,
-		Language:      index.LanguagePython,
+		Language:      types.LanguagePython,
 		Documentation: doc,
 		Signature:     "class " + name,
 	}
 }
 
-func (p *PythonParser) parseFunction(line string, lineNum int, currentClass, filePath string, docstring []string) *index.Symbol {
+func (p *PythonParser) parseFunction(line string, lineNum int, currentClass, filePath string, docstring []string) *types.Symbol {
 	// Match: def name(...) or async def name(...)
 	re := regexp.MustCompile(`^(?:async\s+)?def\s+(\w+)\s*\(`)
 	matches := re.FindStringSubmatch(line)
@@ -149,31 +150,31 @@ func (p *PythonParser) parseFunction(line string, lineNum int, currentClass, fil
 	name := matches[1]
 	doc := strings.Join(docstring, "\n")
 
-	var kind index.SymbolKind
+	var kind types.SymbolKind
 	var qname string
 	if currentClass != "" {
-		kind = index.SymbolKindMethod
+		kind = types.SymbolKindMethod
 		qname = currentClass + "." + name
 	} else {
-		kind = index.SymbolKindFunction
+		kind = types.SymbolKindFunction
 		qname = name
 	}
 
-	return &index.Symbol{
-		ID:            index.GenerateSymbolID(filePath, lineNum, 0),
+	return &types.Symbol{
+		ID:            types.GenerateSymbolID(filePath, lineNum, 0),
 		Name:          name,
 		QualifiedName: qname,
 		Kind:          kind,
 		FilePath:      filePath,
 		StartLine:     lineNum,
 		EndLine:       lineNum,
-		Language:      index.LanguagePython,
+		Language:      types.LanguagePython,
 		Documentation: doc,
 		Signature:     "def " + name + "()",
 	}
 }
 
-func (p *PythonParser) parseVariable(line string, lineNum int, filePath string) *index.Symbol {
+func (p *PythonParser) parseVariable(line string, lineNum int, filePath string) *types.Symbol {
 	// Match: NAME = ... at module level
 	re := regexp.MustCompile(`^(\w+)\s*=`)
 	matches := re.FindStringSubmatch(line)
@@ -184,32 +185,32 @@ func (p *PythonParser) parseVariable(line string, lineNum int, filePath string) 
 	name := matches[1]
 	// Skip if it looks like a constant (all caps)
 	if strings.ToUpper(name) == name {
-		return &index.Symbol{
-			ID:            index.GenerateSymbolID(filePath, lineNum, 0),
+		return &types.Symbol{
+			ID:            types.GenerateSymbolID(filePath, lineNum, 0),
 			Name:          name,
 			QualifiedName: name,
-			Kind:          index.SymbolKindConstant,
+			Kind:          types.SymbolKindConstant,
 			FilePath:      filePath,
 			StartLine:     lineNum,
 			EndLine:       lineNum,
-			Language:      index.LanguagePython,
+			Language:      types.LanguagePython,
 		}
 	}
 
-	return &index.Symbol{
-		ID:            index.GenerateSymbolID(filePath, lineNum, 0),
+	return &types.Symbol{
+		ID:            types.GenerateSymbolID(filePath, lineNum, 0),
 		Name:          name,
 		QualifiedName: name,
-		Kind:          index.SymbolKindVariable,
+		Kind:          types.SymbolKindVariable,
 		FilePath:      filePath,
 		StartLine:     lineNum,
 		EndLine:       lineNum,
-		Language:      index.LanguagePython,
+		Language:      types.LanguagePython,
 	}
 }
 
-func (p *PythonParser) parseImports(line string, lineNum int, filePath string) []*index.SymbolReference {
-	var refs []*index.SymbolReference
+func (p *PythonParser) parseImports(line string, lineNum int, filePath string) []*types.SymbolReference {
+	var refs []*types.SymbolReference
 
 	// Match: import module or import module as alias
 	if strings.HasPrefix(line, "import ") {
@@ -217,12 +218,12 @@ func (p *PythonParser) parseImports(line string, lineNum int, filePath string) [
 		matches := re.FindAllStringSubmatch(line, -1)
 		for _, m := range matches {
 			if len(m) > 1 {
-				refs = append(refs, &index.SymbolReference{
-					ID:            index.GenerateReferenceID(filePath, lineNum, 0),
+				refs = append(refs, &types.SymbolReference{
+					ID:            types.GenerateReferenceID(filePath, lineNum, 0),
 					ReferenceName: m[1],
 					FilePath:      filePath,
 					LineNumber:    lineNum,
-					ReferenceKind: index.ReferenceKindImport,
+					ReferenceKind: types.ReferenceKindImport,
 				})
 			}
 		}
@@ -233,12 +234,12 @@ func (p *PythonParser) parseImports(line string, lineNum int, filePath string) [
 		re := regexp.MustCompile(`from\s+([\w.]+)\s+import`)
 		matches := re.FindStringSubmatch(line)
 		if len(matches) > 1 {
-			refs = append(refs, &index.SymbolReference{
-				ID:            index.GenerateReferenceID(filePath, lineNum, 0),
+			refs = append(refs, &types.SymbolReference{
+				ID:            types.GenerateReferenceID(filePath, lineNum, 0),
 				ReferenceName: matches[1],
 				FilePath:      filePath,
 				LineNumber:    lineNum,
-				ReferenceKind: index.ReferenceKindImport,
+				ReferenceKind: types.ReferenceKindImport,
 			})
 		}
 	}
@@ -248,5 +249,5 @@ func (p *PythonParser) parseImports(line string, lineNum int, filePath string) [
 
 // init registers the Python parser
 func init() {
-	index.Register(NewPythonParser())
+	registry.Register(NewPythonParser())
 }

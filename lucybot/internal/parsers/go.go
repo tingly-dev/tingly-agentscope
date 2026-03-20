@@ -1,11 +1,12 @@
-package languages
+package parsers
 
 import (
 	"context"
 	"regexp"
 	"strings"
 
-	"github.com/tingly-dev/lucybot/internal/index"
+	"github.com/tingly-dev/lucybot/internal/index/registry"
+	"github.com/tingly-dev/lucybot/internal/index/types"
 )
 
 // GoParser parses Go source files
@@ -20,8 +21,8 @@ func NewGoParser() *GoParser {
 }
 
 // GetLanguage returns the language identifier
-func (p *GoParser) GetLanguage() index.Language {
-	return index.LanguageGo
+func (p *GoParser) GetLanguage() types.Language {
+	return types.LanguageGo
 }
 
 // GetFileExtensions returns the file extensions this parser handles
@@ -35,15 +36,15 @@ func (p *GoParser) CanParse(filePath string) bool {
 }
 
 // Parse parses Go source code and extracts symbols
-func (p *GoParser) Parse(ctx context.Context, content []byte, filePath string) (*index.ParseResult, error) {
-	result := &index.ParseResult{
-		Symbols:       make([]*index.Symbol, 0),
-		References:    make([]*index.SymbolReference, 0),
-		Scopes:        make([]*index.Scope, 0),
-		Relationships: make([]*index.Relationship, 0),
-		FileInfo: &index.FileInfo{
+func (p *GoParser) Parse(ctx context.Context, content []byte, filePath string) (*types.ParseResult, error) {
+	result := &types.ParseResult{
+		Symbols:       make([]*types.Symbol, 0),
+		References:    make([]*types.SymbolReference, 0),
+		Scopes:        make([]*types.Scope, 0),
+		Relationships: make([]*types.Relationship, 0),
+		FileInfo: &types.FileInfo{
 			Path:     filePath,
-			Language: index.LanguageGo,
+			Language: types.LanguageGo,
 			Size:     int64(len(content)),
 		},
 	}
@@ -55,8 +56,8 @@ func (p *GoParser) Parse(ctx context.Context, content []byte, filePath string) (
 	lines := strings.Split(string(content), "\n")
 
 	var commentBlock []string
-	var currentFunction *index.Symbol
-	typeSymbols := make(map[string]*index.Symbol) // Track type symbols for methods
+	var currentFunction *types.Symbol
+	typeSymbols := make(map[string]*types.Symbol) // Track type symbols for methods
 
 	for lineNum, line := range lines {
 		originalLine := line // Keep original for column calculations
@@ -130,13 +131,13 @@ func (p *GoParser) Parse(ctx context.Context, content []byte, filePath string) (
 						col = strings.Index(line, calledFunc)
 					}
 
-					ref := &index.SymbolReference{
-						ID:            index.GenerateReferenceID(filePath, lineNum+1, col),
+					ref := &types.SymbolReference{
+						ID:            types.GenerateReferenceID(filePath, lineNum+1, col),
 						ReferenceName: calledFunc,
 						FilePath:      filePath,
 						LineNumber:    lineNum + 1,
 						ColumnNumber:  col,
-						ReferenceKind: index.ReferenceKindCall,
+						ReferenceKind: types.ReferenceKindCall,
 					}
 					result.References = append(result.References, ref)
 
@@ -145,7 +146,7 @@ func (p *GoParser) Parse(ctx context.Context, content []byte, filePath string) (
 						// Look for the called symbol in already-parsed symbols
 						for _, symbol := range result.Symbols {
 							if symbol.Name == calledFunc && symbol != currentFunction {
-								result.Relationships = append(result.Relationships, &index.Relationship{
+								result.Relationships = append(result.Relationships, &types.Relationship{
 									SourceID:         currentFunction.ID,
 									TargetID:         symbol.ID,
 									RelationshipType: "calls",
@@ -166,18 +167,18 @@ func (p *GoParser) Parse(ctx context.Context, content []byte, filePath string) (
 
 	// Second pass: build relationships for calls to symbols defined after the call site
 	for _, ref := range result.References {
-		if ref.ReferenceKind == index.ReferenceKindCall {
+		if ref.ReferenceKind == types.ReferenceKindCall {
 			// Find the calling function
-			var caller *index.Symbol
+			var caller *types.Symbol
 			for _, symbol := range result.Symbols {
-				if symbol.Kind == index.SymbolKindFunction || symbol.Kind == index.SymbolKindMethod {
+				if symbol.Kind == types.SymbolKindFunction || symbol.Kind == types.SymbolKindMethod {
 					// Check if this reference is within the function's scope
 					// A function's scope extends from its definition to the next function definition
 					if symbol.StartLine <= ref.LineNumber {
 						// Find the next function definition
 						nextFuncLine := len(lines) + 1
 						for _, other := range result.Symbols {
-							if (other.Kind == index.SymbolKindFunction || other.Kind == index.SymbolKindMethod) &&
+							if (other.Kind == types.SymbolKindFunction || other.Kind == types.SymbolKindMethod) &&
 								other.StartLine > symbol.StartLine &&
 								other.StartLine < nextFuncLine {
 								nextFuncLine = other.StartLine
@@ -189,6 +190,11 @@ func (p *GoParser) Parse(ctx context.Context, content []byte, filePath string) (
 						}
 					}
 				}
+			}
+
+			// Skip if no caller found
+			if caller == nil {
+				continue
 			}
 
 			// Find the called symbol
@@ -203,7 +209,7 @@ func (p *GoParser) Parse(ctx context.Context, content []byte, filePath string) (
 						}
 					}
 					if !exists && caller != nil {
-						result.Relationships = append(result.Relationships, &index.Relationship{
+						result.Relationships = append(result.Relationships, &types.Relationship{
 							SourceID:         caller.ID,
 							TargetID:         symbol.ID,
 							RelationshipType: "calls",
@@ -230,7 +236,7 @@ func (p *GoParser) extractPackageName(content []byte) string {
 	return ""
 }
 
-func (p *GoParser) parseFunction(line string, lineNum int, packageName, filePath string, comments []string) *index.Symbol {
+func (p *GoParser) parseFunction(line string, lineNum int, packageName, filePath string, comments []string) *types.Symbol {
 	// Match: func Name(...) or func Name[...](...)
 	re := regexp.MustCompile(`^func\s+(\w+)\s*(?:\[.*?\])?\s*\(`)
 	matches := re.FindStringSubmatch(line)
@@ -242,21 +248,21 @@ func (p *GoParser) parseFunction(line string, lineNum int, packageName, filePath
 	doc := strings.Join(comments, "\n")
 	sig := p.extractSignature(line, "func")
 
-	return &index.Symbol{
-		ID:            index.GenerateSymbolID(filePath, lineNum, 0),
+	return &types.Symbol{
+		ID:            types.GenerateSymbolID(filePath, lineNum, 0),
 		Name:          name,
 		QualifiedName: p.qualifiedName(packageName, "", name),
-		Kind:          index.SymbolKindFunction,
+		Kind:          types.SymbolKindFunction,
 		FilePath:      filePath,
 		StartLine:     lineNum,
 		EndLine:       lineNum, // Approximate - would need full parsing
-		Language:      index.LanguageGo,
+		Language:      types.LanguageGo,
 		Documentation: doc,
 		Signature:     sig,
 	}
 }
 
-func (p *GoParser) parseMethod(line string, lineNum int, packageName, filePath string, comments []string, typeSymbols map[string]*index.Symbol) *index.Symbol {
+func (p *GoParser) parseMethod(line string, lineNum int, packageName, filePath string, comments []string, typeSymbols map[string]*types.Symbol) *types.Symbol {
 	// Match: func (r *Receiver) Name(...) or func (r Receiver) Name(...)
 	re := regexp.MustCompile(`^func\s+\(\s*(?:\w+\s+)?\*?(\w+)\s*\)\s*(\w+)\s*(?:\[.*?\])?\s*\(`)
 	matches := re.FindStringSubmatch(line)
@@ -269,15 +275,15 @@ func (p *GoParser) parseMethod(line string, lineNum int, packageName, filePath s
 	doc := strings.Join(comments, "\n")
 	sig := p.extractSignature(line, "func")
 
-	symbol := &index.Symbol{
-		ID:            index.GenerateSymbolID(filePath, lineNum, 0),
+	symbol := &types.Symbol{
+		ID:            types.GenerateSymbolID(filePath, lineNum, 0),
 		Name:          name,
 		QualifiedName: p.qualifiedName(packageName, receiver, name),
-		Kind:          index.SymbolKindMethod,
+		Kind:          types.SymbolKindMethod,
 		FilePath:      filePath,
 		StartLine:     lineNum,
 		EndLine:       lineNum,
-		Language:      index.LanguageGo,
+		Language:      types.LanguageGo,
 		Documentation: doc,
 		Signature:     sig,
 	}
@@ -291,7 +297,7 @@ func (p *GoParser) parseMethod(line string, lineNum int, packageName, filePath s
 	return symbol
 }
 
-func (p *GoParser) parseType(line string, lineNum int, packageName, filePath string, comments []string) *index.Symbol {
+func (p *GoParser) parseType(line string, lineNum int, packageName, filePath string, comments []string) *types.Symbol {
 	// Match: type Name ...
 	re := regexp.MustCompile(`^type\s+(\w+)\s+(.+)$`)
 	matches := re.FindStringSubmatch(line)
@@ -303,30 +309,30 @@ func (p *GoParser) parseType(line string, lineNum int, packageName, filePath str
 	typeDef := strings.TrimSpace(matches[2])
 	doc := strings.Join(comments, "\n")
 
-	var kind index.SymbolKind
+	var kind types.SymbolKind
 	if strings.HasPrefix(typeDef, "struct") {
-		kind = index.SymbolKindClass // Go uses struct, map to class
+		kind = types.SymbolKindClass // Go uses struct, map to class
 	} else if strings.HasPrefix(typeDef, "interface") {
-		kind = index.SymbolKindInterface
+		kind = types.SymbolKindInterface
 	} else {
-		kind = index.SymbolKindTypeAlias
+		kind = types.SymbolKindTypeAlias
 	}
 
-	return &index.Symbol{
-		ID:            index.GenerateSymbolID(filePath, lineNum, 0),
+	return &types.Symbol{
+		ID:            types.GenerateSymbolID(filePath, lineNum, 0),
 		Name:          name,
 		QualifiedName: p.qualifiedName(packageName, "", name),
 		Kind:          kind,
 		FilePath:      filePath,
 		StartLine:     lineNum,
 		EndLine:       lineNum,
-		Language:      index.LanguageGo,
+		Language:      types.LanguageGo,
 		Documentation: doc,
 		Signature:     "type " + name + " " + typeDef,
 	}
 }
 
-func (p *GoParser) parseVars(line string, lineNum int, packageName, filePath string) []*index.Symbol {
+func (p *GoParser) parseVars(line string, lineNum int, packageName, filePath string) []*types.Symbol {
 	// Match: var Name Type or var Name = value or var Name Type = value
 	re := regexp.MustCompile(`^var\s+(\w+)`)
 	matches := re.FindStringSubmatch(line)
@@ -335,21 +341,21 @@ func (p *GoParser) parseVars(line string, lineNum int, packageName, filePath str
 	}
 
 	name := matches[1]
-	symbol := &index.Symbol{
-		ID:            index.GenerateSymbolID(filePath, lineNum, 0),
+	symbol := &types.Symbol{
+		ID:            types.GenerateSymbolID(filePath, lineNum, 0),
 		Name:          name,
 		QualifiedName: p.qualifiedName(packageName, "", name),
-		Kind:          index.SymbolKindVariable,
+		Kind:          types.SymbolKindVariable,
 		FilePath:      filePath,
 		StartLine:     lineNum,
 		EndLine:       lineNum,
-		Language:      index.LanguageGo,
+		Language:      types.LanguageGo,
 	}
 
-	return []*index.Symbol{symbol}
+	return []*types.Symbol{symbol}
 }
 
-func (p *GoParser) parseConsts(line string, lineNum int, packageName, filePath string) []*index.Symbol {
+func (p *GoParser) parseConsts(line string, lineNum int, packageName, filePath string) []*types.Symbol {
 	// Match: const Name or const ( ... )
 	re := regexp.MustCompile(`^const\s+(\w+)`)
 	matches := re.FindStringSubmatch(line)
@@ -358,34 +364,34 @@ func (p *GoParser) parseConsts(line string, lineNum int, packageName, filePath s
 	}
 
 	name := matches[1]
-	symbol := &index.Symbol{
-		ID:            index.GenerateSymbolID(filePath, lineNum, 0),
+	symbol := &types.Symbol{
+		ID:            types.GenerateSymbolID(filePath, lineNum, 0),
 		Name:          name,
 		QualifiedName: p.qualifiedName(packageName, "", name),
-		Kind:          index.SymbolKindConstant,
+		Kind:          types.SymbolKindConstant,
 		FilePath:      filePath,
 		StartLine:     lineNum,
 		EndLine:       lineNum,
-		Language:      index.LanguageGo,
+		Language:      types.LanguageGo,
 	}
 
-	return []*index.Symbol{symbol}
+	return []*types.Symbol{symbol}
 }
 
-func (p *GoParser) parseImports(line string, lineNum int, filePath string) []*index.SymbolReference {
-	var refs []*index.SymbolReference
+func (p *GoParser) parseImports(line string, lineNum int, filePath string) []*types.SymbolReference {
+	var refs []*types.SymbolReference
 
 	// Match: import "path"
 	if strings.HasPrefix(line, "import ") && !strings.Contains(line, "(") {
 		re := regexp.MustCompile(`import\s+["']([^"']+)["']`)
 		matches := re.FindStringSubmatch(line)
 		if len(matches) > 1 {
-			refs = append(refs, &index.SymbolReference{
-				ID:            index.GenerateReferenceID(filePath, lineNum, 0),
+			refs = append(refs, &types.SymbolReference{
+				ID:            types.GenerateReferenceID(filePath, lineNum, 0),
 				ReferenceName: matches[1],
 				FilePath:      filePath,
 				LineNumber:    lineNum,
-				ReferenceKind: index.ReferenceKindImport,
+				ReferenceKind: types.ReferenceKindImport,
 			})
 		}
 		return refs
@@ -398,12 +404,12 @@ func (p *GoParser) parseImports(line string, lineNum int, filePath string) []*in
 		matches := re.FindAllStringSubmatch(line, -1)
 		for _, m := range matches {
 			if len(m) > 1 {
-				refs = append(refs, &index.SymbolReference{
-					ID:            index.GenerateReferenceID(filePath, lineNum, 0),
+				refs = append(refs, &types.SymbolReference{
+					ID:            types.GenerateReferenceID(filePath, lineNum, 0),
 					ReferenceName: m[1],
 					FilePath:      filePath,
 					LineNumber:    lineNum,
-					ReferenceKind: index.ReferenceKindImport,
+					ReferenceKind: types.ReferenceKindImport,
 				})
 			}
 		}
@@ -458,5 +464,5 @@ func isGoKeyword(word string) bool {
 
 // init registers the Go parser
 func init() {
-	index.Register(NewGoParser())
+	registry.Register(NewGoParser())
 }

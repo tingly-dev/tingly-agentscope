@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/tingly-dev/lucybot/internal/parsers"
+	"github.com/tingly-dev/lucybot/internal/index/registry"
 	"github.com/tingly-dev/lucybot/internal/watcher"
 )
 
@@ -84,11 +86,10 @@ func New(cfg *Config) (*Index, error) {
 
 // registerDefaultParsers registers the built-in language parsers
 func (idx *Index) registerDefaultParsers() {
-	// Import and register parsers
-	// The init() functions in the languages package auto-register to DefaultRegistry
+	// The init() functions in the parsers package auto-register to DefaultRegistry
 	// We copy them to our local registry
-	for _, lang := range DefaultRegistry.GetSupportedLanguages() {
-		if parser := DefaultRegistry.GetParser(lang); parser != nil {
+	for _, lang := range registry.DefaultRegistry.GetSupportedLanguages() {
+		if parser := registry.DefaultRegistry.GetParser(lang); parser != nil {
 			idx.registry.Register(parser)
 		}
 	}

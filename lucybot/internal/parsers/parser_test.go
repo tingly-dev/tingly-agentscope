@@ -1,4 +1,4 @@
-package languages
+package parsers
 
 import (
 	"context"
@@ -6,7 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tingly-dev/lucybot/internal/index"
+	"github.com/tingly-dev/lucybot/internal/index/registry"
+	"github.com/tingly-dev/lucybot/internal/index/types"
 )
 
 func TestGoParser_ParseFunction(t *testing.T) {
@@ -26,7 +27,7 @@ func TestFunc(arg string) error {
 	// Should find the function
 	require.Len(t, result.Symbols, 1)
 	assert.Equal(t, "TestFunc", result.Symbols[0].Name)
-	assert.Equal(t, index.SymbolKindFunction, result.Symbols[0].Kind)
+	assert.Equal(t, types.SymbolKindFunction, result.Symbols[0].Kind)
 	assert.Equal(t, "main.TestFunc", result.Symbols[0].QualifiedName)
 	assert.Contains(t, result.Symbols[0].Documentation, "test function")
 }
@@ -50,7 +51,7 @@ func (m *MyStruct) MyMethod() string {
 	// Should find the struct and method
 	require.Len(t, result.Symbols, 2)
 
-	var method *index.Symbol
+	var method *types.Symbol
 	for _, s := range result.Symbols {
 		if s.Name == "MyMethod" {
 			method = s
@@ -58,7 +59,7 @@ func (m *MyStruct) MyMethod() string {
 		}
 	}
 	require.NotNil(t, method)
-	assert.Equal(t, index.SymbolKindMethod, method.Kind)
+	assert.Equal(t, types.SymbolKindMethod, method.Kind)
 	assert.Equal(t, "main.MyStruct.MyMethod", method.QualifiedName)
 }
 
@@ -80,7 +81,7 @@ type MyStruct struct {
 
 	require.Len(t, result.Symbols, 2)
 
-	var iface, strct *index.Symbol
+	var iface, strct *types.Symbol
 	for _, s := range result.Symbols {
 		if s.Name == "MyInterface" {
 			iface = s
@@ -91,8 +92,8 @@ type MyStruct struct {
 
 	require.NotNil(t, iface)
 	require.NotNil(t, strct)
-	assert.Equal(t, index.SymbolKindInterface, iface.Kind)
-	assert.Equal(t, index.SymbolKindClass, strct.Kind)
+	assert.Equal(t, types.SymbolKindInterface, iface.Kind)
+	assert.Equal(t, types.SymbolKindClass, strct.Kind)
 }
 
 func TestGoParser_ParseImports(t *testing.T) {
@@ -141,9 +142,9 @@ func caller2() {
 	require.GreaterOrEqual(t, len(result.Symbols), 3)
 
 	// Should find call references
-	var callRefs []*index.SymbolReference
+	var callRefs []*types.SymbolReference
 	for _, ref := range result.References {
-		if ref.ReferenceKind == index.ReferenceKindCall {
+		if ref.ReferenceKind == types.ReferenceKindCall {
 			callRefs = append(callRefs, ref)
 		}
 	}
@@ -176,7 +177,7 @@ class MyClass:
 	// Should find at least the class
 	require.GreaterOrEqual(t, len(result.Symbols), 1)
 
-	var class *index.Symbol
+	var class *types.Symbol
 	for _, s := range result.Symbols {
 		if s.Name == "MyClass" {
 			class = s
@@ -184,7 +185,7 @@ class MyClass:
 		}
 	}
 	require.NotNil(t, class)
-	assert.Equal(t, index.SymbolKindClass, class.Kind)
+	assert.Equal(t, types.SymbolKindClass, class.Kind)
 	assert.Equal(t, "MyClass", class.QualifiedName)
 }
 
@@ -208,7 +209,7 @@ async def async_func():
 	for _, s := range result.Symbols {
 		if s.Name == "standalone_func" {
 			funcFound = true
-			assert.Equal(t, index.SymbolKindFunction, s.Kind)
+			assert.Equal(t, types.SymbolKindFunction, s.Kind)
 			break
 		}
 	}
@@ -247,7 +248,7 @@ from typing import List, Dict
 }
 
 func TestParserRegistry(t *testing.T) {
-	registry := index.NewParserRegistry()
+	registry := registry.NewParserRegistry()
 
 	registry.Register(NewGoParser())
 	registry.Register(NewPythonParser())
@@ -255,12 +256,12 @@ func TestParserRegistry(t *testing.T) {
 	// Test Go parser lookup
 	goParser := registry.GetParserForFile("test.go")
 	assert.NotNil(t, goParser)
-	assert.Equal(t, index.LanguageGo, goParser.GetLanguage())
+	assert.Equal(t, types.LanguageGo, goParser.GetLanguage())
 
 	// Test Python parser lookup
 	pyParser := registry.GetParserForFile("test.py")
 	assert.NotNil(t, pyParser)
-	assert.Equal(t, index.LanguagePython, pyParser.GetLanguage())
+	assert.Equal(t, types.LanguagePython, pyParser.GetLanguage())
 
 	// Test unsupported file
 	unknownParser := registry.GetParserForFile("test.unknown")

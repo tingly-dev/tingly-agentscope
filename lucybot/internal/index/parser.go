@@ -2,51 +2,32 @@ package index
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/tingly-dev/lucybot/internal/index/types"
 )
 
-// ParseResult contains the results of parsing a file
-type ParseResult struct {
-	Symbols      []*Symbol
-	References   []*SymbolReference
-	Scopes       []*Scope
-	Relationships []*Relationship
-	FileInfo     *FileInfo
-}
-
-// LanguageParser defines the interface for language-specific parsers
-type LanguageParser interface {
-	// Parse parses the given content and extracts symbols, references, and scopes
-	Parse(ctx context.Context, content []byte, filePath string) (*ParseResult, error)
-
-	// GetLanguage returns the language identifier
-	GetLanguage() Language
-
-	// GetFileExtensions returns the file extensions this parser handles
-	GetFileExtensions() []string
-
-	// CanParse returns true if this parser can handle the given file
-	CanParse(filePath string) bool
-}
+// Re-export ParseResult and LanguageParser from types package
+type ParseResult = types.ParseResult
+type LanguageParser = types.LanguageParser
 
 // ParserRegistry manages language parsers
 type ParserRegistry struct {
-	parsers map[Language]LanguageParser
-	byExt   map[string]LanguageParser
+	parsers map[types.Language]types.LanguageParser
+	byExt   map[string]types.LanguageParser
 }
 
 // NewParserRegistry creates a new parser registry
 func NewParserRegistry() *ParserRegistry {
 	return &ParserRegistry{
-		parsers: make(map[Language]LanguageParser),
-		byExt:   make(map[string]LanguageParser),
+		parsers: make(map[types.Language]types.LanguageParser),
+		byExt:   make(map[string]types.LanguageParser),
 	}
 }
 
 // Register registers a language parser
-func (r *ParserRegistry) Register(parser LanguageParser) {
+func (r *ParserRegistry) Register(parser types.LanguageParser) {
 	r.parsers[parser.GetLanguage()] = parser
 	for _, ext := range parser.GetFileExtensions() {
 		r.byExt[ext] = parser
@@ -54,19 +35,19 @@ func (r *ParserRegistry) Register(parser LanguageParser) {
 }
 
 // GetParser returns the parser for a given language
-func (r *ParserRegistry) GetParser(lang Language) LanguageParser {
+func (r *ParserRegistry) GetParser(lang types.Language) types.LanguageParser {
 	return r.parsers[lang]
 }
 
 // GetParserForFile returns the parser for a given file path
-func (r *ParserRegistry) GetParserForFile(filePath string) LanguageParser {
+func (r *ParserRegistry) GetParserForFile(filePath string) types.LanguageParser {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	return r.byExt[ext]
 }
 
 // GetParserForLanguage returns the parser for a language string
-func (r *ParserRegistry) GetParserForLanguage(lang string) LanguageParser {
-	return r.parsers[Language(lang)]
+func (r *ParserRegistry) GetParserForLanguage(lang string) types.LanguageParser {
+	return r.parsers[types.Language(lang)]
 }
 
 // CanParse returns true if a parser is available for the file
@@ -75,8 +56,8 @@ func (r *ParserRegistry) CanParse(filePath string) bool {
 }
 
 // GetSupportedLanguages returns all supported languages
-func (r *ParserRegistry) GetSupportedLanguages() []Language {
-	langs := make([]Language, 0, len(r.parsers))
+func (r *ParserRegistry) GetSupportedLanguages() []types.Language {
+	langs := make([]types.Language, 0, len(r.parsers))
 	for lang := range r.parsers {
 		langs = append(langs, lang)
 	}
@@ -95,12 +76,12 @@ func (r *ParserRegistry) GetSupportedExtensions() []string {
 // SimpleParser provides a basic parser implementation using regex/heuristics
 // for languages without Tree-sitter support
 type SimpleParser struct {
-	language   Language
+	language   types.Language
 	extensions []string
 }
 
 // NewSimpleParser creates a new simple parser
-func NewSimpleParser(language Language, extensions []string) *SimpleParser {
+func NewSimpleParser(language types.Language, extensions []string) *SimpleParser {
 	return &SimpleParser{
 		language:   language,
 		extensions: extensions,
@@ -108,7 +89,7 @@ func NewSimpleParser(language Language, extensions []string) *SimpleParser {
 }
 
 // GetLanguage returns the language identifier
-func (p *SimpleParser) GetLanguage() Language {
+func (p *SimpleParser) GetLanguage() types.Language {
 	return p.language
 }
 
@@ -130,10 +111,10 @@ func (p *SimpleParser) CanParse(filePath string) bool {
 
 // Parse implements a basic parser that extracts file info only
 // Subclasses should override this for actual symbol extraction
-func (p *SimpleParser) Parse(ctx context.Context, content []byte, filePath string) (*ParseResult, error) {
+func (p *SimpleParser) Parse(ctx context.Context, content []byte, filePath string) (*types.ParseResult, error) {
 	// Default implementation just creates file info
-	return &ParseResult{
-		FileInfo: &FileInfo{
+	return &types.ParseResult{
+		FileInfo: &types.FileInfo{
 			Path:     filePath,
 			Language: p.language,
 			Size:     int64(len(content)),
@@ -141,16 +122,18 @@ func (p *SimpleParser) Parse(ctx context.Context, content []byte, filePath strin
 	}, nil
 }
 
-// DefaultRegistry is the global parser registry
+// DefaultRegistry is deprecated - use registry.DefaultRegistry instead
+// Kept for backward compatibility
 var DefaultRegistry = NewParserRegistry()
 
-// Register registers a parser with the default registry
-func Register(parser LanguageParser) {
+// Register is deprecated - use registry.Register instead
+// Kept for backward compatibility
+func Register(parser types.LanguageParser) {
 	DefaultRegistry.Register(parser)
 }
 
 // GetParserForFile returns the parser for a file from the default registry
-func GetParserForFile(filePath string) LanguageParser {
+func GetParserForFile(filePath string) types.LanguageParser {
 	return DefaultRegistry.GetParserForFile(filePath)
 }
 
@@ -159,79 +142,3 @@ func CanParse(filePath string) bool {
 	return DefaultRegistry.CanParse(filePath)
 }
 
-// extractQualifiedName builds a qualified name from package/module and symbol name
-func extractQualifiedName(packageName, symbolName string, parents []string) string {
-	parts := []string{}
-	if packageName != "" {
-		parts = append(parts, packageName)
-	}
-	parts = append(parts, parents...)
-	parts = append(parts, symbolName)
-	return strings.Join(parts, ".")
-}
-
-// extractPackageName extracts the package/module name from content
-// This is a helper that can be used by language-specific parsers
-func extractPackageName(content []byte, lang Language) string {
-	switch lang {
-	case LanguageGo:
-		return extractGoPackageName(content)
-	case LanguagePython:
-		return extractPythonModuleName(content)
-	case LanguageJava:
-		return extractJavaPackageName(content)
-	default:
-		return ""
-	}
-}
-
-func extractGoPackageName(content []byte) string {
-	// Look for "package xxx" at the start
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "package ") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "package "))
-		}
-	}
-	return ""
-}
-
-func extractPythonModuleName(content []byte) string {
-	// Look for module docstring or try to infer from imports
-	// For now, return empty as Python doesn't have explicit module declarations
-	return ""
-}
-
-func extractJavaPackageName(content []byte) string {
-	// Look for "package xxx;"
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "package ") {
-			pkg := strings.TrimPrefix(line, "package ")
-			pkg = strings.TrimSuffix(pkg, ";")
-			return strings.TrimSpace(pkg)
-		}
-	}
-	return ""
-}
-
-// ParseError represents a parsing error
-type ParseError struct {
-	FilePath string
-	Language Language
-	Message  string
-	Cause    error
-}
-
-func (e *ParseError) Error() string {
-	if e.Cause != nil {
-		return fmt.Sprintf("parse error in %s (%s): %s: %v", e.FilePath, e.Language, e.Message, e.Cause)
-	}
-	return fmt.Sprintf("parse error in %s (%s): %s", e.FilePath, e.Language, e.Message)
-}
-
-func (e *ParseError) Unwrap() error {
-	return e.Cause
-}
