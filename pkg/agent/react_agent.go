@@ -324,12 +324,13 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 		}
 	}
 
-	// Max iterations reached
-	return message.NewMsg(
-		r.Name(),
-		[]message.ContentBlock{message.Text("I've reached the maximum number of iterations. Let me provide a summary of what I found.")},
-		types.RoleAssistant,
-	), nil
+	// Max iterations reached - make one final call without tools to get summary
+	resp, err := r.callModel(ctx, messages)
+	if err != nil {
+		return nil, fmt.Errorf("final summary call failed: %w", err)
+	}
+
+	return r.createResponseMessage(resp), nil
 }
 
 // callModel calls the model with the given messages
