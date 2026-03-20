@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -63,6 +64,11 @@ func (a *App) showSessionPickerCmd() tea.Cmd {
 		sessions, err := a.listSessions()
 		if err != nil {
 			return SystemMsg{Content: fmt.Sprintf("Error: %v", err)}
+		}
+		// Debug: log session info
+		fmt.Fprintf(os.Stderr, "[DEBUG] Found %d sessions\n", len(sessions))
+		for i, s := range sessions {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Session %d: ID=%s Name=%s Messages=%d\n", i, s.ID, s.Name, s.MessageCount)
 		}
 		return ShowSessionPickerMsg{Sessions: sessions}
 	}

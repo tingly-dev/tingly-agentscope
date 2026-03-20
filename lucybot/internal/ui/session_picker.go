@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -30,6 +31,7 @@ func newSessionPickerModel(sessions []*session.SessionInfo) *sessionPickerModel 
 	items := make([]list.Item, len(sessions))
 	for i, s := range sessions {
 		items[i] = sessionItem{*s}
+		fmt.Fprintf(os.Stderr, "[DEBUG] Picker item %d: ID=%s Name=%s Title=%s\n", i, s.ID, s.Name, sessionItem{*s}.Title())
 	}
 
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
@@ -86,7 +88,9 @@ func (m *sessionPickerModel) View() string {
 	}
 	// Add help hint at bottom
 	hint := " ↑/↓: navigate  •  Space/Enter: select  •  Esc: cancel"
-	return "\n" + m.list.View() + "\n\n " + hint + "\n"
+	listView := m.list.View()
+	fmt.Fprintf(os.Stderr, "[DEBUG] Picker View - list items: %d, view length: %d\n", len(m.sessions), len(listView))
+	return "\n" + listView + "\n\n " + hint + "\n"
 }
 
 // DeleteSessionMsg is sent to delete a session

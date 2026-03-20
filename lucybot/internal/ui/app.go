@@ -201,6 +201,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.input.SetSize(a.width, inputHeight)
 		a.statusBar.SetWidth(a.width)
 
+		// Forward size to session picker if active
+		if a.sessionPicker != nil {
+			pickerHeight := a.height - 6 // Leave room for title and hint
+			if pickerHeight < 5 {
+				pickerHeight = 5
+			}
+			a.sessionPicker.list.SetSize(a.width, pickerHeight)
+		}
+
 	case tea.KeyMsg:
 		// Global key bindings
 		switch msg.Type {
@@ -367,6 +376,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ShowSessionPickerMsg:
 		// Show the session picker
 		a.sessionPicker = newSessionPicker(msg.Sessions, nil)
+		// Set initial size for the picker
+		pickerHeight := a.height - 6 // Leave room for title and hint
+		if pickerHeight < 5 {
+			pickerHeight = 5
+		}
+		a.sessionPicker.list.SetSize(a.width, pickerHeight)
 		return a, nil
 
 	case ResumeSessionMsg:
