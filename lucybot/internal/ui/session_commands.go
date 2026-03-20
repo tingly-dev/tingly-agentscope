@@ -46,16 +46,10 @@ func (a *App) handleSessionsCommand() tea.Cmd {
 // handleResumeCommand shows session picker or resumes by number
 func (a *App) handleResumeCommand(args string) tea.Cmd {
 	a.input.Reset()
+	fmt.Fprintf(os.Stderr, "[DEBUG] handleResumeCommand called with args: %q\n", args)
 
-	if args == "" {
-		// Show interactive picker
-		return a.showSessionPickerCmd()
-	}
-
-	// Resume by session ID (could be number or full ID)
-	return func() tea.Msg {
-		return ResumeSessionMsg{SessionID: args}
-	}
+	// Always show interactive picker
+	return a.showSessionPickerCmd()
 }
 
 // showSessionPickerCmd creates a command to show the session picker
@@ -76,17 +70,33 @@ func (a *App) showSessionPickerCmd() tea.Cmd {
 
 // listSessions retrieves all sessions for the current project
 func (a *App) listSessions() ([]*session.SessionInfo, error) {
-	if a.config == nil || !a.config.Session.Enabled {
+	fmt.Fprintf(os.Stderr, "[DEBUG] listSessions called\n")
+	if a.config == nil {
+		fmt.Fprintf(os.Stderr, "[DEBUG] config is nil\n")
+		return nil, fmt.Errorf("config is nil")
+	}
+	fmt.Fprintf(os.Stderr, "[DEBUG] Session.Enabled: %v\n", a.config.Session.Enabled)
+
+	if !a.config.Session.Enabled {
 		return nil, fmt.Errorf("session not enabled")
 	}
 
 	// Get sessions from session manager
 	// This requires the agent to expose its session manager
-	if a.agent != nil && a.agent.GetSessionManager() != nil {
-		return a.agent.GetSessionManager().List()
+	if a.agent == nil {
+		fmt.Fprintf(os.Stderr, "[DEBUG] agent is nil\n")
+		return nil, fmt.Errorf("agent is nil")
 	}
 
-	return nil, fmt.Errorf("no session manager available")
+	mgr := a.agent.GetSessionManager()
+	if mgr == nil {
+		fmt.Fprintf(os.Stderr, "[DEBUG] session manager is nil\n")
+		return nil, fmt.Errorf("session manager is nil")
+	}
+
+	sessions, err := mgr.List()
+	fmt.Fprintf(os.Stderr, "[DEBUG] mgr.List() returned %d sessions, err: %v\n", len(sessions), err)
+	return sessions, err
 }
 
 // SystemMsg is a message to display in the system output
