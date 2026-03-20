@@ -93,27 +93,13 @@ func TestSessionPickerDelete(t *testing.T) {
 
 	model := newSessionPickerModel(sessions)
 
-	// Test delete key
+	// Test delete key - delete functionality was removed, so it should do nothing
 	msg := tea.KeyMsg{Type: tea.KeyDelete}
 	_, cmd := model.Update(msg)
 
-	if cmd == nil {
-		t.Fatal("Expected a command from Delete key")
-	}
-
-	// Execute the command to get the message
-	msgChan := make(chan tea.Msg)
-	go func() {
-		msgChan <- cmd()
-	}()
-
-	result := <-msgChan
-	if deleteMsg, ok := result.(DeleteSessionMsg); ok {
-		if deleteMsg.SessionID != "1" {
-			t.Errorf("Expected SessionID '1', got '%s'", deleteMsg.SessionID)
-		}
-	} else {
-		t.Errorf("Expected DeleteSessionMsg, got %T", result)
+	// Delete key should not trigger any command (functionality removed)
+	if cmd != nil {
+		t.Error("Expected no command from Delete key (delete functionality removed)")
 	}
 }
 

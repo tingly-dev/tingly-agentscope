@@ -2,6 +2,8 @@ package session
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
@@ -15,15 +17,27 @@ func TestRecorder(t *testing.T) {
 	recorder := NewRecorder(store, "test-agent", "/work/dir", "gpt-4o")
 	sessionID := "test-session"
 
-	// Initialize session
+	// Initialize session - should NOT create file yet
 	if err := recorder.Initialize(sessionID, "Test Session"); err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	// Record a message
+	// Verify session file does NOT exist after just Initialize
+	// JSONLStore saves directly to baseDir/sessionID.jsonl
+	sessionPath := fmt.Sprintf("%s/%s.jsonl", tmpDir, sessionID)
+	if _, err := os.Stat(sessionPath); !os.IsNotExist(err) {
+		t.Fatal("Session file should not exist after Initialize (only after first message)")
+	}
+
+	// Record a message - this should create the file
 	msg := message.NewMsg("", "Hello", types.RoleUser)
 	if err := recorder.RecordMessage(context.Background(), sessionID, msg); err != nil {
 		t.Fatalf("RecordMessage failed: %v", err)
+	}
+
+	// Verify session file now exists
+	if _, err := os.Stat(sessionPath); os.IsNotExist(err) {
+		t.Fatalf("Session file should exist after RecordMessage: %v", err)
 	}
 
 	// Verify message was saved
@@ -32,8 +46,8 @@ func TestRecorder(t *testing.T) {
 		t.Fatalf("LoadMessages failed: %v", err)
 	}
 
-	// Header + 1 message
-	if len(messages) != 1 { // LoadMessages skips header
+	// Header + 1 message (LoadMessages skips header)
+	if len(messages) != 1 {
 		t.Errorf("Expected 1 message, got %d", len(messages))
 	}
 

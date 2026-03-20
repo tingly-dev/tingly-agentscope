@@ -14,6 +14,10 @@ type Recorder struct {
 	agentName  string
 	workingDir string
 	modelName  string
+	// Track session metadata for lazy initialization
+	sessionID  string
+	sessionName string
+	initialized bool // True when header has been written
 }
 
 // NewRecorder creates a new session recorder
@@ -26,25 +30,50 @@ func NewRecorder(store Store, agentName, workingDir, modelName string) *Recorder
 	}
 }
 
-// Initialize creates a new session with metadata header
+// Initialize stores session metadata but doesn't write the file yet
+// The file will be created on the first message recording
 func (r *Recorder) Initialize(sessionID, name string) error {
+	r.sessionID = sessionID
+	r.sessionName = name
+	r.initialized = false
+	return nil
+}
+
+// ensureInitialized writes the session header if not already done
+func (r *Recorder) ensureInitialized() error {
+	if r.initialized {
+		return nil
+	}
+
 	now := time.Now()
 	session := &Session{
-		ID:         sessionID,
-		Name:       name,
+		ID:         r.sessionID,
+		Name:       r.sessionName,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 		AgentName:  r.agentName,
 		WorkingDir: r.workingDir,
 		ModelName:  r.modelName,
-		Messages:   []Message{},
+		Messages:   []Message{}, // Empty messages list for header
 	}
 
-	return r.store.Save(session)
+	if err := r.store.Save(session); err != nil {
+		return fmt.Errorf("failed to initialize session: %w", err)
+	}
+
+	r.initialized = true
+	return nil
 }
 
 // RecordMessage appends a message to the session
 func (r *Recorder) RecordMessage(ctx context.Context, sessionID string, msg *message.Msg) error {
+	// Ensure session header is written on first message
+	if !r.initialized {
+		if err := r.ensureInitialized(); err != nil {
+			return err
+		}
+	}
+
 	// Convert to JSONL message
 	content := msg.GetTextContent()
 	if content == "" {

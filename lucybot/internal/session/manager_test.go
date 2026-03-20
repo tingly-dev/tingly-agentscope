@@ -28,7 +28,7 @@ func TestManagerLazyInit(t *testing.T) {
 		t.Error("Session file should not exist before first message")
 	}
 
-	// Now initialize the session
+	// Now initialize the session (lazy - doesn't write file yet)
 	session, err := mgr.GetOrCreate(sessionID, "Lazy Session")
 	if err != nil {
 		t.Fatalf("GetOrCreate failed: %v", err)
@@ -38,9 +38,19 @@ func TestManagerLazyInit(t *testing.T) {
 		t.Errorf("Expected ID %s, got %s", sessionID, session.ID)
 	}
 
-	// Now the file should exist with header
+	// File should STILL not exist after GetOrCreate (lazy initialization)
+	if _, err := os.Stat(sessionPath); !os.IsNotExist(err) {
+		t.Error("Session file should not exist after GetOrCreate (only after first message)")
+	}
+
+	// Add a message - this should trigger file creation
+	if err := mgr.AddMessage(sessionID, "user", "Hello!"); err != nil {
+		t.Fatalf("AddMessage failed: %v", err)
+	}
+
+	// Now the file should exist
 	if _, err := os.Stat(sessionPath); os.IsNotExist(err) {
-		t.Error("Session file should exist after initialization")
+		t.Error("Session file should exist after first message")
 	}
 }
 
