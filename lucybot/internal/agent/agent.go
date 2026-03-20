@@ -239,6 +239,32 @@ func (a *LucyBotAgent) GetMemory() memory.Memory {
 	return a.memory
 }
 
+// StartNewSession generates a new session ID and updates recording to use it
+// This is called when resuming a session to create a new session for new messages
+func (a *LucyBotAgent) StartNewSession() (string, error) {
+	if a.sessionManager == nil {
+		return "", fmt.Errorf("session manager not available")
+	}
+
+	// Generate new session ID
+	newSessionID := generateSessionID()
+
+	// Initialize the new session
+	if _, err := a.sessionManager.GetOrCreate(newSessionID, a.config.Agent.Name); err != nil {
+		return "", fmt.Errorf("failed to initialize new session: %w", err)
+	}
+
+	// Update agent's session ID
+	a.sessionID = newSessionID
+
+	// Update RecordingMemory's session ID if memory is RecordingMemory
+	if recordingMem, ok := a.memory.(*session.RecordingMemory); ok {
+		recordingMem.SetSessionID(newSessionID)
+	}
+
+	return newSessionID, nil
+}
+
 // SetWorkDir updates the working directory
 func (a *LucyBotAgent) SetWorkDir(dir string) {
 	a.workDir = dir

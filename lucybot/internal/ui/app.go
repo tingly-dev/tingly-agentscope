@@ -819,6 +819,7 @@ func (a *App) handleSession() tea.Cmd {
 }
 
 // resumeSession loads messages from a saved session into memory
+// and starts a new session for recording subsequent messages
 func (a *App) resumeSession(sessionID string) error {
 	if a.agent == nil {
 		return fmt.Errorf("no agent available")
@@ -866,6 +867,17 @@ func (a *App) resumeSession(sessionID string) error {
 		}
 	}
 
+	a.messages.ScrollToBottom()
+
+	// Start a new session for recording subsequent messages
+	// This ensures the resumed session is not modified
+	newSessionID, err := a.agent.StartNewSession()
+	if err != nil {
+		return fmt.Errorf("failed to start new session: %w", err)
+	}
+
+	// Notify user about the new session
+	a.messages.AddSystemMessage(fmt.Sprintf("Started new session %s (previous session %s preserved)", newSessionID, sessionID))
 	a.messages.ScrollToBottom()
 
 	return nil
