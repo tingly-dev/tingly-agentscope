@@ -390,8 +390,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := a.resumeSession(msg.SessionID); err != nil {
 				return SystemMsg{Content: fmt.Sprintf("Resume failed: %v", err)}
 			}
-			return nil // Don't show success message
+			// Return a redraw message to refresh the view with loaded messages
+			return redrawMsg{}
 		}
+
+	case redrawMsg:
+		// Just trigger a redraw - no action needed
+		return a, nil
 	}
 
 	// Update input
@@ -422,6 +427,9 @@ type ResponseMsg struct {
 type StreamedMsg struct {
 	Msg *message.Msg
 }
+
+// redrawMsg triggers a view redraw without any other effect
+type redrawMsg struct{}
 
 // checkStreamedMessagesCmd creates a command that checks for streamed messages
 func (a *App) checkStreamedMessagesCmd() tea.Cmd {
