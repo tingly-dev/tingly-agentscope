@@ -392,7 +392,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := a.resumeSession(msg.SessionID); err != nil {
 				return SystemMsg{Content: fmt.Sprintf("Resume failed: %v", err)}
 			}
-			return SystemMsg{Content: fmt.Sprintf("Session %s resumed", msg.SessionID)}
+			return nil // Don't show success message
 		}
 	}
 
@@ -845,7 +845,7 @@ func (a *App) resumeSession(sessionID string) error {
 	resumer := mgr.GetResumer()
 	mem := a.agent.GetMemory()
 
-	count, err := resumer.LoadIntoMemory(context.Background(), sessionID, mem)
+	_, err = resumer.LoadIntoMemory(context.Background(), sessionID, mem)
 	if err != nil {
 		return fmt.Errorf("failed to load session into memory: %w", err)
 	}
@@ -872,7 +872,6 @@ func (a *App) resumeSession(sessionID string) error {
 		}
 	}
 
-	a.messages.AddSystemMessage(fmt.Sprintf("━━━━━━━━━━━━━━━━━━━━━━━━\nResumed session %s (loaded %d messages)\n", sessionID, count))
 	a.messages.ScrollToBottom()
 
 	return nil
