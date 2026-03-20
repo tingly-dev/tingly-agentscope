@@ -835,18 +835,45 @@ func (a *App) resumeSession(sessionID string) error {
 		return fmt.Errorf("session manager not available")
 	}
 
-	resumer := mgr.GetResumer()
-	mem := a.agent.GetMemory()
-
-	// Load messages into memory
-	count, err := resumer.LoadIntoMemory(context.Background(), sessionID, mem)
+	// Load the full session to get messages
+	sess, err := mgr.Load(sessionID)
 	if err != nil {
 		return fmt.Errorf("failed to load session: %w", err)
 	}
 
-	// Clear current messages and show success
+	// Load messages into memory
+	resumer := mgr.GetResumer()
+	mem := a.agent.GetMemory()
+
+	count, err := resumer.LoadIntoMemory(context.Background(), sessionID, mem)
+	if err != nil {
+		return fmt.Errorf("failed to load session into memory: %w", err)
+	}
+
+	// Display all messages in the UI
 	a.messages.Clear()
-	a.messages.AddSystemMessage(fmt.Sprintf("Resumed session %s (%d messages loaded)\n", sessionID, count))
+
+	// Add each message to the UI
+	for _, msg := range sess.Messages {
+		switch msg.Role {
+		case "user":
+			contentStr := fmt.Sprintf("%v", msg.Content)
+			a.messages.AddUserMessage(contentStr)
+		case "assistant":
+			contentStr := fmt.Sprintf("%v", msg.Content)
+			a.messages.AddAssistantMessage(contentStr, msg.Name)
+		case "system":
+			contentStr := fmt.Sprintf("%v", msg.Content)
+			a.messages.AddSystemMessage(contentStr)
+		default:
+			// Handle other roles
+			contentStr := fmt.Sprintf("%v", msg.Content)
+			a.messages.AddSystemMessage(fmt.Sprintf("[%s] %s", msg.Role, contentStr))
+		}
+	}
+
+	a.messages.AddSystemMessage(fmt.Sprintf("━━━━━━━━━━━━━━━━━━━━━━━━\nResumed session %s (loaded %d messages)\n", sessionID, count))
+	a.messages.ScrollToBottom()
 
 	return nil
 }
