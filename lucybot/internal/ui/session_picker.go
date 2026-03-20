@@ -63,19 +63,12 @@ func (m *sessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 
-		case tea.KeyEnter:
+		case tea.KeyEnter, tea.KeySpace:
+			// Confirm selection with Enter or Spacebar
 			if m.list.Cursor() >= 0 && m.list.Cursor() < len(m.sessions) {
 				selected := m.sessions[m.list.Cursor()]
 				return m, func() tea.Msg {
 					return SessionPickerMsg{SessionID: selected.ID}
-				}
-			}
-
-		case tea.KeyDelete:
-			if m.list.Cursor() >= 0 && m.list.Cursor() < len(m.sessions) {
-				selected := m.sessions[m.list.Cursor()]
-				return m, func() tea.Msg {
-					return DeleteSessionMsg{SessionID: selected.ID}
 				}
 			}
 		}
@@ -91,7 +84,9 @@ func (m *sessionPickerModel) View() string {
 	if m.quitting {
 		return ""
 	}
-	return "\n" + m.list.View() + "\n"
+	// Add help hint at bottom
+	hint := " ↑/↓: navigate  •  Space/Enter: select  •  Esc: cancel"
+	return "\n" + m.list.View() + "\n\n " + hint + "\n"
 }
 
 // DeleteSessionMsg is sent to delete a session

@@ -515,9 +515,8 @@ func (a *App) handleSlashCommand(input string) tea.Cmd {
   /model            - Show current model
   /agents           - List available agents
   /compact          - Manually compress conversation memory
-  /session          - Show session/memory statistics
-  /sessions         - List all saved sessions
-  /resume [id]      - Resume a previous session (or show picker)
+  /session          - Show session picker (resume previous session)
+  /resume           - Show session picker (resume previous session)
 
 Navigation:
   PageUp/PageDown   - Scroll messages up/down
@@ -556,17 +555,11 @@ Tips:
 		return a.handleCompact()
 
 	case "/session":
-		return a.handleSession()
-
-	case "/sessions":
-		return a.handleSessionsCommand()
+		return a.handleResumeCommand("")
 
 	case "/resume":
-		args := ""
-		if len(parts) > 1 {
-			args = strings.Join(parts[1:], " ")
-		}
-		return a.handleResumeCommand(args)
+		// Always show picker, ignore any args
+		return a.handleResumeCommand("")
 
 	default:
 		a.messages.AddSystemMessage(fmt.Sprintf("Unknown command: %s. Type /help for available commands.", cmd))
