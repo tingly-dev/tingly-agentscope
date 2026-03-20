@@ -185,6 +185,10 @@ func (p *Popup) SetCommandItems() {
 	p.SetItems([]PopupItem{
 		{Title: "/help", Description: "Show help", Icon: "❓", Value: "help"},
 		{Title: "/clear", Description: "Clear screen", Icon: "🧹", Value: "clear"},
+		{Title: "/sessions", Description: "List saved sessions", Icon: "📚", Value: "sessions"},
+		{Title: "/resume", Description: "Resume a session", Icon: "🔄", Value: "resume"},
+		{Title: "/session", Description: "Show session info", Icon: "📋", Value: "session"},
+		{Title: "/compact", Description: "Compact conversation", Icon: "🗜️", Value: "compact"},
 		{Title: "/tools", Description: "List tools", Icon: "🔧", Value: "tools"},
 		{Title: "/model", Description: "Show model info", Icon: "🧠", Value: "model"},
 		{Title: "/quit", Description: "Exit", Icon: "👋", Value: "quit"},

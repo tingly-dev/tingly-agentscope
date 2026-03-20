@@ -9,7 +9,6 @@ import (
 	"github.com/tingly-dev/lucybot/internal/agent"
 	"github.com/tingly-dev/lucybot/internal/config"
 	"github.com/tingly-dev/lucybot/internal/index"
-	"github.com/tingly-dev/lucybot/internal/session"
 	"github.com/tingly-dev/lucybot/internal/tools"
 	"github.com/tingly-dev/lucybot/internal/ui"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
@@ -111,10 +110,19 @@ var chatCommand = &cli.Command{
 		// Set working directory
 		cfg.Agent.WorkingDirectory = workDir
 
-		// Enable session if --session flag is provided
+		// Check for single query mode first
+		query := c.String("query")
+		if query != "" {
+			// Disable session recording for single query mode
+			cfg.Session.Enabled = false
+		} else {
+			// Always enable session recording in chat mode
+			cfg.Session.Enabled = true
+		}
+
+		// Override session ID if provided via flag
 		sessionID := c.String("session")
 		if sessionID != "" {
-			cfg.Session.Enabled = true
 			cfg.Session.SessionID = sessionID
 		}
 
@@ -127,28 +135,24 @@ var chatCommand = &cli.Command{
 			return fmt.Errorf("failed to create agent: %w", err)
 		}
 
-		// Initialize session manager if enabled
-		var sessionMgr *session.Manager
-		if cfg.Session.Enabled {
-			sessionMgr, err = session.NewManager(&cfg.Session, cfg.Agent.Name, workDir)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to initialize session manager: %v\n", err)
-			}
-		}
-
-		// Load session if requested
-		if c.Bool("load") && sessionMgr != nil && sessionID != "" {
-			sess, err := sessionMgr.Load(sessionID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to load session: %v\n", err)
-			} else {
-				fmt.Printf("✓ Loaded session: %s (%d messages)\n", sess.Name, len(sess.Messages))
-			}
-		}
-
-		// Single query mode
-		if query := c.String("query"); query != "" {
+		// Handle single query mode
+		if query != "" {
 			return runSingleQuery(lucybotAgent, query)
+		}
+
+		// Load session if requested (via agent's session manager)
+		if c.Bool("load") && sessionID != "" {
+			mgr := lucybotAgent.GetSessionManager()
+			if mgr != nil {
+				sess, err := mgr.Load(sessionID)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to load session: %v\n", err)
+				} else {
+					fmt.Printf("✓ Loaded session: %s (%d messages)\n", sess.Name, len(sess.Messages))
+				}
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: session manager not available\n")
+			}
 		}
 
 		// Simple mode (no TUI)
