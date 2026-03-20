@@ -191,6 +191,15 @@ func mergeCompressionConfig(base, override *CompressionConfig) {
 	if override.Threshold != 0 {
 		base.Threshold = override.Threshold
 	}
+	if override.ContextWindow != 0 {
+		base.ContextWindow = override.ContextWindow
+	}
+	if override.TriggerThresholdPercent != 0 {
+		base.TriggerThresholdPercent = override.TriggerThresholdPercent
+	}
+	if override.KeepRecent != 0 {
+		base.KeepRecent = override.KeepRecent
+	}
 }
 
 // mergeIndexConfig merges index configuration

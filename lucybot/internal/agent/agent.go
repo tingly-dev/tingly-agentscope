@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/tingly-dev/lucybot/internal/config"
@@ -181,6 +180,16 @@ func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 		}
 
 		lucyAgent.sessionID = sessionID
+
+		// Wrap memory with recording memory to capture all messages
+		recorder := mgr.GetRecorder()
+		recordingMem := session.NewRecordingMemory(mem, recorder, sessionID)
+
+		// Update the agent's memory reference
+		lucyAgent.memory = recordingMem
+
+		// Update the ReActAgent's memory reference
+		reactAgent.SetMemory(recordingMem)
 	}
 
 	// Setup compression configuration from LucyBot config
@@ -312,30 +321,11 @@ func (a *LucyBotAgent) AnalyzeInput(ctx context.Context, input string) error {
 }
 
 // Reply processes a user message and returns the agent's response
-// with automatic message recording if sessions are enabled
+// Note: When sessions are enabled, RecordingMemory wrapper automatically records all messages
 func (a *LucyBotAgent) Reply(ctx context.Context, msg *message.Msg) (*message.Msg, error) {
-	// Record incoming message
-	if a.sessionManager != nil && a.config.Session.AutoRecord {
-		if err := a.sessionManager.GetRecorder().RecordMessage(ctx, a.sessionID, msg); err != nil {
-			// Log but don't fail - recording is optional
-			fmt.Fprintf(os.Stderr, "[DEBUG] Failed to record message: %v\n", err)
-		}
-	}
-
 	// Call underlying ReActAgent's Reply
-	resp, err := a.ReActAgent.Reply(ctx, msg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Record response
-	if a.sessionManager != nil && a.config.Session.AutoRecord && resp != nil {
-		if err := a.sessionManager.GetRecorder().RecordMessage(ctx, a.sessionID, resp); err != nil {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Failed to record response: %v\n", err)
-		}
-	}
-
-	return resp, nil
+	// RecordingMemory wrapper will automatically record all messages to session
+	return a.ReActAgent.Reply(ctx, msg)
 }
 
 // generateSessionID generates a unique session ID based on timestamp

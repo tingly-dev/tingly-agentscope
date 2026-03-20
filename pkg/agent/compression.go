@@ -118,6 +118,13 @@ type CompressionResult struct {
 	CompressedMessages   []*message.Msg
 }
 
+
+// CompressMemory manually triggers memory compression if enabled
+// Returns the compression result or nil if compression wasn't needed
+func (r *ReActAgent) CompressMemory(ctx context.Context) (*CompressionResult, error) {
+	return r.compressMemory(ctx)
+}
+
 // compressMemory compresses old messages in memory when token count exceeds threshold
 func (r *ReActAgent) compressMemory(ctx context.Context) (*CompressionResult, error) {
 	if r.config.Compression == nil || !r.config.Compression.Enable {

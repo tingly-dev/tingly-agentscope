@@ -52,6 +52,16 @@ func (r *ReActAgent) SetStreamingConfig(streaming *StreamingConfig) {
 	r.config.Streaming = streaming
 }
 
+// SetCompressionConfig sets the compression configuration
+func (r *ReActAgent) SetCompressionConfig(compression *CompressionConfig) {
+	r.config.Compression = compression
+}
+
+// SetMemory sets the memory for the agent
+func (r *ReActAgent) SetMemory(mem Memory) {
+	r.config.Memory = mem
+}
+
 // Reply generates a response to the given message
 func (r *ReActAgent) Reply(ctx context.Context, input *message.Msg) (*message.Msg, error) {
 	// Start a new round when receiving a user message

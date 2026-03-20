@@ -339,6 +339,28 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				return i, nil
 			}
 
+		case tea.KeyUp:
+			// Up arrow cycles backwards through popup items
+			if i.IsPopupVisible() {
+				if i.popupMode == PopupModeCommand {
+					i.commandPopup.Prev()
+				} else if i.popupMode == PopupModeAgent {
+					i.agentPopup.Prev()
+				}
+				return i, nil
+			}
+
+		case tea.KeyDown:
+			// Down arrow cycles forward through popup items
+			if i.IsPopupVisible() {
+				if i.popupMode == PopupModeCommand {
+					i.commandPopup.Next()
+				} else if i.popupMode == PopupModeAgent {
+					i.agentPopup.Next()
+				}
+				return i, nil
+			}
+
 		case tea.KeyEnter:
 			// If popup visible, select item
 			if i.IsPopupVisible() {

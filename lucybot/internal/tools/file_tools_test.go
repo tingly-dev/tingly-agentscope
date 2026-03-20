@@ -43,17 +43,17 @@ func TestFileTools_ViewFile(t *testing.T) {
 	}{
 		{
 			name:     "read all",
-			params:   ViewFileParams{FilePath: testFile},
+			params:   ViewFileParams{Path: testFile},
 			contains: []string{"1: line 1", "5: line 5"},
 		},
 		{
 			name:     "read with offset",
-			params:   ViewFileParams{FilePath: testFile, Offset: 2},
+			params:   ViewFileParams{Path: testFile, Offset: 2},
 			contains: []string{"2: line 2", "5: line 5"},
 		},
 		{
 			name:     "read with limit",
-			params:   ViewFileParams{FilePath: testFile, Limit: 2},
+			params:   ViewFileParams{Path: testFile, Limit: 2},
 			contains: []string{"1: line 1", "2: line 2"},
 		},
 	}
