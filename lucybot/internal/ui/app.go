@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -376,7 +375,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ShowSessionPickerMsg:
 		// Show the session picker
-		fmt.Fprintf(os.Stderr, "[DEBUG] ShowSessionPickerMsg received with %d sessions\n", len(msg.Sessions))
 		a.sessionPicker = newSessionPicker(msg.Sessions, nil)
 		// Set initial size for the picker
 		pickerHeight := a.height - 6 // Leave room for title and hint

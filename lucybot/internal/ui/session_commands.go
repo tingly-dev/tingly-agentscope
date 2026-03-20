@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -46,8 +45,6 @@ func (a *App) handleSessionsCommand() tea.Cmd {
 // handleResumeCommand shows session picker or resumes by number
 func (a *App) handleResumeCommand(args string) tea.Cmd {
 	a.input.Reset()
-	fmt.Fprintf(os.Stderr, "[DEBUG] handleResumeCommand called with args: %q\n", args)
-
 	// Always show interactive picker
 	return a.showSessionPickerCmd()
 }
@@ -59,44 +56,31 @@ func (a *App) showSessionPickerCmd() tea.Cmd {
 		if err != nil {
 			return SystemMsg{Content: fmt.Sprintf("Error: %v", err)}
 		}
-		// Debug: log session info
-		fmt.Fprintf(os.Stderr, "[DEBUG] Found %d sessions\n", len(sessions))
-		for i, s := range sessions {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Session %d: ID=%s Name=%s Messages=%d\n", i, s.ID, s.Name, s.MessageCount)
-		}
 		return ShowSessionPickerMsg{Sessions: sessions}
 	}
 }
 
 // listSessions retrieves all sessions for the current project
 func (a *App) listSessions() ([]*session.SessionInfo, error) {
-	fmt.Fprintf(os.Stderr, "[DEBUG] listSessions called\n")
 	if a.config == nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG] config is nil\n")
 		return nil, fmt.Errorf("config is nil")
 	}
-	fmt.Fprintf(os.Stderr, "[DEBUG] Session.Enabled: %v\n", a.config.Session.Enabled)
 
 	if !a.config.Session.Enabled {
 		return nil, fmt.Errorf("session not enabled")
 	}
 
 	// Get sessions from session manager
-	// This requires the agent to expose its session manager
 	if a.agent == nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG] agent is nil\n")
 		return nil, fmt.Errorf("agent is nil")
 	}
 
 	mgr := a.agent.GetSessionManager()
 	if mgr == nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG] session manager is nil\n")
 		return nil, fmt.Errorf("session manager is nil")
 	}
 
-	sessions, err := mgr.List()
-	fmt.Fprintf(os.Stderr, "[DEBUG] mgr.List() returned %d sessions, err: %v\n", len(sessions), err)
-	return sessions, err
+	return mgr.List()
 }
 
 // SystemMsg is a message to display in the system output
