@@ -26,6 +26,13 @@ func NewRecordingMemory(mem memory.Memory, recorder *Recorder, sessionID string)
 	}
 }
 
+// SetSessionID updates the session ID for recording
+func (r *RecordingMemory) SetSessionID(sessionID string) {
+	r.sessionID = sessionID
+	// Note: We don't reinitialize the recorder since the session file already exists
+	// and we want to append to it
+}
+
 // Add adds a message to memory and records it to the session
 func (r *RecordingMemory) Add(ctx context.Context, msg *message.Msg) error {
 	// Add to underlying memory first

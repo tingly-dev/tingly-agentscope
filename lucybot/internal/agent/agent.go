@@ -234,6 +234,16 @@ func (a *LucyBotAgent) SetSessionManager(mgr *session.Manager, sessionID string)
 	a.sessionID = sessionID
 }
 
+// SetSessionIDForRecording updates the session ID for recording
+// This is used when resuming a session to append new messages to the resumed session
+func (a *LucyBotAgent) SetSessionIDForRecording(sessionID string) {
+	a.sessionID = sessionID
+	// Update RecordingMemory's session ID if memory is RecordingMemory
+	if recordingMem, ok := a.memory.(*session.RecordingMemory); ok {
+		recordingMem.SetSessionID(sessionID)
+	}
+}
+
 // GetMemory returns the agent's memory (needed for session resumption)
 func (a *LucyBotAgent) GetMemory() memory.Memory {
 	return a.memory

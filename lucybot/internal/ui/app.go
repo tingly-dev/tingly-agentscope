@@ -819,6 +819,7 @@ func (a *App) handleSession() tea.Cmd {
 }
 
 // resumeSession loads messages from a saved session into memory
+// and sets up recording to append new messages to the same session
 func (a *App) resumeSession(sessionID string) error {
 	if a.agent == nil {
 		return fmt.Errorf("no agent available")
@@ -843,6 +844,9 @@ func (a *App) resumeSession(sessionID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load session into memory: %w", err)
 	}
+
+	// Update the agent's session ID so new messages are appended to this session
+	a.agent.SetSessionIDForRecording(sessionID)
 
 	// Display all messages in the UI
 	a.messages.Clear()
