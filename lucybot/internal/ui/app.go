@@ -2,7 +2,9 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -861,19 +863,37 @@ func (a *App) resumeSession(sessionID string) error {
 
 	// Add each message to the UI
 	for _, msg := range sess.Messages {
+		var contentStr string
+
+		// Debug: log the content type and value
+		fmt.Fprintf(os.Stderr, "[DEBUG] Message role=%s, content type=%T, content value=%v\n",
+			msg.Role, msg.Content, msg.Content)
+
+		// The content should always be a string after loading from JSONL
+		// But handle edge cases where it might be other types
+		if str, ok := msg.Content.(string); ok {
+			contentStr = str
+		} else {
+			// For non-string content (shouldn't happen with proper JSONL),
+			// try to marshal to JSON or format
+			if bytes, err := json.Marshal(msg.Content); err == nil {
+				contentStr = string(bytes)
+			} else {
+				// Last resort - use the raw message content
+				// This handles cases where content is stored as structured data
+				contentStr = fmt.Sprintf("%v", msg.Content)
+			}
+		}
+
 		switch msg.Role {
 		case "user":
-			contentStr := fmt.Sprintf("%v", msg.Content)
 			a.messages.AddUserMessage(contentStr)
 		case "assistant":
-			contentStr := fmt.Sprintf("%v", msg.Content)
 			a.messages.AddAssistantMessage(contentStr, msg.Name)
 		case "system":
-			contentStr := fmt.Sprintf("%v", msg.Content)
 			a.messages.AddSystemMessage(contentStr)
 		default:
 			// Handle other roles
-			contentStr := fmt.Sprintf("%v", msg.Content)
 			a.messages.AddSystemMessage(fmt.Sprintf("[%s] %s", msg.Role, contentStr))
 		}
 	}
