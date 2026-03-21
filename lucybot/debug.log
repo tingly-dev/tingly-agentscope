@@ -1,0 +1,99 @@
+[DEBUG] Message role=user, content type=string, content value=Check if the multi-agents function is working? If yes, tell me the user flow to use this function.
+[DEBUG] Message role=assistant, content type=string, content value=## Multi-Agent Status
+
+**Yes, the multi-agent function is implemented and working!**
+
+The codebase has a complete multi-agent system with the following components:
+
+- **Agent Registry** (`internal/agent/registry.go`) - Manages agent definitions
+- **TUI Integration** (`internal/ui/app.go`) - UI for agent switching and mentions
+- **Agent Discovery** - Auto-loads agents from TOML files
+
+---
+
+## User Flow to Use Multi-Agent Function
+
+### 1. Create Agent Definitions
+
+Create `.toml` files in either:
+- `.lucybot/agents/` (project-specific)
+- `~/.lucybot/agents/` (global)
+
+**Example agent file (`coder.toml`):**
+```toml
+name = "coder"
+mode = "subagent"
+description = "Expert in writing and debugging code"
+model_type = "openai"
+model_name = "gpt-4o"
+system_prompt = "You are an expert programmer..."
+max_iters = 20
+tools = ["view_source", "edit_file", "bash"]
+mention_aliases = ["dev", "programmer"]
+```
+
+### 2. Start LucyBot
+```bash
+./lucybot chat
+```
+
+### 3. Use Multi-Agent Features
+
+- **Mention agents**: Type `@coder help me debug this function`
+- **Cycle primary agents**: Press `Tab` to switch between primary-mode agents
+- **List agents**: Type `/agents` to see all available agents
+- **Agent autocomplete**: Type `@` and select from popup
+
+### 4. Agent Modes
+
+| Mode | Purpose | Access |
+|------|---------|--------|
+| `primary` | Main conversational agents | Tab to cycle |
+| `subagent` | Task-specific helpers | @mention only |
+| `all` | Both purposes | Tab + @mention |
+[DEBUG] Message role=user, content type=string, content value=But when I type "@", I didn't get a window to show the list of available agents. Why?
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d6e98f0]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688d9afc00]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d6e99b0]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688d9afd00]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d6e9a40]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688d9b55c0]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688da0faa0]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da1c000]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d6e94a0]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da12500]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d8a0db0]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da02100]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d8a2360]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da02600]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688dbf0ea0]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da120c0]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688da0ea50]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da1c180]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688dbf1530]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da12240]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688da0eae0]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da02180]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d9307b0]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da5e240]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d7e8390]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da9a400]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688dbff9e0]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da94500]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d7e8450]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da941c0]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688db22b10]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688daac140]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688db23d70]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da94a40]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d792f30]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da5eb40]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688da0eba0]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da95380]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688db22780]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da94280]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688da10750]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da94140]
+[DEBUG] Message role=assistant, content type=string, content value=[0x3c688d8a2450]
+[DEBUG] Message role=user, content type=string, content value=[0x3c688da5e140]
+[DEBUG] Message role=assistant, content type=string, content value=I've reached the maximum number of iterations. Let me provide a summary of what I found.

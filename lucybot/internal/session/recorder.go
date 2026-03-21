@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -77,8 +78,18 @@ func (r *Recorder) RecordMessage(ctx context.Context, sessionID string, msg *mes
 	// Convert to JSONL message
 	content := msg.GetTextContent()
 	if content == "" {
-		// For non-text messages, try to serialize
-		content = fmt.Sprintf("%v", msg.Content)
+		// For non-text messages or when GetTextContent returns empty,
+		// serialize the Content field to JSON
+		if msg.Content != nil {
+			if bytes, err := json.Marshal(msg.Content); err == nil {
+				content = string(bytes)
+			} else {
+				// Last resort: use string representation
+				content = fmt.Sprintf("%v", msg.Content)
+			}
+		} else {
+			content = ""
+		}
 	}
 
 	jsonlMsg := JSONLMessage{
