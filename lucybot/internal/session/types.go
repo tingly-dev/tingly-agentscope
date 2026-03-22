@@ -13,6 +13,7 @@ type Session struct {
 	ModelName     string    `json:"model_name,omitempty"`     // Model used in this session
 	LastMessage   string    `json:"last_message,omitempty"`   // Preview of last user message
 	Messages      []Message `json:"messages,omitempty"`       // Omitted for list views
+	Queries       []string  `json:"queries,omitempty"`        // User query history for this session
 }
 
 // Message represents a single message in a session

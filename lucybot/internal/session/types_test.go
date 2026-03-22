@@ -2,6 +2,7 @@ package session
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -247,4 +248,43 @@ func containsSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestSessionWithQueries(t *testing.T) {
+	s := &Session{
+		ID:        "test-id",
+		Name:      "Test Session",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Queries:   []string{"query1", "query2"},
+	}
+
+	if len(s.Queries) != 2 {
+		t.Errorf("Expected 2 queries, got %d", len(s.Queries))
+	}
+	if s.Queries[0] != "query1" {
+		t.Errorf("Expected 'query1', got '%s'", s.Queries[0])
+	}
+}
+
+func TestSessionQueriesOmitted(t *testing.T) {
+	// Queries should be omitted from JSON when empty
+	s := &Session{
+		ID:        "test-id",
+		Name:      "Test Session",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// Marshal to JSON
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	// Should not contain "queries" key when empty
+	str := string(data)
+	if strings.Contains(str, "queries") {
+		t.Error("Empty queries should be omitted from JSON")
+	}
 }
