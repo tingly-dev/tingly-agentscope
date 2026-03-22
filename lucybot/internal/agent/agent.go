@@ -228,6 +228,11 @@ func (a *LucyBotAgent) GetSessionManager() *session.Manager {
 	return a.sessionManager
 }
 
+// GetSessionID returns the current session ID
+func (a *LucyBotAgent) GetSessionID() string {
+	return a.sessionID
+}
+
 // SetSessionManager sets the session manager and session ID
 func (a *LucyBotAgent) SetSessionManager(mgr *session.Manager, sessionID string) {
 	a.sessionManager = mgr
@@ -241,6 +246,18 @@ func (a *LucyBotAgent) SetSessionIDForRecording(sessionID string) {
 	// Update RecordingMemory's session ID if memory is RecordingMemory
 	if recordingMem, ok := a.memory.(*session.RecordingMemory); ok {
 		recordingMem.SetSessionID(sessionID)
+	}
+
+	// Also update the recorder's session ID directly
+	if a.sessionManager != nil {
+		recorder := a.sessionManager.GetRecorder()
+		// Load the session to get its name
+		if sess, err := a.sessionManager.Load(sessionID); err == nil {
+			recorder.SetSessionID(sessionID, sess.Name)
+		} else {
+			// If we can't load the session, just update the ID
+			recorder.SetSessionID(sessionID, "")
+		}
 	}
 }
 
@@ -297,7 +314,6 @@ func (a *LucyBotAgent) SetupCompression() {
 
 	a.ReActAgent.SetCompressionConfig(compressionCfg)
 }
-
 
 // AnalyzeInput analyzes user input for MCP lazy loading triggers
 func (a *LucyBotAgent) AnalyzeInput(ctx context.Context, input string) error {

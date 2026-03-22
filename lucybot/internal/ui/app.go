@@ -18,7 +18,6 @@ import (
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
-
 // App is the main TUI application
 type App struct {
 	// Core components
@@ -27,11 +26,11 @@ type App struct {
 	registry *agent.Registry
 
 	// UI components
-	messages        *Messages
-	input           Input
-	statusBar       *StatusBar
-	spinner         spinner.Model
-	sessionPicker   *sessionPickerModel // Session picker for selecting sessions
+	messages      *Messages
+	input         Input
+	statusBar     *StatusBar
+	spinner       spinner.Model
+	sessionPicker *sessionPickerModel // Session picker for selecting sessions
 
 	// State
 	width           int
@@ -458,6 +457,13 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 
 	// Add to input history before resetting
 	a.input.AddToHistory(input)
+
+	// Also record to session if sessions enabled
+	if a.agent != nil && a.agent.GetSessionManager() != nil {
+		if recorder := a.agent.GetSessionManager().GetRecorder(); recorder != nil {
+			recorder.RecordQuery(context.Background(), a.agent.GetSessionID(), input)
+		}
+	}
 
 	// Normal message
 	a.messages.AddUserMessage(input)
