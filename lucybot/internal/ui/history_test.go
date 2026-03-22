@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -124,5 +125,82 @@ func TestHistoryLimit(t *testing.T) {
 	// Should keep most recent
 	if queries[4] != "j" {
 		t.Errorf("Most recent entry should be 'j', got '%s'", queries[4])
+	}
+}
+
+func TestHistorySetQueries(t *testing.T) {
+	h := NewHistory()
+	h.Add("existing")
+
+	queries := []string{"query1", "query2"}
+	h.SetQueries(queries)
+
+	result := h.GetAll()
+	if len(result) != 2 {
+		t.Errorf("Expected 2 queries, got %d", len(result))
+	}
+	if result[0] != "query1" {
+		t.Errorf("Expected 'query1', got '%s'", result[0])
+	}
+}
+
+func TestHistoryClear(t *testing.T) {
+	h := NewHistory()
+	h.Add("query1")
+	h.Add("query2")
+	h.Previous() // Enter browsing mode
+
+	h.Clear()
+
+	if len(h.GetAll()) != 0 {
+		t.Errorf("History should be empty after clear, got %d entries", len(h.GetAll()))
+	}
+	if h.IsBrowsing() {
+		t.Error("Clear should exit browsing mode")
+	}
+}
+
+func TestHistoryEmptyEdgeCases(t *testing.T) {
+	h := NewHistory()
+
+	// Previous on empty history should return empty
+	if prev := h.Previous(); prev != "" {
+		t.Errorf("Expected empty string for Previous on empty history, got '%s'", prev)
+	}
+
+	// Next on empty history should return draft
+	h.SetDraft("test draft")
+	if next := h.Next(); next != "test draft" {
+		t.Errorf("Expected draft for Next on empty history, got '%s'", next)
+	}
+}
+
+func TestHistorySetQueriesEmpty(t *testing.T) {
+	h := NewHistory()
+	h.Add("existing")
+
+	// Set with empty slice should clear
+	h.SetQueries([]string{})
+
+	if len(h.GetAll()) != 0 {
+		t.Errorf("Expected empty history after SetQueries with empty slice, got %d entries", len(h.GetAll()))
+	}
+}
+
+func TestHistorySetQueriesExceedsLimit(t *testing.T) {
+	h := NewHistory()
+	h.maxSize = 5 // Small limit for testing
+
+	// Set queries exceeding limit
+	queries := make([]string, 10)
+	for i := 0; i < 10; i++ {
+		queries[i] = fmt.Sprintf("query%d", i)
+	}
+	h.SetQueries(queries)
+
+	// Should keep only most recent
+	result := h.GetAll()
+	if len(result) != 5 {
+		t.Errorf("Expected history to be limited to 5, got %d", len(result))
 	}
 }
