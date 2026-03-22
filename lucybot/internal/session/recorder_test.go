@@ -60,3 +60,46 @@ func TestRecorder(t *testing.T) {
 		t.Errorf("Expected content 'Hello', got %v", messages[0].Content)
 	}
 }
+
+func TestRecorderRecordsQueries(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir)
+	recorder := NewRecorder(store, "test-agent", "/tmp", "test-model")
+
+	recorder.Initialize("test-session", "Test Session")
+
+	// Record a user message (should be added to queries)
+	if err := recorder.RecordQuery(context.Background(), "test-session", "test query"); err != nil {
+		t.Fatalf("Failed to record query: %v", err)
+	}
+
+	// Load session to verify query was saved
+	sess, err := store.Load("test-session")
+	if err != nil {
+		t.Fatalf("Failed to load session: %v", err)
+	}
+
+	if len(sess.Queries) != 1 {
+		t.Errorf("Expected 1 query, got %d", len(sess.Queries))
+	}
+	if sess.Queries[0] != "test query" {
+		t.Errorf("Expected 'test query', got '%s'", sess.Queries[0])
+	}
+}
+
+func TestRecorderNoDuplicateQueries(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir)
+	recorder := NewRecorder(store, "test-agent", "/tmp", "test-model")
+
+	recorder.Initialize("test-session", "Test Session")
+
+	// Record same query twice
+	recorder.RecordQuery(context.Background(), "test-session", "same query")
+	recorder.RecordQuery(context.Background(), "test-session", "same query")
+
+	sess, _ := store.Load("test-session")
+	if len(sess.Queries) != 1 {
+		t.Errorf("Duplicate query should not be added, got %d", len(sess.Queries))
+	}
+}

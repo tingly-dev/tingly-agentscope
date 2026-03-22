@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
@@ -16,7 +17,7 @@ type Recorder struct {
 	workingDir string
 	modelName  string
 	// Track session metadata for lazy initialization
-	sessionID  string
+	sessionID   string
 	sessionName string
 	initialized bool // True when header has been written
 }
@@ -38,6 +39,14 @@ func (r *Recorder) Initialize(sessionID, name string) error {
 	r.sessionName = name
 	r.initialized = false
 	return nil
+}
+
+// SetSessionID updates the session ID and resets initialization
+// This should be called when switching to a different session
+func (r *Recorder) SetSessionID(sessionID, name string) {
+	r.sessionID = sessionID
+	r.sessionName = name
+	r.initialized = false // Reset so new session file is created on next message
 }
 
 // ensureInitialized writes the session header if not already done
@@ -120,4 +129,38 @@ func (r *Recorder) RecordMessage(ctx context.Context, sessionID string, msg *mes
 	session.LastMessage = content
 
 	return r.store.Save(session)
+}
+
+// RecordQuery records a user query to the session
+// This maintains query history separate from messages
+func (r *Recorder) RecordQuery(ctx context.Context, sessionID string, query string) error {
+	// Skip empty queries
+	if strings.TrimSpace(query) == "" {
+		return nil
+	}
+
+	// Ensure session is initialized
+	if !r.initialized {
+		if err := r.ensureInitialized(); err != nil {
+			return err
+		}
+	}
+
+	// Load session to check for duplicates and get existing queries
+	sess, err := r.store.Load(sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to load session: %w", err)
+	}
+
+	// Check for duplicate of most recent query
+	if len(sess.Queries) > 0 && sess.Queries[len(sess.Queries)-1] == query {
+		return nil // Skip duplicate
+	}
+
+	// Add query to list
+	sess.Queries = append(sess.Queries, query)
+	sess.UpdatedAt = time.Now()
+
+	// Save updated session
+	return r.store.Save(sess)
 }
