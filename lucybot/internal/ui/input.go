@@ -189,26 +189,15 @@ func (i *Input) isCursorOnLastLine() bool {
 }
 
 // ShouldHandleHistoryNavigation returns true if Up/Down should be handled for history navigation
-// This is true when the input is empty or when the cursor is on the first/last line
+// For bash-style history, this should be true when input is a single line (no newlines)
 func (i *Input) ShouldHandleHistoryNavigation(direction string) bool {
+	// Count newlines in the input
 	value := i.textarea.Value()
+	newlineCount := strings.Count(value, "\n")
 
-	// If input is empty, Up should start history navigation
-	if value == "" && direction == "up" {
-		return true
-	}
-
-	// If input is empty, Down should navigate history only when browsing
-	if value == "" && direction == "down" {
-		return i.history.IsBrowsing()
-	}
-
-	// If input has only one line, allow history navigation
-	if strings.Count(value, "\n") == 0 {
-		return true
-	}
-
-	return false
+	// If input has no newlines (single line or empty), handle history navigation
+	// This matches bash behavior where Up/Down navigate command history
+	return newlineCount == 0
 }
 
 // IsPopupVisible returns true if any popup is visible

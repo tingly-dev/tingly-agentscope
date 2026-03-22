@@ -302,3 +302,38 @@ func TestShouldHandleHistoryNavigation(t *testing.T) {
 		t.Error("Expected false for multi-line input + up")
 	}
 }
+
+func TestBashStyleHistoryNavigation(t *testing.T) {
+	input := NewInput()
+
+	// Test with empty input - Up should navigate history
+	if !input.ShouldHandleHistoryNavigation("up") {
+		t.Error("Expected true for empty input + up (bash style)")
+	}
+
+	// Test with empty input - Down should NOT navigate when not browsing
+	if input.ShouldHandleHistoryNavigation("down") {
+		t.Error("Expected false for empty input + down when not browsing")
+	}
+
+	// Add a query and start browsing
+	input.AddToHistory("test query")
+	input.Update(tea.KeyMsg{Type: tea.KeyUp})
+
+	// Now Down should navigate history (while browsing)
+	if !input.ShouldHandleHistoryNavigation("down") {
+		t.Error("Expected true for empty input + down while browsing")
+	}
+
+	// Test with typed text (single line) - should navigate history
+	input.SetValue("hello")
+	if !input.ShouldHandleHistoryNavigation("up") {
+		t.Error("Expected true for single-line input + up (bash style)")
+	}
+
+	// Test with multi-line input - should NOT navigate history
+	input.SetValue("hello\nworld")
+	if input.ShouldHandleHistoryNavigation("up") {
+		t.Error("Expected false for multi-line input + up (should scroll messages)")
+	}
+}
