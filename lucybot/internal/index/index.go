@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/tingly-dev/lucybot/internal/parsers"
 	"github.com/tingly-dev/lucybot/internal/index/registry"
+	_ "github.com/tingly-dev/lucybot/internal/parsers"
 	"github.com/tingly-dev/lucybot/internal/watcher"
 )
 

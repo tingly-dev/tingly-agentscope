@@ -120,11 +120,11 @@ type FileInfo struct {
 
 // ParseResult contains the results of parsing a file
 type ParseResult struct {
-	Symbols      []*Symbol
-	References   []*SymbolReference
-	Scopes       []*Scope
+	Symbols       []*Symbol
+	References    []*SymbolReference
+	Scopes        []*Scope
 	Relationships []*Relationship
-	FileInfo     *FileInfo
+	FileInfo      *FileInfo
 }
 
 // LanguageParser defines the interface for language-specific parsers

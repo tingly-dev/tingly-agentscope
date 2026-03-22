@@ -64,7 +64,7 @@ var contentExtensionToLang = map[string]string{
 
 // Markdown patterns
 var contentMarkdownPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?m)^#{1,6}\s`),           // Headers
+	regexp.MustCompile(`(?m)^#{1,6}\s`),            // Headers
 	regexp.MustCompile(`(?m)^\*\s|^\-\s|^\d+\.\s`), // Lists
 	regexp.MustCompile(`\*\*.*?\*\*`),              // Bold
 	regexp.MustCompile(`\*.*?\*`),                  // Italic

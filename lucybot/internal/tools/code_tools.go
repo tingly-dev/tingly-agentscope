@@ -22,8 +22,8 @@ type CodeTools struct {
 	fileTools *FileTools
 	index     *index.Index // Add index field
 	indexPath string
-	indexOnce sync.Once   // For thread-safe lazy loading
-	indexErr  error       // Any error from loading
+	indexOnce sync.Once // For thread-safe lazy loading
+	indexErr  error     // Any error from loading
 	indexMu   sync.RWMutex
 }
 

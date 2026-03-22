@@ -166,15 +166,25 @@ func (i *Input) GetHistory() *History {
 
 // isCursorOnFirstLine returns true if cursor is on the first line of input
 func (i *Input) isCursorOnFirstLine() bool {
-	// Check if input has only one line
+	// For bash-style history navigation:
+	// - Allow Up to navigate history when input is empty (no matter what)
+	// - Also allow when on the first line (no newlines before cursor)
 	value := i.textarea.Value()
+	if value == "" {
+		return true
+	}
 	return strings.Count(value, "\n") == 0
 }
 
 // isCursorOnLastLine returns true if cursor is on the last line of input
 func (i *Input) isCursorOnLastLine() bool {
-	// Check if input has only one line
+	// For bash-style history navigation:
+	// - Allow Down to navigate history when input is empty (no matter what)
+	// - Also allow when on the last line (no newlines after cursor)
 	value := i.textarea.Value()
+	if value == "" {
+		return true
+	}
 	return strings.Count(value, "\n") == 0
 }
 

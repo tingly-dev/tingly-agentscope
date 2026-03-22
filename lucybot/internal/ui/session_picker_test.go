@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tingly-dev/lucybot/internal/session"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/tingly-dev/lucybot/internal/session"
 )
 
 func TestSessionPickerModel(t *testing.T) {

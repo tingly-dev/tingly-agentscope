@@ -113,13 +113,13 @@ func (m *Manager) List() ([]*SessionInfo, error) {
 	// Add pending sessions (lazy initialized but not yet persisted)
 	for _, session := range m.pendingSessions {
 		info := &SessionInfo{
-			ID:          session.ID,
-			Name:        session.Name,
-			CreatedAt:   session.CreatedAt,
-			UpdatedAt:   session.UpdatedAt,
+			ID:           session.ID,
+			Name:         session.Name,
+			CreatedAt:    session.CreatedAt,
+			UpdatedAt:    session.UpdatedAt,
 			MessageCount: 0, // No messages yet
-			AgentName:   session.AgentName,
-			LastMessage: "",
+			AgentName:    session.AgentName,
+			LastMessage:  "",
 		}
 		sessions = append(sessions, info)
 	}

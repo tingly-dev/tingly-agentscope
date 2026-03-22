@@ -63,4 +63,3 @@ type IndexMetadata struct {
 
 // IndexVersion is the current schema version
 const IndexVersion = 1
-

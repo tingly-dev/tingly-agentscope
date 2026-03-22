@@ -141,4 +141,3 @@ func GetParserForFile(filePath string) types.LanguageParser {
 func CanParse(filePath string) bool {
 	return DefaultRegistry.CanParse(filePath)
 }
-

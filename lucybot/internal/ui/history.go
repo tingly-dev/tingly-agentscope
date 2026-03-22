@@ -6,11 +6,11 @@ import (
 
 // History manages query history with bash-style navigation
 type History struct {
-	queries     []string
-	maxSize     int
-	index       int      // -1 means not browsing, >=0 means offset from end
-	draft       string   // Stores current input when browsing history
-	isBrowsing  bool
+	queries    []string
+	maxSize    int
+	index      int    // -1 means not browsing, >=0 means offset from end
+	draft      string // Stores current input when browsing history
+	isBrowsing bool
 }
 
 const (

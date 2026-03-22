@@ -13,20 +13,20 @@ const (
 // ToolRenderConfig holds render configuration for tools
 var ToolRenderConfig = map[string]RenderMode{
 	// Editing tools show full output
-	"edit_file":    RenderModeFull,
-	"patch_file":   RenderModeFull,
-	"create_file":  RenderModeFull,
-	"write_file":   RenderModeFull,
-	"file_edit":    RenderModeFull,
-	"file_patch":   RenderModeFull,
-	"file_create":  RenderModeFull,
+	"edit_file":   RenderModeFull,
+	"patch_file":  RenderModeFull,
+	"create_file": RenderModeFull,
+	"write_file":  RenderModeFull,
+	"file_edit":   RenderModeFull,
+	"file_patch":  RenderModeFull,
+	"file_create": RenderModeFull,
 
 	// Viewing tools show truncated output (default)
-	"read_file":    RenderModeTruncated,
-	"view":         RenderModeTruncated,
-	"glob":         RenderModeTruncated,
-	"search":       RenderModeTruncated,
-	"grep":         RenderModeTruncated,
+	"read_file": RenderModeTruncated,
+	"view":      RenderModeTruncated,
+	"glob":      RenderModeTruncated,
+	"search":    RenderModeTruncated,
+	"grep":      RenderModeTruncated,
 }
 
 // GetToolRenderMode returns the render mode for a tool
