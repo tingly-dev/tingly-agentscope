@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -142,4 +143,135 @@ func TestInputSetHistoryWithExisting(t *testing.T) {
 	assert.Equal(t, 2, len(allQueries))
 	assert.Equal(t, "new query 1", allQueries[0])
 	assert.Equal(t, "new query 2", allQueries[1])
+}
+
+func TestInputHistoryNavigation(t *testing.T) {
+	input := NewInput()
+
+	// Add some queries
+	input.AddToHistory("first query")
+	input.AddToHistory("second query")
+	input.AddToHistory("third query")
+
+	// Set current input
+	input.SetValue("current draft")
+
+	// Navigate to previous (should save draft and show most recent)
+	updatedInput, _ := input.Update(tea.KeyMsg{Type: tea.KeyUp})
+	input = updatedInput
+
+	if input.Value() != "third query" {
+		t.Errorf("Expected 'third query', got '%s'", input.Value())
+	}
+
+	// Navigate to previous again
+	updatedInput, _ = input.Update(tea.KeyMsg{Type: tea.KeyUp})
+	input = updatedInput
+
+	if input.Value() != "second query" {
+		t.Errorf("Expected 'second query', got '%s'", input.Value())
+	}
+
+	// Navigate to next
+	updatedInput, _ = input.Update(tea.KeyMsg{Type: tea.KeyDown})
+	input = updatedInput
+
+	if input.Value() != "third query" {
+		t.Errorf("Expected 'third query', got '%s'", input.Value())
+	}
+
+	// Navigate to next (should return to draft)
+	updatedInput, _ = input.Update(tea.KeyMsg{Type: tea.KeyDown})
+	input = updatedInput
+
+	if input.Value() != "current draft" {
+		t.Errorf("Expected 'current draft', got '%s'", input.Value())
+	}
+}
+
+func TestInputHistorySetFromSession(t *testing.T) {
+	input := NewInput()
+
+	// Simulate loading from session
+	queries := []string{"old query 1", "old query 2"}
+	input.SetHistory(queries)
+
+	// Should be able to navigate
+	updatedInput, _ := input.Update(tea.KeyMsg{Type: tea.KeyUp})
+	input = updatedInput
+
+	if input.Value() != "old query 2" {
+		t.Errorf("Expected 'old query 2', got '%s'", input.Value())
+	}
+
+	// Navigate to previous
+	updatedInput, _ = input.Update(tea.KeyMsg{Type: tea.KeyUp})
+	input = updatedInput
+
+	if input.Value() != "old query 1" {
+		t.Errorf("Expected 'old query 1', got '%s'", input.Value())
+	}
+}
+
+func TestInputHistoryNoDuplicates(t *testing.T) {
+	input := NewInput()
+
+	input.AddToHistory("same query")
+	input.AddToHistory("same query")
+	input.AddToHistory("same query")
+
+	allQueries := input.GetHistory().GetAll()
+	if len(allQueries) != 1 {
+		t.Errorf("Duplicates should be filtered, got %d entries", len(allQueries))
+	}
+
+	// Verify the single entry is correct
+	if allQueries[0] != "same query" {
+		t.Errorf("Expected 'same query', got '%s'", allQueries[0])
+	}
+}
+
+func TestInputHistoryNavigationEmpty(t *testing.T) {
+	input := NewInput()
+
+	// Set a value
+	input.SetValue("test input")
+
+	// Try to navigate with empty history
+	// When history is empty, Previous() returns "" immediately without entering browsing mode
+	updatedInput, _ := input.Update(tea.KeyMsg{Type: tea.KeyUp})
+	input = updatedInput
+
+	// Should be empty because history.Previous() returns "" for empty history
+	if input.Value() != "" {
+		t.Errorf("Expected empty string, got '%s'", input.Value())
+	}
+
+	// Should NOT be in browsing mode (empty history check prevents entering browse mode)
+	assert.False(t, input.history.IsBrowsing(), "Should not be browsing with empty history")
+}
+
+func TestInputHistoryResetsOnTyping(t *testing.T) {
+	input := NewInput()
+
+	// Add some history
+	input.AddToHistory("first query")
+	input.AddToHistory("second query")
+
+	// Navigate to history
+	updatedInput, _ := input.Update(tea.KeyMsg{Type: tea.KeyUp})
+	input = updatedInput
+
+	assert.Equal(t, "second query", input.Value())
+	assert.True(t, input.history.IsBrowsing())
+
+	// Type something (KeyRunes simulates character input)
+	updatedInput, _ = input.Update(tea.KeyMsg{
+		Type:  tea.KeyRunes,
+		Runes: []rune{'x'},
+	})
+	input = updatedInput
+
+	// Should no longer be browsing history
+	assert.False(t, input.history.IsBrowsing())
 }
