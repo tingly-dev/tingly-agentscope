@@ -267,28 +267,28 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 
 		case tea.KeyUp:
-			// Scroll up one line (if input is not focused or popup visible)
-			if a.input.IsPopupVisible() {
-				// Let input handle popup navigation
+			// Forward to input for history navigation when appropriate
+			// Otherwise scroll messages
+			if a.input.ShouldHandleHistoryNavigation("up") {
 				input, inputCmd := a.input.Update(msg)
 				a.input = input
 				cmds = append(cmds, inputCmd)
-			} else {
-				a.messages.ScrollUp(3)
-				return a, nil
+				return a, tea.Batch(cmds...)
 			}
+			a.messages.ScrollUp(3)
+			return a, nil
 
 		case tea.KeyDown:
-			// Scroll down one line (if input is not focused or popup visible)
-			if a.input.IsPopupVisible() {
-				// Let input handle popup navigation
+			// Forward to input for history navigation when appropriate
+			// Otherwise scroll messages
+			if a.input.ShouldHandleHistoryNavigation("down") {
 				input, inputCmd := a.input.Update(msg)
 				a.input = input
 				cmds = append(cmds, inputCmd)
-			} else {
-				a.messages.ScrollDown(3)
-				return a, nil
+				return a, tea.Batch(cmds...)
 			}
+			a.messages.ScrollDown(3)
+			return a, nil
 
 		case tea.KeyHome:
 			// Scroll to top

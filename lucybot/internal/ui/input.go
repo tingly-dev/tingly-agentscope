@@ -188,6 +188,29 @@ func (i *Input) isCursorOnLastLine() bool {
 	return strings.Count(value, "\n") == 0
 }
 
+// ShouldHandleHistoryNavigation returns true if Up/Down should be handled for history navigation
+// This is true when the input is empty or when the cursor is on the first/last line
+func (i *Input) ShouldHandleHistoryNavigation(direction string) bool {
+	value := i.textarea.Value()
+
+	// If input is empty, Up should navigate history
+	if value == "" && direction == "up" {
+		return true
+	}
+
+	// If input is empty, Down should navigate history (if browsing)
+	if value == "" && direction == "down" && i.history.IsBrowsing() {
+		return true
+	}
+
+	// If input has only one line, handle both directions for history
+	if strings.Count(value, "\n") == 0 {
+		return true
+	}
+
+	return false
+}
+
 // IsPopupVisible returns true if any popup is visible
 func (i *Input) IsPopupVisible() bool {
 	return i.popupMode != PopupModeNone
