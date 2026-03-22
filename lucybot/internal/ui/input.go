@@ -193,17 +193,17 @@ func (i *Input) isCursorOnLastLine() bool {
 func (i *Input) ShouldHandleHistoryNavigation(direction string) bool {
 	value := i.textarea.Value()
 
-	// If input is empty, Up should navigate history
+	// If input is empty, Up should start history navigation
 	if value == "" && direction == "up" {
 		return true
 	}
 
-	// If input is empty, Down should navigate history (if browsing)
-	if value == "" && direction == "down" && i.history.IsBrowsing() {
-		return true
+	// If input is empty, Down should navigate history only when browsing
+	if value == "" && direction == "down" {
+		return i.history.IsBrowsing()
 	}
 
-	// If input has only one line, handle both directions for history
+	// If input has only one line, allow history navigation
 	if strings.Count(value, "\n") == 0 {
 		return true
 	}

@@ -275,3 +275,30 @@ func TestInputHistoryResetsOnTyping(t *testing.T) {
 	// Should no longer be browsing history
 	assert.False(t, input.history.IsBrowsing())
 }
+
+func TestShouldHandleHistoryNavigation(t *testing.T) {
+	input := NewInput()
+
+	// Test with empty input - should handle up
+	if !input.ShouldHandleHistoryNavigation("up") {
+		t.Error("Expected true for empty input + up")
+	}
+
+	// Test with empty input - should NOT handle down when not browsing
+	if input.ShouldHandleHistoryNavigation("down") {
+		t.Error("Expected false for empty input + down when not browsing")
+	}
+
+	// Start browsing and test down
+	input.AddToHistory("test query")
+	input.Update(tea.KeyMsg{Type: tea.KeyUp}) // Start browsing
+	if !input.ShouldHandleHistoryNavigation("down") {
+		t.Error("Expected true for empty input + down when browsing")
+	}
+
+	// Test with multi-line input - should NOT handle
+	input.SetValue("line1\nline2")
+	if input.ShouldHandleHistoryNavigation("up") {
+		t.Error("Expected false for multi-line input + up")
+	}
+}
