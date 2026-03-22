@@ -456,6 +456,9 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 		return a.handleAgentMention(agentName, remaining)
 	}
 
+	// Add to input history before resetting
+	a.input.AddToHistory(input)
+
 	// Normal message
 	a.messages.AddUserMessage(input)
 	a.input.Reset()
@@ -827,6 +830,97 @@ func (a *App) handleSession() tea.Cmd {
 	return nil
 }
 
+// parseContentBlocks parses JSON content string into ContentBlocks
+// If content is a simple string, returns a TextBlock
+// If content is a JSON array, parses each element into appropriate ContentBlock types
+func parseContentBlocks(contentStr string) []message.ContentBlock {
+	// Try to unmarshal as JSON array first
+	var jsonArray []map[string]any
+	if err := json.Unmarshal([]byte(contentStr), &jsonArray); err == nil {
+		var blocks []message.ContentBlock
+		for _, item := range jsonArray {
+			// Detect block type based on fields present (since JSON doesn't include type field)
+			_, hasID := item["id"]
+			name, hasName := item["name"].(string)
+			_, hasInput := item["input"]
+			_, hasOutput := item["output"]
+			text, hasText := item["text"].(string)
+			thinking, hasThinking := item["thinking"].(string)
+			_, hasSource := item["source"]
+			blockType, _ := item["type"].(string)
+
+			// Use explicit type if provided, otherwise detect from fields
+			if blockType == "" {
+				switch {
+				case hasID && hasName && hasInput:
+					blockType = "tool_use"
+				case hasID && hasName && hasOutput:
+					blockType = "tool_result"
+				case hasText:
+					blockType = "text"
+				case hasThinking:
+					blockType = "thinking"
+				case hasSource:
+					blockType = "image"
+				}
+			}
+
+			switch blockType {
+			case "text":
+				if text != "" {
+					blocks = append(blocks, &message.TextBlock{Text: text})
+				}
+			case "thinking":
+				if thinking != "" {
+					blocks = append(blocks, &message.ThinkingBlock{Thinking: thinking})
+				}
+			case "tool_use":
+				id, _ := item["id"].(string)
+				input := item["input"]
+				blocks = append(blocks, &message.ToolUseBlock{
+					ID:    id,
+					Name:  name,
+					Input: input,
+				})
+			case "tool_result":
+				id, _ := item["id"].(string)
+				// Parse output blocks recursively
+				var outputBlocks []message.ContentBlock
+				if outputData, ok := item["output"].([]any); ok {
+					outputJSON, _ := json.Marshal(outputData)
+					outputBlocks = parseContentBlocks(string(outputJSON))
+				}
+				blocks = append(blocks, &message.ToolResultBlock{
+					ID:     id,
+					Name:   name,
+					Output: outputBlocks,
+				})
+			case "image":
+				if sourceData, ok := item["source"].(map[string]any); ok {
+					source := &message.MediaSource{}
+					if typ, _ := sourceData["type"].(string); typ != "" {
+						source.Type = typ
+					}
+					if url, _ := sourceData["url"].(string); url != "" {
+						source.URL = url
+					}
+					if mediaType, _ := sourceData["media_type"].(string); mediaType != "" {
+						source.MediaType = mediaType
+					}
+					if data, _ := sourceData["data"].(string); data != "" {
+						source.Data = data
+					}
+					blocks = append(blocks, &message.ImageBlock{Source: source})
+				}
+			}
+		}
+		return blocks
+	}
+
+	// If not JSON array, treat as simple text
+	return []message.ContentBlock{&message.TextBlock{Text: contentStr}}
+}
+
 // resumeSession loads messages from a saved session into memory
 // and sets up recording to append new messages to the same session
 func (a *App) resumeSession(sessionID string) error {
@@ -878,18 +972,25 @@ func (a *App) resumeSession(sessionID string) error {
 			}
 		}
 
+		// Parse content blocks from JSON
+		blocks := parseContentBlocks(contentStr)
+
+		// Use AddMessageWithBlocks to render with proper formatting (same as live messages)
 		switch msg.Role {
 		case "user":
-			a.messages.AddUserMessage(contentStr)
+			a.messages.AddMessageWithBlocks("user", "", "", blocks)
 		case "assistant":
-			a.messages.AddAssistantMessage(contentStr, msg.Name)
+			a.messages.AddMessageWithBlocks("assistant", "", msg.Name, blocks)
 		case "system":
-			a.messages.AddSystemMessage(contentStr)
+			a.messages.AddMessageWithBlocks("system", "", "", blocks)
 		default:
 			// Handle other roles
-			a.messages.AddSystemMessage(fmt.Sprintf("[%s] %s", msg.Role, contentStr))
+			a.messages.AddMessageWithBlocks(msg.Role, "", "", blocks)
 		}
 	}
+
+	// Load queries into input history
+	a.input.SetHistory(sess.Queries)
 
 	a.messages.ScrollToBottom()
 

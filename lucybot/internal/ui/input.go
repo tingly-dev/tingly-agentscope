@@ -28,6 +28,11 @@ type Input struct {
 
 	// ESC handling for double-ESC to clear
 	escPressed bool
+
+	// Query history
+	history      []string
+	historyIndex int      // -1 means not browsing history, >=0 means index in history
+	draftValue   string   // Stores current input when browsing history
 }
 
 // AgentInfo holds information about an agent
@@ -63,6 +68,13 @@ func NewInput() Input {
 	// Note: Ctrl+Enter cannot be reliably detected in terminals (same as Enter)
 	// Ctrl+J sends ASCII 10 (Line Feed) and IS reliably detected
 	ta.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("ctrl+j"), key.WithHelp("ctrl+j", "insert newline"))
+
+	// Add line navigation key bindings
+	// Ctrl+A: Move to beginning of line
+	// Ctrl+E or End: Move to end of line
+	ta.KeyMap.LineStart = key.NewBinding(key.WithKeys("ctrl+a"))
+	ta.KeyMap.LineEnd = key.NewBinding(key.WithKeys("ctrl+e", "end"))
+
 	ta.Focus()
 
 	return Input{
@@ -135,6 +147,91 @@ func (i *Input) Reset() {
 	i.hidePopups()
 	// Ensure textarea remains focused after reset
 	i.textarea.Focus()
+	// Reset history browsing
+	i.historyIndex = -1
+	i.draftValue = ""
+}
+
+// AddToHistory adds a query to the history
+func (i *Input) AddToHistory(query string) {
+	// Don't add empty queries or duplicates of the last query
+	if query == "" {
+		return
+	}
+	if len(i.history) > 0 && i.history[len(i.history)-1] == query {
+		return
+	}
+	i.history = append(i.history, query)
+	// Limit history size
+	if len(i.history) > 1000 {
+		i.history = i.history[len(i.history)-1000:]
+	}
+}
+
+// SetHistory replaces the history with the given queries
+func (i *Input) SetHistory(queries []string) {
+	i.history = make([]string, 0, len(queries))
+	i.history = append(i.history, queries...)
+	// Reset browsing state
+	i.historyIndex = -1
+	i.draftValue = ""
+}
+
+// historyPrev navigates to the previous query in history
+func (i *Input) historyPrev() {
+	if len(i.history) == 0 {
+		return
+	}
+
+	// If not currently browsing history, save current input as draft
+	if i.historyIndex == -1 {
+		i.draftValue = i.textarea.Value()
+	}
+
+	// Move to previous entry
+	if i.historyIndex < len(i.history)-1 {
+		i.historyIndex++
+		i.textarea.SetValue(i.history[len(i.history)-1-i.historyIndex])
+		// Move cursor to end of input
+		i.textarea.CursorStart()
+		i.textarea.CursorEnd()
+	}
+}
+
+// historyNext navigates to the next query in history
+func (i *Input) historyNext() {
+	// If at the beginning of history, restore draft
+	if i.historyIndex <= 0 {
+		i.textarea.SetValue(i.draftValue)
+		i.historyIndex = -1
+		// Move cursor to end of input
+		i.textarea.CursorStart()
+		i.textarea.CursorEnd()
+		return
+	}
+
+	// Move to next entry
+	if i.historyIndex > 0 {
+		i.historyIndex--
+		i.textarea.SetValue(i.history[len(i.history)-1-i.historyIndex])
+		// Move cursor to end of input
+		i.textarea.CursorStart()
+		i.textarea.CursorEnd()
+	}
+}
+
+// isCursorOnFirstLine returns true if cursor is on the first line of input
+func (i *Input) isCursorOnFirstLine() bool {
+	// Check if input has only one line
+	value := i.textarea.Value()
+	return strings.Count(value, "\n") == 0
+}
+
+// isCursorOnLastLine returns true if cursor is on the last line of input
+func (i *Input) isCursorOnLastLine() bool {
+	// Check if input has only one line
+	value := i.textarea.Value()
+	return strings.Count(value, "\n") == 0
 }
 
 // IsPopupVisible returns true if any popup is visible
@@ -340,7 +437,7 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			}
 
 		case tea.KeyUp:
-			// Up arrow cycles backwards through popup items
+			// Up arrow cycles backwards through popup items or navigates history
 			if i.IsPopupVisible() {
 				if i.popupMode == PopupModeCommand {
 					i.commandPopup.Prev()
@@ -349,9 +446,15 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				}
 				return i, nil
 			}
+			// If cursor is on first line, navigate to previous history entry
+			if i.isCursorOnFirstLine() {
+				i.historyPrev()
+				return i, nil
+			}
+			// Otherwise, let textarea handle it (move to previous line)
 
 		case tea.KeyDown:
-			// Down arrow cycles forward through popup items
+			// Down arrow cycles forward through popup items or navigates history
 			if i.IsPopupVisible() {
 				if i.popupMode == PopupModeCommand {
 					i.commandPopup.Next()
@@ -360,6 +463,12 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				}
 				return i, nil
 			}
+			// If cursor is on last line, navigate to next history entry
+			if i.isCursorOnLastLine() {
+				i.historyNext()
+				return i, nil
+			}
+			// Otherwise, let textarea handle it (move to next line)
 
 		case tea.KeyEnter:
 			// If popup visible, select item
@@ -390,6 +499,11 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 		case tea.KeyRunes:
 			// Reset ESC flag on any character input
 			i.escPressed = false
+			// Reset history browsing when user starts typing
+			if i.historyIndex != -1 {
+				i.historyIndex = -1
+				i.draftValue = ""
+			}
 			// Check for trigger characters
 			if len(msg.Runes) == 1 {
 				switch msg.Runes[0] {
@@ -419,6 +533,11 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 		// Only update popups on character changes, not navigation
 		switch msg.Type {
 		case tea.KeyRunes, tea.KeyBackspace, tea.KeyDelete:
+			// Reset history browsing when editing
+			if i.historyIndex != -1 {
+				i.historyIndex = -1
+				i.draftValue = ""
+			}
 			i.shouldShowPopup()
 			i.updatePopupFilter()
 		}
