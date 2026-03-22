@@ -334,3 +334,59 @@ func TestJSONLStoreAppendMessage(t *testing.T) {
 		t.Errorf("Content mismatch: %v", messages[0].Content)
 	}
 }
+
+func TestSaveAndLoadQueries(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir)
+
+	session := &Session{
+		ID:      "test-session",
+		Name:    "Test",
+		Queries: []string{"query1", "query2", "query3"},
+	}
+
+	// Save session with queries
+	if err := store.Save(session); err != nil {
+		t.Fatalf("Failed to save: %v", err)
+	}
+
+	// Load session back
+	loaded, err := store.Load("test-session")
+	if err != nil {
+		t.Fatalf("Failed to load: %v", err)
+	}
+
+	if len(loaded.Queries) != 3 {
+		t.Errorf("Expected 3 queries, got %d", len(loaded.Queries))
+	}
+	if loaded.Queries[0] != "query1" {
+		t.Errorf("Expected 'query1', got '%s'", loaded.Queries[0])
+	}
+}
+
+func TestSaveQueriesToJSONL(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir)
+
+	session := &Session{
+		ID:      "test-session",
+		Name:    "Test",
+		Queries: []string{"first query", "second query"},
+	}
+
+	if err := store.Save(session); err != nil {
+		t.Fatalf("Failed to save: %v", err)
+	}
+
+	// Check that queries were written to file
+	sessionPath := filepath.Join(tmpDir, "test-session.jsonl")
+	content, err := os.ReadFile(sessionPath)
+	if err != nil {
+		t.Fatalf("Failed to read file: %v", err)
+	}
+
+	fileContent := string(content)
+	if !strings.Contains(fileContent, `"queries":["first query","second query"]`) {
+		t.Errorf("Queries not properly saved to JSONL. Got: %s", fileContent)
+	}
+}

@@ -137,16 +137,22 @@ func (s *JSONLStore) Save(session *Session) error {
 
 	// Write metadata header as first line
 	header := map[string]interface{}{
-		"_type":       "header",
-		"id":          session.ID,
-		"name":        session.Name,
-		"created_at":  session.CreatedAt.Format(time.RFC3339),
-		"updated_at":  session.UpdatedAt.Format(time.RFC3339),
-		"agent_name":  session.AgentName,
-		"working_dir": session.WorkingDir,
-		"model_name":  session.ModelName,
+		"_type":        "header",
+		"id":           session.ID,
+		"name":         session.Name,
+		"created_at":   session.CreatedAt.Format(time.RFC3339),
+		"updated_at":   session.UpdatedAt.Format(time.RFC3339),
+		"agent_name":   session.AgentName,
+		"working_dir":  session.WorkingDir,
+		"model_name":   session.ModelName,
 		"last_message": session.LastMessage,
 	}
+
+	// Include queries if present
+	if len(session.Queries) > 0 {
+		header["queries"] = session.Queries
+	}
+
 	if err := encoder.Encode(header); err != nil {
 		return fmt.Errorf("failed to encode header: %w", err)
 	}
@@ -222,6 +228,18 @@ func (s *JSONLStore) Load(id string) (*Session, error) {
 					if lastMessage, ok := header["last_message"].(string); ok {
 						session.LastMessage = lastMessage
 					}
+
+					// Load queries if present
+					if queriesRaw, ok := header["queries"].([]interface{}); ok {
+						queries := make([]string, 0, len(queriesRaw))
+						for _, q := range queriesRaw {
+							if queryStr, ok := q.(string); ok {
+								queries = append(queries, queryStr)
+							}
+						}
+						session.Queries = queries
+					}
+
 					continue
 				}
 			}
@@ -288,7 +306,7 @@ func (s *JSONLStore) loadHeader(id string) (*JSONLSessionMetadata, error) {
 			if headerType, ok := header["_type"].(string); ok && headerType == "header" {
 				metadata := &JSONLSessionMetadata{
 					Type: headerType,
-					ID: id,
+					ID:   id,
 				}
 				if name, ok := header["name"].(string); ok {
 					metadata.Name = name
