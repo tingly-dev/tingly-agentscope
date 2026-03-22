@@ -56,14 +56,14 @@ func TestCompleteMessageFlow(t *testing.T) {
 
 	// Should contain all elements
 	checks := []string{
-		"You",                    // User header
-		"Find all Go files",      // User content
-		"Lucy",                   // Agent name
-		"search",                 // Thought content
-		"Glob",                   // Tool name
-		"pattern",                // Tool param
-		"Result:",                // Result label
-		"main.go",                // Result content
+		"You",               // User header
+		"Find all Go files", // User content
+		"Lucy",              // Agent name
+		"search",            // Thought content
+		"Glob",              // Tool name
+		"pattern",           // Tool param
+		"Result:",           // Result label
+		"main.go",           // Result content
 	}
 
 	for _, check := range checks {
@@ -108,5 +108,31 @@ func TestNoDuplicateMessages(t *testing.T) {
 	}
 	if count2 != 1 {
 		t.Errorf("Step 1 should appear once after final, got %d", count2)
+	}
+}
+
+func TestQueryHistoryIntegration(t *testing.T) {
+	// Test that queries can be added to history and retrieved
+	input := NewInput()
+
+	// Simulate submitting queries
+	input.AddToHistory("query 1")
+	input.AddToHistory("query 2")
+	input.AddToHistory("query 3")
+
+	// Verify history navigation works
+	history := input.GetHistory()
+	allQueries := history.GetAll()
+
+	if len(allQueries) != 3 {
+		t.Errorf("Expected 3 queries in history, got %d", len(allQueries))
+	}
+
+	// Verify queries are in order
+	expectedQueries := []string{"query 1", "query 2", "query 3"}
+	for i, expected := range expectedQueries {
+		if allQueries[i] != expected {
+			t.Errorf("Query %d should be %q, got %q", i, expected, allQueries[i])
+		}
 	}
 }
