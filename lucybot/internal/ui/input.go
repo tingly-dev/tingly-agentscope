@@ -30,9 +30,7 @@ type Input struct {
 	escPressed bool
 
 	// Query history
-	history      []string
-	historyIndex int      // -1 means not browsing history, >=0 means index in history
-	draftValue   string   // Stores current input when browsing history
+	history *History
 }
 
 // AgentInfo holds information about an agent
@@ -84,6 +82,7 @@ func NewInput() Input {
 		agentPopup:   AgentPopup(),
 		popupMode:    PopupModeNone,
 		agents:       []AgentInfo{},
+		history:      NewHistory(),
 	}
 }
 
@@ -147,77 +146,22 @@ func (i *Input) Reset() {
 	i.hidePopups()
 	// Ensure textarea remains focused after reset
 	i.textarea.Focus()
-	// Reset history browsing
-	i.historyIndex = -1
-	i.draftValue = ""
+	i.history.Reset()
 }
 
 // AddToHistory adds a query to the history
 func (i *Input) AddToHistory(query string) {
-	// Don't add empty queries or duplicates of the last query
-	if query == "" {
-		return
-	}
-	if len(i.history) > 0 && i.history[len(i.history)-1] == query {
-		return
-	}
-	i.history = append(i.history, query)
-	// Limit history size
-	if len(i.history) > 1000 {
-		i.history = i.history[len(i.history)-1000:]
-	}
+	i.history.Add(query)
 }
 
 // SetHistory replaces the history with the given queries
 func (i *Input) SetHistory(queries []string) {
-	i.history = make([]string, 0, len(queries))
-	i.history = append(i.history, queries...)
-	// Reset browsing state
-	i.historyIndex = -1
-	i.draftValue = ""
+	i.history.SetQueries(queries)
 }
 
-// historyPrev navigates to the previous query in history
-func (i *Input) historyPrev() {
-	if len(i.history) == 0 {
-		return
-	}
-
-	// If not currently browsing history, save current input as draft
-	if i.historyIndex == -1 {
-		i.draftValue = i.textarea.Value()
-	}
-
-	// Move to previous entry
-	if i.historyIndex < len(i.history)-1 {
-		i.historyIndex++
-		i.textarea.SetValue(i.history[len(i.history)-1-i.historyIndex])
-		// Move cursor to end of input
-		i.textarea.CursorStart()
-		i.textarea.CursorEnd()
-	}
-}
-
-// historyNext navigates to the next query in history
-func (i *Input) historyNext() {
-	// If at the beginning of history, restore draft
-	if i.historyIndex <= 0 {
-		i.textarea.SetValue(i.draftValue)
-		i.historyIndex = -1
-		// Move cursor to end of input
-		i.textarea.CursorStart()
-		i.textarea.CursorEnd()
-		return
-	}
-
-	// Move to next entry
-	if i.historyIndex > 0 {
-		i.historyIndex--
-		i.textarea.SetValue(i.history[len(i.history)-1-i.historyIndex])
-		// Move cursor to end of input
-		i.textarea.CursorStart()
-		i.textarea.CursorEnd()
-	}
+// GetHistory returns the history component
+func (i *Input) GetHistory() *History {
+	return i.history
 }
 
 // isCursorOnFirstLine returns true if cursor is on the first line of input
@@ -448,7 +392,15 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			}
 			// If cursor is on first line, navigate to previous history entry
 			if i.isCursorOnFirstLine() {
-				i.historyPrev()
+				// Save current input as draft
+				if !i.history.IsBrowsing() {
+					i.history.SetDraft(i.textarea.Value())
+				}
+				prevQuery := i.history.Previous()
+				i.textarea.SetValue(prevQuery)
+				// Move cursor to end
+				i.textarea.CursorStart()
+				i.textarea.CursorEnd()
 				return i, nil
 			}
 			// Otherwise, let textarea handle it (move to previous line)
@@ -465,7 +417,11 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			}
 			// If cursor is on last line, navigate to next history entry
 			if i.isCursorOnLastLine() {
-				i.historyNext()
+				nextQuery := i.history.Next()
+				i.textarea.SetValue(nextQuery)
+				// Move cursor to end
+				i.textarea.CursorStart()
+				i.textarea.CursorEnd()
 				return i, nil
 			}
 			// Otherwise, let textarea handle it (move to next line)
@@ -500,9 +456,8 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			// Reset ESC flag on any character input
 			i.escPressed = false
 			// Reset history browsing when user starts typing
-			if i.historyIndex != -1 {
-				i.historyIndex = -1
-				i.draftValue = ""
+			if i.history.IsBrowsing() {
+				i.history.Reset()
 			}
 			// Check for trigger characters
 			if len(msg.Runes) == 1 {
@@ -534,9 +489,8 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyRunes, tea.KeyBackspace, tea.KeyDelete:
 			// Reset history browsing when editing
-			if i.historyIndex != -1 {
-				i.historyIndex = -1
-				i.draftValue = ""
+			if i.history.IsBrowsing() {
+				i.history.Reset()
 			}
 			i.shouldShowPopup()
 			i.updatePopupFilter()

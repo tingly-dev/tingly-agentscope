@@ -89,3 +89,57 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+func TestInputSetHistory(t *testing.T) {
+	input := NewInput()
+
+	// Initially history should be empty
+	assert.Equal(t, 0, len(input.history.GetAll()))
+
+	// Set history with some queries
+	queries := []string{"first query", "second query", "third query"}
+	input.SetHistory(queries)
+
+	// Verify history was set correctly
+	allQueries := input.history.GetAll()
+	assert.Equal(t, 3, len(allQueries))
+	assert.Equal(t, "first query", allQueries[0])
+	assert.Equal(t, "second query", allQueries[1])
+	assert.Equal(t, "third query", allQueries[2])
+
+	// Verify browsing state was reset
+	assert.False(t, input.history.IsBrowsing())
+}
+
+func TestInputSetHistoryEmpty(t *testing.T) {
+	input := NewInput()
+
+	// Add some history first
+	input.AddToHistory("existing query")
+	assert.Equal(t, 1, len(input.history.GetAll()))
+
+	// Set empty history
+	input.SetHistory([]string{})
+
+	// Verify history is now empty
+	assert.Equal(t, 0, len(input.history.GetAll()))
+}
+
+func TestInputSetHistoryWithExisting(t *testing.T) {
+	input := NewInput()
+
+	// Add some initial history
+	input.AddToHistory("old query 1")
+	input.AddToHistory("old query 2")
+	assert.Equal(t, 2, len(input.history.GetAll()))
+
+	// Set new history (should replace, not append)
+	queries := []string{"new query 1", "new query 2"}
+	input.SetHistory(queries)
+
+	// Verify history was replaced
+	allQueries := input.history.GetAll()
+	assert.Equal(t, 2, len(allQueries))
+	assert.Equal(t, "new query 1", allQueries[0])
+	assert.Equal(t, "new query 2", allQueries[1])
+}
