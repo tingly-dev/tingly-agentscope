@@ -8,6 +8,7 @@ import (
 	"github.com/tingly-dev/lucybot/internal/config"
 	"github.com/tingly-dev/lucybot/internal/mcp"
 	"github.com/tingly-dev/lucybot/internal/session"
+	"github.com/tingly-dev/lucybot/internal/skills"
 	"github.com/tingly-dev/lucybot/internal/tools"
 	agentscopeAgent "github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/formatter"
@@ -30,6 +31,7 @@ type LucyBotAgent struct {
 	sessionManager *session.Manager // Session manager for persistence
 	sessionID      string           // Current session ID
 	memory         memory.Memory    // Agent memory for session resumption
+	skillsRegistry *skills.Registry
 }
 
 // LucyBotAgentConfig holds configuration for creating a LucyBotAgent
@@ -125,6 +127,17 @@ func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 		}
 	}
 
+	// Initialize skills registry
+	skillsRegistry := skills.NewRegistry()
+
+	// Load skills from discovery
+	skillPaths := skills.DefaultSearchPaths()
+	discovery := skills.NewDiscovery(skillPaths)
+	if err := skillsRegistry.LoadFromDiscovery(discovery); err != nil {
+		// Log warning but continue
+		fmt.Printf("Warning: failed to load skills: %v\n", err)
+	}
+
 	// Create memory
 	mem := memory.NewHistory(100)
 
@@ -147,13 +160,14 @@ func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 	reactAgent.SetFormatter(formatter.NewTeaFormatter())
 
 	lucyAgent := &LucyBotAgent{
-		ReActAgent: reactAgent,
-		config:     cfg.Config,
-		toolkit:    toolkit,
-		workDir:    cfg.WorkDir,
-		registry:   registry,
-		mcpHelper:  mcpHelper,
-		memory:     mem,
+		ReActAgent:      reactAgent,
+		config:          cfg.Config,
+		toolkit:         toolkit,
+		workDir:         cfg.WorkDir,
+		registry:        registry,
+		mcpHelper:       mcpHelper,
+		memory:          mem,
+		skillsRegistry:  skillsRegistry,
 	}
 
 	// Initialize session manager if enabled
@@ -221,6 +235,11 @@ func (a *LucyBotAgent) GetToolkit() *tool.Toolkit {
 // GetMCPHelper returns the MCP integration helper
 func (a *LucyBotAgent) GetMCPHelper() *mcp.IntegrationHelper {
 	return a.mcpHelper
+}
+
+// GetSkillsRegistry returns the skills registry
+func (a *LucyBotAgent) GetSkillsRegistry() *skills.Registry {
+	return a.skillsRegistry
 }
 
 // GetSessionManager returns the session manager
