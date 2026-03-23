@@ -267,9 +267,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 
 		case tea.KeyUp:
-			// Forward to input for history navigation when appropriate
-			// Otherwise scroll messages
-			if a.input.ShouldHandleHistoryNavigation("up") {
+			// Forward to input for history navigation (single-line) or cursor movement (multi-line)
+			// Only scroll messages if input is not focused
+			if a.input.textarea.Focused() {
 				input, inputCmd := a.input.Update(msg)
 				a.input = input
 				cmds = append(cmds, inputCmd)
@@ -279,9 +279,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 
 		case tea.KeyDown:
-			// Forward to input for history navigation when appropriate
-			// Otherwise scroll messages
-			if a.input.ShouldHandleHistoryNavigation("down") {
+			// Forward to input for history navigation (single-line) or cursor movement (multi-line)
+			// Only scroll messages if input is not focused
+			if a.input.textarea.Focused() {
 				input, inputCmd := a.input.Update(msg)
 				a.input = input
 				cmds = append(cmds, inputCmd)

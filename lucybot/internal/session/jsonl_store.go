@@ -229,16 +229,16 @@ func (s *JSONLStore) Load(id string) (*Session, error) {
 						session.LastMessage = lastMessage
 					}
 
-					// Load queries if present
-					if queriesRaw, ok := header["queries"].([]interface{}); ok {
-						queries := make([]string, 0, len(queriesRaw))
-						for _, q := range queriesRaw {
-							if queryStr, ok := q.(string); ok {
-								queries = append(queries, queryStr)
-							}
+				// Load queries if present
+				if queriesRaw, ok := header["queries"].([]interface{}); ok {
+					queries := make([]string, 0, len(queriesRaw))
+					for _, q := range queriesRaw {
+						if queryStr, ok := q.(string); ok {
+							queries = append(queries, queryStr)
 						}
-						session.Queries = queries
 					}
+					session.Queries = queries
+				}
 
 					continue
 				}

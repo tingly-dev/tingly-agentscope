@@ -190,6 +190,7 @@ func (i *Input) isCursorOnLastLine() bool {
 
 // ShouldHandleHistoryNavigation returns true if Up/Down should be handled for history navigation
 // For bash-style history, this should be true when input is a single line (no newlines)
+// If input has multiple lines, Up/Down should move cursor within the textarea, not navigate history
 func (i *Input) ShouldHandleHistoryNavigation(direction string) bool {
 	// Count newlines in the input
 	value := i.textarea.Value()
@@ -197,6 +198,7 @@ func (i *Input) ShouldHandleHistoryNavigation(direction string) bool {
 
 	// If input has no newlines (single line or empty), handle history navigation
 	// This matches bash behavior where Up/Down navigate command history
+	// If input has multiple lines, let textarea handle cursor movement
 	return newlineCount == 0
 }
 
