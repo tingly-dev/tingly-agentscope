@@ -8,14 +8,16 @@ import (
 
 // Registry manages loaded skills
 type Registry struct {
-	mu     sync.RWMutex
-	skills map[string]*Skill
+	mu             sync.RWMutex
+	skills         map[string]*Skill
+	commandRegistry *CommandRegistry
 }
 
 // NewRegistry creates a new skill registry
 func NewRegistry() *Registry {
 	return &Registry{
-		skills: make(map[string]*Skill),
+		skills:         make(map[string]*Skill),
+		commandRegistry: NewCommandRegistry(),
 	}
 }
 
@@ -29,6 +31,13 @@ func (r *Registry) Register(skill *Skill) error {
 	}
 
 	r.skills[skill.Name] = skill
+
+	// Also register as command
+	if err := r.commandRegistry.Register(skill); err != nil {
+		delete(r.skills, skill.Name)
+		return fmt.Errorf("failed to register command: %w", err)
+	}
+
 	return nil
 }
 
@@ -128,6 +137,11 @@ func (r *Registry) Clear() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.skills = make(map[string]*Skill)
+}
+
+// GetCommandRegistry returns the command registry
+func (r *Registry) GetCommandRegistry() *CommandRegistry {
+	return r.commandRegistry
 }
 
 // LoadFromDiscovery discovers and loads skills from the configured paths
