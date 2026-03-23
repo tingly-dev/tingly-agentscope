@@ -241,3 +241,16 @@ func TestRegistry_FindByTrigger(t *testing.T) {
 		t.Errorf("Expected 0 matches for 'python', got %d", len(matches))
 	}
 }
+
+func TestSkill_CommandName(t *testing.T) {
+	skill := &Skill{
+		Name:        "code-analysis",
+		Description: "Code analysis helper",
+		Content:     "Analyze code patterns",
+	}
+
+	expectedCmd := "/code-analysis"
+	if skill.CommandName() != expectedCmd {
+		t.Errorf("CommandName() = %v, want %v", skill.CommandName(), expectedCmd)
+	}
+}

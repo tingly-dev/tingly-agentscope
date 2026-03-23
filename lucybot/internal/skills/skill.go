@@ -58,6 +58,11 @@ func (s *Skill) HasTool(toolName string) bool {
 	return false
 }
 
+// CommandName returns the slash command name for this skill
+func (s *Skill) CommandName() string {
+	return "/" + strings.ToLower(strings.ReplaceAll(s.Name, " ", "-"))
+}
+
 // FormatPrompt formats the skill content as a system prompt addition
 func (s *Skill) FormatPrompt() string {
 	var b strings.Builder
