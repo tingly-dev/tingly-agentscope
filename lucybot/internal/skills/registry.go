@@ -45,7 +45,13 @@ func (r *Registry) Register(skill *Skill) error {
 func (r *Registry) Unregister(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	delete(r.skills, name)
+
+	// Get the skill before deleting to compute command name
+	if skill, exists := r.skills[name]; exists {
+		cmd := skill.CommandName()
+		delete(r.skills, name)
+		r.commandRegistry.Unregister(cmd)
+	}
 }
 
 // Get retrieves a skill by name
@@ -137,6 +143,7 @@ func (r *Registry) Clear() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.skills = make(map[string]*Skill)
+	r.commandRegistry = NewCommandRegistry()
 }
 
 // GetCommandRegistry returns the command registry
