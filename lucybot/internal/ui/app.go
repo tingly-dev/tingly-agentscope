@@ -13,6 +13,7 @@ import (
 	"github.com/muesli/termenv"
 	"github.com/tingly-dev/lucybot/internal/agent"
 	"github.com/tingly-dev/lucybot/internal/config"
+	"github.com/tingly-dev/lucybot/internal/skills"
 	agentscopeAgent "github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
@@ -534,6 +535,22 @@ func (a *App) handleSlashCommand(input string) tea.Cmd {
 
 	cmd := parts[0]
 
+	// Check for skill commands first (before built-in commands)
+	if a.agent != nil {
+		if skillsRegistry := a.agent.GetSkillsRegistry(); skillsRegistry != nil {
+			cmdRegistry := skillsRegistry.GetCommandRegistry()
+			if skill, ok := cmdRegistry.Get(cmd); ok {
+				// Extract arguments after the command
+				var args string
+				if len(parts) > 1 {
+					args = strings.Join(parts[1:], " ")
+				}
+
+				return a.handleSkillCommand(skill, args)
+			}
+		}
+	}
+
 	switch cmd {
 	case "/quit", "/exit", "/q":
 		a.quitting = true
@@ -762,6 +779,61 @@ func parseAgentMention(input string) (agentName, remaining string, ok bool) {
 	}
 
 	return agentName, remaining, true
+}
+
+// handleSkillCommand handles skill-specific commands
+func (a *App) handleSkillCommand(skill *skills.Skill, args string) tea.Cmd {
+	// Add user message with the skill command
+	a.messages.AddUserMessage(fmt.Sprintf("/%s %s", skill.Name, args))
+	a.input.Reset()
+	a.thinking = true
+
+	return func() tea.Msg {
+		// Create skill injector
+		injector := skills.NewSkillInjector(skill)
+
+		// Create user message with arguments
+		userMsg := message.NewMsg(
+			"user",
+			[]message.ContentBlock{message.Text(args)},
+			types.RoleUser,
+		)
+
+		// Inject skill content
+		injectedMsg := injector.Inject(context.Background(), userMsg)
+
+		// Send to agent
+		resp, err := a.agent.Reply(a.ctx, injectedMsg)
+		if err != nil {
+			return ResponseMsg{
+				Content:   fmt.Sprintf("Error: %v", err),
+				AgentName: a.config.Agent.Name,
+			}
+		}
+
+		var content string
+		var blocks []message.ContentBlock
+		if resp != nil {
+			switch c := resp.Content.(type) {
+			case string:
+				content = c
+				blocks = []message.ContentBlock{message.Text(c)}
+			case []message.ContentBlock:
+				blocks = c
+				for _, block := range c {
+					if text, ok := block.(*message.TextBlock); ok {
+						content += text.Text
+					}
+				}
+			}
+		}
+
+		return ResponseMsg{
+			Content:   content,
+			AgentName: a.config.Agent.Name,
+			Blocks:    blocks,
+		}
+	}
 }
 
 // handleCompact manually triggers memory compression
