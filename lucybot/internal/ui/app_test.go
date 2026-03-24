@@ -1,12 +1,15 @@
 package ui
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/tingly-dev/lucybot/internal/agent"
 	"github.com/tingly-dev/lucybot/internal/config"
 	"github.com/tingly-dev/lucybot/internal/skills"
+	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 )
 
 func TestApp_HandleSkillCommand(t *testing.T) {
@@ -187,5 +190,56 @@ func TestApp_SkillCommandIntegration(t *testing.T) {
 	cmdFunc := cmd()
 	if cmdFunc == nil {
 		t.Fatal("Command function should return a message")
+	}
+}
+
+func TestDetectErrorTypePanic(t *testing.T) {
+	err := fmt.Errorf("agent panic - runtime error: invalid memory address")
+	errType := DetectErrorType(err)
+
+	if errType != message.ErrorTypePanic {
+		t.Errorf("Panic error should be ErrorTypePanic, got '%s'", errType)
+	}
+}
+
+func TestDetectErrorTypeAPI(t *testing.T) {
+	tests := []struct {
+		name     string
+		errorMsg string
+		expected message.ErrorType
+	}{
+		{"Rate limit", "Error: API rate limit exceeded", message.ErrorTypeAPI},
+		{"Timeout", "request timeout", message.ErrorTypeAPI},
+		{"Connection", "connection refused", message.ErrorTypeAPI},
+		{"Network", "network unreachable", message.ErrorTypeAPI},
+		{"HTTP 429", "HTTP 429 Too Many Requests", message.ErrorTypeAPI},
+		{"HTTP 503", "HTTP 503 Service Unavailable", message.ErrorTypeAPI},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := errors.New(tt.errorMsg)
+			errType := DetectErrorType(err)
+			if errType != tt.expected {
+				t.Errorf("Expected '%s', got '%s'", tt.expected, errType)
+			}
+		})
+	}
+}
+
+func TestDetectErrorTypeSystem(t *testing.T) {
+	err := errors.New("unknown error occurred")
+	errType := DetectErrorType(err)
+
+	if errType != message.ErrorTypeSystem {
+		t.Errorf("Unknown error should be ErrorTypeSystem, got '%s'", errType)
+	}
+}
+
+func TestDetectErrorTypeNil(t *testing.T) {
+	errType := DetectErrorType(nil)
+
+	if errType != message.ErrorTypeSystem {
+		t.Errorf("Nil error should be ErrorTypeSystem, got '%s'", errType)
 	}
 }

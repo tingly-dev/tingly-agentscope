@@ -19,6 +19,40 @@ import (
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
+// DetectErrorType analyzes an error to determine its type
+func DetectErrorType(err error) message.ErrorType {
+	if err == nil {
+		return message.ErrorTypeSystem
+	}
+
+	errMsg := err.Error()
+
+	// Check for panic patterns
+	if strings.Contains(errMsg, "agent panic") || strings.Contains(errMsg, "panic:") {
+		return message.ErrorTypePanic
+	}
+
+	// Check for API error patterns
+	lowerMsg := strings.ToLower(errMsg)
+	apiPatterns := []string{
+		"rate limit",
+		"timeout",
+		"connection",
+		"network",
+		"429", // HTTP rate limit
+		"503", // HTTP service unavailable
+	}
+
+	for _, pattern := range apiPatterns {
+		if strings.Contains(lowerMsg, pattern) {
+			return message.ErrorTypeAPI
+		}
+	}
+
+	// Default to system error
+	return message.ErrorTypeSystem
+}
+
 // App is the main TUI application
 type App struct {
 	// Core components
