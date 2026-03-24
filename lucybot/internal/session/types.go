@@ -5,6 +5,7 @@ import "time"
 // Session represents a persisted conversation session
 type Session struct {
 	ID          string    `json:"id"`
+	FirstQuery  string    `json:"first_query,omitempty"` // First user query for session ID generation
 	Name        string    `json:"name"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
