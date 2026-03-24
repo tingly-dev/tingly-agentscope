@@ -90,3 +90,11 @@ func ToolResult(id, name string, output []ContentBlock) *ToolResultBlock {
 		Output: output,
 	}
 }
+
+// Error creates a new error block
+func Error(errType ErrorType, message string) *ErrorBlock {
+	return &ErrorBlock{
+		ErrorType: errType,
+		Message:   message,
+	}
+}
