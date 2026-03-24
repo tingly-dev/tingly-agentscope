@@ -179,3 +179,58 @@ func TestMessageRenderer_RenderTurnWithTool(t *testing.T) {
 		t.Error("Output should contain 'Result:'")
 	}
 }
+
+func TestRenderErrorBlockAPI(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+	block := message.Error(message.ErrorTypeAPI, "rate limit exceeded")
+
+	var sb strings.Builder
+	renderer.renderErrorBlock(&sb, block)
+
+	result := sb.String()
+
+	// Check for error icon and label
+	if !strings.Contains(result, "❌") {
+		t.Errorf("Error output should contain cross mark emoji")
+	}
+	if !strings.Contains(result, "API Error:") {
+		t.Errorf("Error output should contain 'API Error:' label")
+	}
+	if !strings.Contains(result, "rate limit exceeded") {
+		t.Errorf("Error output should contain error message")
+	}
+}
+
+func TestRenderErrorBlockPanic(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+	block := message.Error(message.ErrorTypePanic, "agent crash")
+
+	var sb strings.Builder
+	renderer.renderErrorBlock(&sb, block)
+
+	result := sb.String()
+
+	if !strings.Contains(result, "💥") {
+		t.Errorf("Panic error should contain explosion emoji")
+	}
+	if !strings.Contains(result, "Panic:") {
+		t.Errorf("Panic error should contain 'Panic:' label")
+	}
+}
+
+func TestRenderErrorBlockWarning(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+	block := message.Error(message.ErrorTypeWarning, "timeout retrying")
+
+	var sb strings.Builder
+	renderer.renderErrorBlock(&sb, block)
+
+	result := sb.String()
+
+	if !strings.Contains(result, "⚠️") {
+		t.Errorf("Warning should contain warning emoji")
+	}
+	if !strings.Contains(result, "Warning:") {
+		t.Errorf("Warning should contain 'Warning:' label")
+	}
+}

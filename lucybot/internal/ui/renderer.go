@@ -654,3 +654,40 @@ func (r *MessageRenderer) renderTruncatedResult(sb *strings.Builder, output stri
 		sb.WriteString("\n")
 	}
 }
+
+// renderErrorBlock renders an error block with tree structure
+func (r *MessageRenderer) renderErrorBlock(sb *strings.Builder, block *message.ErrorBlock) {
+	// Determine icon and label based on error type
+	var icon, label string
+	var style lipgloss.Style
+
+	switch block.ErrorType {
+	case message.ErrorTypePanic:
+		icon = "💥"
+		label = "Panic:"
+		style = ErrorLabelStyle
+	case message.ErrorTypeWarning:
+		icon = "⚠️"
+		label = "Warning:"
+		style = ErrorWarningStyle
+	case message.ErrorTypeAPI:
+		icon = "❌"
+		label = "API Error:"
+		style = ErrorLabelStyle
+	default: // ErrorTypeSystem
+		icon = "❌"
+		label = "Error:"
+		style = ErrorLabelStyle
+	}
+
+	// Render with tree structure
+	sb.WriteString(ResultIndent)
+	sb.WriteString(TreeEndStyle.Render(TreeEnd))
+	sb.WriteString(" ")
+	sb.WriteString(ErrorIconStyle.Render(icon))
+	sb.WriteString(" ")
+	sb.WriteString(style.Render(label))
+	sb.WriteString(" ")
+	sb.WriteString(ContentStyle.Render(block.Message))
+	sb.WriteString("\n")
+}
