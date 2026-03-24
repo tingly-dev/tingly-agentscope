@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/tingly-dev/lucybot/internal/agent"
@@ -266,7 +267,7 @@ var initConfigCommand = &cli.Command{
 		}
 
 		// Create directory if needed
-		dir := outputPath[:strings.LastIndex(outputPath, "/")]
+		dir := filepath.Dir(outputPath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
