@@ -351,13 +351,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.thinking = false
 
 		// Get or create current turn for assistant
-		currentTurn := a.messages.GetOrCreateCurrentTurn("assistant", msg.AgentName)
+		turn := a.messages.GetOrCreateCurrentTurn("assistant", msg.AgentName)
 
-		// Add any final content blocks from the response
-		for _, block := range msg.Blocks {
-			currentTurn.AddContentBlock(block)
+		// Add content blocks to turn
+		if len(msg.Blocks) > 0 {
+			for _, block := range msg.Blocks {
+				turn.AddContentBlock(block)
+			}
+		} else if msg.Content != "" {
+			// Legacy: convert content string to text block
+			turn.AddContentBlock(message.Text(msg.Content))
 		}
-		currentTurn.Complete = true
+
+		// Mark turn as complete
+		turn.Complete = true
 
 	case StreamedMsg:
 		// Handle streamed message from ReAct agent
