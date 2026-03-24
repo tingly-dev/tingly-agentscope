@@ -141,3 +141,14 @@ func (t *InteractionTurn) GetTextBlocks() []*message.TextBlock {
 	}
 	return blocks
 }
+
+// GetErrorBlocks returns all error blocks from the turn
+func (t *InteractionTurn) GetErrorBlocks() []*message.ErrorBlock {
+	blocks := make([]*message.ErrorBlock, 0)
+	for _, block := range t.Blocks {
+		if err, ok := block.(*message.ErrorBlock); ok {
+			blocks = append(blocks, err)
+		}
+	}
+	return blocks
+}

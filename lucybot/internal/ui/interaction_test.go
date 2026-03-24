@@ -83,3 +83,50 @@ func TestInteractionTurn_HasToolUse(t *testing.T) {
 		t.Error("Turn with tool use should report HasToolUse=true")
 	}
 }
+
+func TestGetErrorBlocks(t *testing.T) {
+	turn := NewInteractionTurn("assistant", "test")
+
+	// Add various blocks
+	turn.AddContentBlock(message.Text("response"))
+	turn.AddContentBlock(message.Error(message.ErrorTypeAPI, "rate limit"))
+	turn.AddContentBlock(message.Error(message.ErrorTypePanic, "crash"))
+
+	errors := turn.GetErrorBlocks()
+
+	if len(errors) != 2 {
+		t.Fatalf("Expected 2 error blocks, got %d", len(errors))
+	}
+	if errors[0].ErrorType != message.ErrorTypeAPI {
+		t.Errorf("First error should be API type, got '%s'", errors[0].ErrorType)
+	}
+	if errors[1].ErrorType != message.ErrorTypePanic {
+		t.Errorf("Second error should be Panic type, got '%s'", errors[1].ErrorType)
+	}
+}
+
+func TestGetErrorBlocksWithNoErrors(t *testing.T) {
+	turn := NewInteractionTurn("assistant", "test")
+	turn.AddContentBlock(message.Text("response"))
+
+	errors := turn.GetErrorBlocks()
+
+	if len(errors) != 0 {
+		t.Errorf("Expected no error blocks, got %d", len(errors))
+	}
+}
+
+func TestGetErrorBlocksAllowsDuplicates(t *testing.T) {
+	turn := NewInteractionTurn("assistant", "test")
+
+	// Add duplicate error blocks (should be allowed)
+	turn.AddContentBlock(message.Error(message.ErrorTypeAPI, "error 1"))
+	turn.AddContentBlock(message.Error(message.ErrorTypeAPI, "error 1"))
+
+	errors := turn.GetErrorBlocks()
+
+	// Error blocks allow duplicates (unlike text blocks)
+	if len(errors) != 2 {
+		t.Errorf("Expected 2 error blocks (duplicates allowed), got %d", len(errors))
+	}
+}
