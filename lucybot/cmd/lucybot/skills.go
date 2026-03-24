@@ -39,6 +39,16 @@ func getBundledSkillsPath() string {
 		}
 	}
 
+	// Check if we're running from the module root (e.g., lucybot/lucybot binary)
+	// In this case, skills are in ./skills relative to the executable
+	modulePath := filepath.Join(execDir, "skills")
+	if _, err := os.Stat(modulePath); err == nil {
+		absPath, err := filepath.Abs(modulePath)
+		if err == nil {
+			return absPath
+		}
+	}
+
 	// In production, the skills directory is at ../skills relative to the installed binary
 	prodPath := filepath.Join(execDir, "..", "skills")
 	absPath, err := filepath.Abs(prodPath)

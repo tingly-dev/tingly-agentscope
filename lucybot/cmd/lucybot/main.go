@@ -333,6 +333,37 @@ var initConfigCommand = &cli.Command{
 			cfg.Agent.Model.Temperature = temperature
 		}
 
+		// NEW: Skills installation prompt
+		fmt.Print("\nInstall default skills to ~/.lucybot/skills? (Y/n): ")
+		var installSkillsResponse string
+		fmt.Scanln(&installSkillsResponse)
+		if strings.ToLower(installSkillsResponse) != "n" {
+			// Determine skills directory based on config location
+			var skillsDir string
+			if c.Bool("local") {
+				skillsDir = ".lucybot/skills"
+			} else {
+				homeDir, err := os.UserHomeDir()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: could not determine home directory: %v\n", err)
+					skillsDir = ".lucybot/skills"
+				} else {
+					skillsDir = filepath.Join(homeDir, ".lucybot", "skills")
+				}
+			}
+
+			fmt.Printf("\n📦 Installing skills to: %s\n", skillsDir)
+			if err := installSkills(skillsDir); err != nil {
+				fmt.Fprintf(os.Stderr, "⚠️  Failed to install skills: %v\n", err)
+				fmt.Println("You can install skills later manually.")
+			} else {
+				// Enable skills in config
+				cfg.Skills.Enabled = true
+				cfg.Skills.Paths = []string{skillsDir}
+				fmt.Println("✓ Skills enabled in configuration")
+			}
+		}
+
 		// Save config with all values
 		if err := config.SaveConfig(cfg, outputPath); err != nil {
 			return fmt.Errorf("failed to save config: %w", err)
@@ -348,6 +379,12 @@ var initConfigCommand = &cli.Command{
 			default:
 				fmt.Println("   export OPENAI_API_KEY=your-key")
 			}
+		}
+
+		// Update the final message to include skills info
+		if cfg.Skills.Enabled {
+			fmt.Println("\n🎉 Skills installed and enabled!")
+			fmt.Println("   Use /code-analysis, /specification-generation, /verification commands")
 		}
 
 		return nil
