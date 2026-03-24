@@ -240,7 +240,19 @@ var indexCommand = &cli.Command{
 
 var initConfigCommand = &cli.Command{
 	Name:  "init-config",
-	Usage: "Initialize configuration file",
+	Usage: "Initialize configuration file and install skills",
+	Description: `Initialize a new LucyBot configuration file.
+
+This command will:
+1. Prompt for model configuration (API key, model name, etc.)
+2. Create the config file at the specified location
+3. Offer to install default skills (~/.lucybot/skills or .lucybot/skills)
+4. Enable the skills system in the configuration
+
+Default locations:
+- Global: ~/.lucybot/config.toml
+- Local (with --local): .lucybot/config.toml
+- Custom (with --output): <specified path>`,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:    "output",
