@@ -507,11 +507,16 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 
 	// Send to agent and start spinner
 	agentCmd := func() (response tea.Msg) {
+		// Initialize response with default values
+		response = ResponseMsg{
+			AgentName: a.config.Agent.Name,
+		}
+
 		// Recover from any panics in the agent to prevent program crash
 		defer func() {
 			if r := recover(); r != nil {
 				response = ResponseMsg{
-					Content:   fmt.Sprintf("Error: agent panic - %v", r),
+					Blocks:    []message.ContentBlock{message.Error(message.ErrorTypePanic, fmt.Sprintf("agent panic - %v", r))},
 					AgentName: a.config.Agent.Name,
 				}
 			}
@@ -524,8 +529,9 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 
 		resp, err := a.agent.Reply(a.ctx, msg)
 		if err != nil {
+			errType := DetectErrorType(err)
 			response = ResponseMsg{
-				Content:   fmt.Sprintf("Error: %v", err),
+				Blocks:    []message.ContentBlock{message.Error(errType, fmt.Sprintf("%v", err))},
 				AgentName: a.config.Agent.Name,
 			}
 			return
@@ -549,11 +555,16 @@ func (a *App) handleSubmit(input string) tea.Cmd {
 				}
 			}
 		}
-		response = ResponseMsg{
-			Content:   content,
-			AgentName: a.config.Agent.Name,
-			Blocks:    blocks,
+
+		// Update response with content
+		respMsg := response.(ResponseMsg)
+		if len(blocks) > 0 {
+			respMsg.Blocks = blocks
 		}
+		if content != "" {
+			respMsg.Content = content
+		}
+		response = respMsg
 		return
 	}
 	// Return both agent command and spinner tick
