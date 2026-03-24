@@ -88,6 +88,24 @@ type ToolResultBlock struct {
 
 func (t *ToolResultBlock) Type() types.ContentBlockType { return types.BlockTypeToolResult }
 
+// ErrorType represents the type of error
+type ErrorType string
+
+const (
+	ErrorTypeAPI     ErrorType = "api"     // API errors (rate limit, network, etc.)
+	ErrorTypePanic   ErrorType = "panic"   // Agent crash/panic
+	ErrorTypeWarning ErrorType = "warning" // Recoverable issues
+	ErrorTypeSystem  ErrorType = "system"  // System-level errors
+)
+
+// ErrorBlock represents an error that occurred during agent execution
+type ErrorBlock struct {
+	ErrorType ErrorType `json:"type"`
+	Message   string    `json:"message"`
+}
+
+func (e *ErrorBlock) Type() types.ContentBlockType { return types.BlockTypeError }
+
 // Msg represents a message in the agentscope system
 type Msg struct {
 	ID           string         `json:"id"`
