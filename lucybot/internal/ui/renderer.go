@@ -532,6 +532,15 @@ func (r *MessageRenderer) renderAssistantTurn(sb *strings.Builder, turn *Interac
 
 			renderedText = false
 			lastWasTool = true
+
+		case *message.ErrorBlock:
+			// Add spacing if needed
+			if renderedText || lastWasTool {
+				sb.WriteString("\n")
+			}
+			r.renderErrorBlock(sb, b)
+			renderedText = false
+			lastWasTool = true
 		}
 	}
 }

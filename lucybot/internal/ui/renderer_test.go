@@ -234,3 +234,45 @@ func TestRenderErrorBlockWarning(t *testing.T) {
 		t.Errorf("Warning should contain 'Warning:' label")
 	}
 }
+
+func TestRenderTurnWithErrorBlock(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+	turn := NewInteractionTurn("assistant", "TestAgent")
+
+	turn.AddContentBlock(message.Text("Hello"))
+	turn.AddContentBlock(message.Error(message.ErrorTypeAPI, "rate limit"))
+
+	result := renderer.RenderTurn(turn)
+
+	// Should contain assistant header
+	if !strings.Contains(result, "TestAgent") {
+		t.Errorf("Rendered turn should contain agent name")
+	}
+	// Should contain text content
+	if !strings.Contains(result, "Hello") {
+		t.Errorf("Rendered turn should contain text content")
+	}
+	// Should contain error
+	if !strings.Contains(result, "API Error:") {
+		t.Errorf("Rendered turn should contain error label")
+	}
+	if !strings.Contains(result, "rate limit") {
+		t.Errorf("Rendered turn should contain error message")
+	}
+}
+
+func TestRenderTurnMultipleErrors(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+	turn := NewInteractionTurn("assistant", "TestAgent")
+
+	turn.AddContentBlock(message.Error(message.ErrorTypeWarning, "timeout"))
+	turn.AddContentBlock(message.Error(message.ErrorTypeAPI, "rate limit"))
+
+	result := renderer.RenderTurn(turn)
+
+	// Count tree structure indicators (should have 2)
+	count := strings.Count(result, "└─")
+	if count < 2 {
+		t.Errorf("Multiple errors should each have tree structure, got %d", count)
+	}
+}
