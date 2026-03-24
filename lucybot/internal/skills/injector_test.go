@@ -62,3 +62,112 @@ func containsMiddle(s, substr string) bool {
 	}
 	return false
 }
+
+func TestSkillInjector_IsSkillLoaded(t *testing.T) {
+	skill := &Skill{
+		Name:        "test-skill",
+		Description: "Test skill",
+		Content:     "Follow these instructions",
+	}
+
+	injector := NewSkillInjector(skill)
+
+	t.Run("memory is nil", func(t *testing.T) {
+		loaded := injector.IsSkillLoaded(nil)
+		if loaded {
+			t.Error("IsSkillLoaded() should return false when memory is nil")
+		}
+	})
+
+	t.Run("memory is empty", func(t *testing.T) {
+		mem := &mockMemory{messages: []*message.Msg{}}
+		loaded := injector.IsSkillLoaded(mem)
+		if loaded {
+			t.Error("IsSkillLoaded() should return false when memory is empty")
+		}
+	})
+
+	t.Run("skill not in memory", func(t *testing.T) {
+		// Create a message with a different skill
+		msg := message.NewMsg("user", "Help me", types.RoleUser)
+		msg.Metadata = map[string]any{
+			SystemPromptMark: true,
+			SkillNameMark:    "different-skill",
+		}
+
+		mem := &mockMemory{messages: []*message.Msg{msg}}
+		loaded := injector.IsSkillLoaded(mem)
+		if loaded {
+			t.Error("IsSkillLoaded() should return false when skill is not in memory")
+		}
+	})
+
+	t.Run("skill is in memory", func(t *testing.T) {
+		// Create a message with the same skill
+		msg := message.NewMsg("user", "Help me", types.RoleUser)
+		msg.Metadata = map[string]any{
+			SystemPromptMark: true,
+			SkillNameMark:    "test-skill",
+		}
+
+		mem := &mockMemory{messages: []*message.Msg{msg}}
+		loaded := injector.IsSkillLoaded(mem)
+		if !loaded {
+			t.Error("IsSkillLoaded() should return true when skill is in memory")
+		}
+	})
+
+	t.Run("message without metadata", func(t *testing.T) {
+		msg := message.NewMsg("user", "Help me", types.RoleUser)
+		// No metadata
+
+		mem := &mockMemory{messages: []*message.Msg{msg}}
+		loaded := injector.IsSkillLoaded(mem)
+		if loaded {
+			t.Error("IsSkillLoaded() should return false when message has no metadata")
+		}
+	})
+
+	t.Run("message with system_prompt_mark but no skill name", func(t *testing.T) {
+		msg := message.NewMsg("user", "Help me", types.RoleUser)
+		msg.Metadata = map[string]any{
+			SystemPromptMark: true,
+			// No skill name
+		}
+
+		mem := &mockMemory{messages: []*message.Msg{msg}}
+		loaded := injector.IsSkillLoaded(mem)
+		if loaded {
+			t.Error("IsSkillLoaded() should return false when message has no skill name")
+		}
+	})
+}
+
+// mockMemory is a simple mock implementation of Memory for testing
+type mockMemory struct {
+	messages []*message.Msg
+}
+
+func (m *mockMemory) Add(ctx context.Context, msg *message.Msg) error {
+	m.messages = append(m.messages, msg)
+	return nil
+}
+
+func (m *mockMemory) GetMessages() []*message.Msg {
+	return m.messages
+}
+
+func (m *mockMemory) GetLastN(n int) []*message.Msg {
+	if n >= len(m.messages) {
+		return m.messages
+	}
+	return m.messages[len(m.messages)-n:]
+}
+
+func (m *mockMemory) Clear() {
+	m.messages = []*message.Msg{}
+}
+
+func (m *mockMemory) Size() int {
+	return len(m.messages)
+}

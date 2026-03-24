@@ -172,3 +172,76 @@ api_key = "${LUCYBOT_TEST_API_KEY}"
 		t.Errorf("Expected API key 'secret123', got %q", cfg.Agent.Model.APIKey)
 	}
 }
+
+func TestSkillsConfig_Defaults(t *testing.T) {
+	cfg := GetDefaultConfig()
+
+	// Check that skills config exists with defaults
+	if cfg.Skills.Enabled != false {
+		t.Errorf("Expected skills disabled by default, got %v", cfg.Skills.Enabled)
+	}
+
+	if cfg.Skills.Paths == nil {
+		t.Error("Expected skills paths to be initialized")
+	}
+
+	if len(cfg.Skills.Paths) != 0 {
+		t.Errorf("Expected empty skills paths by default, got %v", cfg.Skills.Paths)
+	}
+
+	if cfg.Skills.AutoReload != true {
+		t.Errorf("Expected auto_reload enabled by default, got %v", cfg.Skills.AutoReload)
+	}
+}
+
+func TestSkillsConfig_Custom(t *testing.T) {
+	// Create temporary directory
+	tmpDir, err := os.MkdirTemp("", "lucybot-test-")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	// Create config file with skills section
+	content := `
+[agent]
+name = "test"
+
+[agent.model]
+model_type = "openai"
+model_name = "gpt-4"
+
+[skills]
+enabled = true
+paths = ["/path/to/skills", "/another/path"]
+auto_reload = false
+`
+	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// Load config
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Verify skills config
+	if cfg.Skills.Enabled != true {
+		t.Errorf("Expected skills enabled, got %v", cfg.Skills.Enabled)
+	}
+
+	if len(cfg.Skills.Paths) != 2 {
+		t.Errorf("Expected 2 skill paths, got %d", len(cfg.Skills.Paths))
+	}
+
+	if cfg.Skills.Paths[0] != "/path/to/skills" {
+		t.Errorf("Expected first path '/path/to/skills', got %q", cfg.Skills.Paths[0])
+	}
+
+	if cfg.Skills.AutoReload != false {
+		t.Errorf("Expected auto_reload disabled, got %v", cfg.Skills.AutoReload)
+	}
+}

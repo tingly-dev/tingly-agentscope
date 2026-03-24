@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
@@ -418,4 +419,141 @@ func indexOf(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+func TestCompression_ProtectSkillMessages(t *testing.T) {
+	ctx := context.Background()
+
+	// Create a mock model for compression
+	mockModel := &mockModel{
+		responses: []*model.ChatResponse{
+			model.NewChatResponse([]message.ContentBlock{
+				message.Text("Compression summary"),
+			}),
+		},
+	}
+
+	t.Run("skill messages are not compressed", func(t *testing.T) {
+		mem := NewSimpleMemory(100)
+
+		config := &CompressionConfig{
+			Enable:           true,
+			TokenCounter:     NewSimpleTokenCounter(),
+			TriggerThreshold: 10, // Low threshold for testing
+			KeepRecent:       2,
+			CompressionModel: mockModel,
+		}
+		agent := &ReActAgent{
+			AgentBase: NewAgentBase("test", "system"),
+			config: &ReActAgentConfig{
+				Memory:      mem,
+				Compression: config,
+			},
+		}
+
+		// Add a skill message (with system_prompt_mark metadata)
+		skillMsg := message.NewMsg("user", "User question", types.RoleUser)
+		skillMsg.Metadata = map[string]any{
+			"system_prompt_mark": true,
+			"skill_name":         "test-skill",
+		}
+
+		// Add regular messages
+		mem.Add(ctx, message.NewMsg("user", "Regular message 1", types.RoleUser))
+		mem.Add(ctx, skillMsg)
+		mem.Add(ctx, message.NewMsg("assistant", "Response 1", types.RoleAssistant))
+		mem.Add(ctx, message.NewMsg("user", "Regular message 2", types.RoleUser))
+		mem.Add(ctx, message.NewMsg("assistant", "Response 2", types.RoleAssistant))
+
+		// Get initial messages
+		initialMessages := mem.GetMessages()
+		initialSkillMsgCount := 0
+		for _, msg := range initialMessages {
+			if msg.Metadata != nil {
+				if mark, ok := msg.Metadata["system_prompt_mark"].(bool); ok && mark {
+					initialSkillMsgCount++
+				}
+			}
+		}
+
+		// Compress memory
+		result, err := agent.CompressMemory(ctx)
+		if err != nil {
+			t.Fatalf("CompressMemory() failed: %v", err)
+		}
+
+		// Verify compression occurred
+		if result == nil {
+			t.Fatal("CompressMemory() should return result when threshold exceeded")
+		}
+
+		// Check that skill message is preserved in compressed messages
+		finalMessages := result.CompressedMessages
+		finalSkillMsgCount := 0
+		for _, msg := range finalMessages {
+			if msg.Metadata != nil {
+				if mark, ok := msg.Metadata["system_prompt_mark"].(bool); ok && mark {
+					finalSkillMsgCount++
+					// Verify it's the same skill
+					if name, ok := msg.Metadata["skill_name"].(string); ok && name == "test-skill" {
+						t.Log("Skill message preserved in compressed output")
+					}
+				}
+			}
+		}
+
+		// Skill message should still be present
+		if finalSkillMsgCount < initialSkillMsgCount {
+			t.Errorf("Skill messages were compressed: expected %d, got %d", initialSkillMsgCount, finalSkillMsgCount)
+		}
+	})
+
+	t.Run("messages without system_prompt_mark can be compressed", func(t *testing.T) {
+		mem := NewSimpleMemory(100)
+
+		config := &CompressionConfig{
+			Enable:           true,
+			TokenCounter:     NewSimpleTokenCounter(),
+			TriggerThreshold: 10, // Low threshold for testing
+			KeepRecent:       1,
+			CompressionModel: mockModel,
+		}
+		agent := &ReActAgent{
+			AgentBase: NewAgentBase("test", "system"),
+			config: &ReActAgentConfig{
+				Memory:      mem,
+				Compression: config,
+			},
+		}
+
+		// Add regular messages (no system_prompt_mark)
+		mem.Add(ctx, message.NewMsg("user", "Regular message 1", types.RoleUser))
+		mem.Add(ctx, message.NewMsg("assistant", "Response 1", types.RoleAssistant))
+		mem.Add(ctx, message.NewMsg("user", "Regular message 2", types.RoleUser))
+
+		// Compress memory
+		result, err := agent.CompressMemory(ctx)
+		if err != nil {
+			t.Fatalf("CompressMemory() failed: %v", err)
+		}
+
+		// Verify compression occurred
+		if result == nil {
+			t.Fatal("CompressMemory() should return result when threshold exceeded")
+		}
+
+		// Should have compressed message
+		foundCompressed := false
+		for _, msg := range result.CompressedMessages {
+			content := msg.GetTextContent()
+			if contains(content, "system-info") {
+				foundCompressed = true
+				break
+			}
+		}
+
+		if !foundCompressed {
+			t.Error("Expected to find compressed message with system-info")
+		}
+	})
 }

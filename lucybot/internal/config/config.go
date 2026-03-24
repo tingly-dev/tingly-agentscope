@@ -56,12 +56,20 @@ type SessionConfig struct {
 	AutoRecord  bool   `toml:"auto_record"` // Automatically record messages
 }
 
+// SkillsConfig holds skills configuration
+type SkillsConfig struct {
+	Enabled    bool     `toml:"enabled"`    // Enable skills system
+	Paths      []string `toml:"paths"`      // Paths to search for skill files
+	AutoReload bool     `toml:"auto_reload"` // Automatically reload skills when files change
+}
+
 // Config holds the complete configuration for LucyBot
 type Config struct {
 	Agent   AgentConfig   `toml:"agent"`
 	Index   IndexConfig   `toml:"index"`
 	Session SessionConfig `toml:"session"`
 	MCP     mcp.MCPConfig `toml:"mcp"`
+	Skills  SkillsConfig  `toml:"skills"`
 }
 
 const (
@@ -158,6 +166,11 @@ func GetDefaultConfig() *Config {
 			StoragePath: "",
 			SessionID:   "",
 			AutoRecord:  true, // Default to true when enabled
+		},
+		Skills: SkillsConfig{
+			Enabled:    false,
+			Paths:      []string{},
+			AutoReload: true,
 		},
 	}
 }
@@ -318,6 +331,10 @@ func applyDefaults(cfg *Config) {
 	if cfg.Agent.Compression.Threshold == 0 && cfg.Agent.Compression.ContextWindow > 0 {
 		cfg.Agent.Compression.Threshold = cfg.Agent.Compression.ContextWindow * cfg.Agent.Compression.TriggerThresholdPercent / 100
 	}
+
+	// Skills defaults - only set if not explicitly configured
+	// Note: We can't distinguish between "not set" and "set to false" for bool in TOML
+	// So we rely on the struct tags and default values in GetDefaultConfig
 }
 
 // substituteEnvVars replaces environment variable references in config content

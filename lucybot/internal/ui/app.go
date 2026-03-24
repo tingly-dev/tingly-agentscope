@@ -557,28 +557,7 @@ func (a *App) handleSlashCommand(input string) tea.Cmd {
 		return tea.Quit
 
 	case "/help", "/h":
-		help := `Available Commands:
-  /quit, /exit, /q  - Exit the application
-  /help, /h         - Show this help message
-  /clear, /c        - Clear the screen
-  /tools            - List available tools
-  /model            - Show current model
-  /agents           - List available agents
-  /compact          - Manually compress conversation memory
-  /resume           - Show session picker (resume previous session)
-
-Navigation:
-  PageUp/PageDown   - Scroll messages up/down
-  ↑/↓ arrows        - Scroll messages by line
-  Home              - Jump to top of messages
-  End               - Jump to bottom of messages
-  Tab               - Cycle through primary agents
-
-Tips:
-  - Type / to see command suggestions
-  - Type @ to mention an agent
-  - Use Ctrl+J for multi-line input
-  - Sessions are automatically saved when enabled`
+		help := a.buildHelpText()
 		a.messages.AddSystemMessage(help)
 
 	case "/clear", "/c":
@@ -799,11 +778,18 @@ func (a *App) handleSkillCommand(skill *skills.Skill, args string) tea.Cmd {
 			types.RoleUser,
 		)
 
-		// Inject skill content
-		injectedMsg := injector.Inject(context.Background(), userMsg)
+		// Check if skill is already loaded in memory
+		mem := a.agent.GetMemory()
+		if injector.IsSkillLoaded(mem) {
+			// Skill already loaded, don't inject again
+			// Send the user message directly without skill content
+		} else {
+			// Inject skill content
+			userMsg = injector.Inject(context.Background(), userMsg)
+		}
 
 		// Send to agent
-		resp, err := a.agent.Reply(a.ctx, injectedMsg)
+		resp, err := a.agent.Reply(a.ctx, userMsg)
 		if err != nil {
 			return ResponseMsg{
 				Content:   fmt.Sprintf("Error: %v", err),
@@ -867,6 +853,53 @@ func (a *App) handleCompact() tea.Cmd {
 			AgentName: a.config.Agent.Name,
 		}
 	}
+}
+
+// buildHelpText constructs the help text including available skill commands
+func (a *App) buildHelpText() string {
+	var b strings.Builder
+
+	b.WriteString("Available Commands:\n")
+	b.WriteString("  /quit, /exit, /q  - Exit the application\n")
+	b.WriteString("  /help, /h         - Show this help message\n")
+	b.WriteString("  /clear, /c        - Clear the screen\n")
+	b.WriteString("  /tools            - List available tools\n")
+	b.WriteString("  /model            - Show current model\n")
+	b.WriteString("  /agents           - List available agents\n")
+	b.WriteString("  /compact          - Manually compress conversation memory\n")
+	b.WriteString("  /resume           - Show session picker (resume previous session)\n")
+
+	// Add skill commands section if skills are available
+	if a.agent != nil {
+		if skillsRegistry := a.agent.GetSkillsRegistry(); skillsRegistry != nil {
+			cmdRegistry := skillsRegistry.GetCommandRegistry()
+			skillCommands := cmdRegistry.ListCommands()
+
+			if len(skillCommands) > 0 {
+				b.WriteString("\nSkill Commands:\n")
+				for _, cmd := range skillCommands {
+					if skill, ok := cmdRegistry.Get(cmd); ok {
+						b.WriteString(fmt.Sprintf("  %-18s - %s\n", cmd, skill.Description))
+					}
+				}
+			}
+		}
+	}
+
+	b.WriteString("\nNavigation:\n")
+	b.WriteString("  PageUp/PageDown   - Scroll messages up/down\n")
+	b.WriteString("  ↑/↓ arrows        - Scroll messages by line\n")
+	b.WriteString("  Home              - Jump to top of messages\n")
+	b.WriteString("  End               - Jump to bottom of messages\n")
+	b.WriteString("  Tab               - Cycle through primary agents\n")
+
+	b.WriteString("\nTips:\n")
+	b.WriteString("  - Type / to see command suggestions\n")
+	b.WriteString("  - Type @ to mention an agent\n")
+	b.WriteString("  - Use Ctrl+J for multi-line input\n")
+	b.WriteString("  - Sessions are automatically saved when enabled")
+
+	return b.String()
 }
 
 // handleSession shows session/memory statistics

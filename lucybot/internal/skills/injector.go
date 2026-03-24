@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 )
 
@@ -78,4 +79,29 @@ func (i *SkillInjector) formatSkillContent() string {
 	b.WriteString("\n\n---\n\n")
 
 	return b.String()
+}
+
+// IsSkillLoaded checks if the skill is already loaded in memory
+// It looks for messages with system_prompt_mark metadata and matching skill name
+func (i *SkillInjector) IsSkillLoaded(mem memory.Memory) bool {
+	if mem == nil {
+		return false
+	}
+
+	messages := mem.GetMessages()
+	for _, msg := range messages {
+		if msg == nil || msg.Metadata == nil {
+			continue
+		}
+
+		// Check if this message has the system_prompt_mark
+		if hasMark, ok := msg.Metadata[SystemPromptMark].(bool); ok && hasMark {
+			// Check if the skill name matches
+			if skillName, ok := msg.Metadata[SkillNameMark].(string); ok && skillName == i.skill.Name {
+				return true
+			}
+		}
+	}
+
+	return false
 }

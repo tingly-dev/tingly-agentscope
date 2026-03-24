@@ -166,9 +166,30 @@ func (r *ReActAgent) compressMemory(ctx context.Context) (*CompressionResult, er
 		return nil, nil // Not enough messages to compress
 	}
 
-	// Messages to compress (all except recent ones)
-	toCompress := messages[:len(messages)-keepRecent]
+	// Separate messages into those to compress and those to preserve
+	// Messages with system_prompt_mark should not be compressed
+	var toCompress []*message.Msg
+	var preservedMessages []*message.Msg
+
+	for _, msg := range messages[:len(messages)-keepRecent] {
+		if msg != nil && msg.Metadata != nil {
+			if mark, ok := msg.Metadata["system_prompt_mark"].(bool); ok && mark {
+				// Preserve messages with system_prompt_mark
+				preservedMessages = append(preservedMessages, msg)
+			} else {
+				toCompress = append(toCompress, msg)
+			}
+		} else {
+			toCompress = append(toCompress, msg)
+		}
+	}
+
 	recentMessages := messages[len(messages)-keepRecent:]
+
+	// If no messages to compress, return nil
+	if len(toCompress) == 0 {
+		return nil, nil
+	}
 
 	// Generate compression summary
 	summary, err := r.generateCompressionSummary(ctx, toCompress)
@@ -181,15 +202,19 @@ func (r *ReActAgent) compressMemory(ctx context.Context) (*CompressionResult, er
 
 	// Calculate new token counts
 	compressedTokens := counter.CountMessageTokens(compressedMsg)
+	for _, msg := range preservedMessages {
+		compressedTokens += counter.CountMessageTokens(msg)
+	}
 	for _, msg := range recentMessages {
 		compressedTokens += counter.CountMessageTokens(msg)
 	}
 
+	// Build compressed messages list: preserved + compressed + recent
 	result := &CompressionResult{
 		OriginalTokenCount:   totalTokens,
 		CompressedTokenCount: compressedTokens,
 		Summary:              summary,
-		CompressedMessages:   append([]*message.Msg{compressedMsg}, recentMessages...),
+		CompressedMessages:   append(append(preservedMessages, compressedMsg), recentMessages...),
 	}
 
 	// Update memory with compressed messages

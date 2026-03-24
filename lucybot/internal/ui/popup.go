@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tingly-dev/lucybot/internal/skills"
 )
 
 // Popup represents a floating popup menu
@@ -191,6 +192,32 @@ func (p *Popup) SetCommandItems() {
 		{Title: "/model", Description: "Show model info", Icon: "🧠", Value: "model"},
 		{Title: "/quit", Description: "Exit", Icon: "👋", Value: "quit"},
 	})
+}
+
+// SetCommandItemsWithSkills sets the items for command popup including skill commands
+func (p *Popup) SetCommandItemsWithSkills(skillList []*skills.Skill) {
+	// Start with built-in commands
+	items := []PopupItem{
+		{Title: "/help", Description: "Show help", Icon: "❓", Value: "help"},
+		{Title: "/clear", Description: "Clear screen", Icon: "🧹", Value: "clear"},
+		{Title: "/resume", Description: "Resume previous session", Icon: "🔄", Value: "resume"},
+		{Title: "/compact", Description: "Compact conversation", Icon: "🗜️", Value: "compact"},
+		{Title: "/tools", Description: "List tools", Icon: "🔧", Value: "tools"},
+		{Title: "/model", Description: "Show model info", Icon: "🧠", Value: "model"},
+		{Title: "/quit", Description: "Exit", Icon: "👋", Value: "quit"},
+	}
+
+	// Add skill commands
+	for _, skill := range skillList {
+		items = append(items, PopupItem{
+			Title:       skill.CommandName(),
+			Description: skill.Description,
+			Icon:        "⚡",
+			Value:       skill.Name,
+		})
+	}
+
+	p.SetItems(items)
 }
 
 // AgentPopup creates a popup for agent mentions
