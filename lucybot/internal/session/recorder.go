@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 
 // Recorder records agent messages to session storage
@@ -19,7 +20,8 @@ type Recorder struct {
 	// Track session metadata for lazy initialization
 	sessionID   string
 	sessionName string
-	initialized bool // True when header has been written
+	firstQuery  string // First user query for session ID generation
+	initialized bool   // True when header has been written
 }
 
 // NewRecorder creates a new session recorder
@@ -58,6 +60,7 @@ func (r *Recorder) ensureInitialized() error {
 	now := time.Now()
 	session := &Session{
 		ID:         r.sessionID,
+		FirstQuery: r.firstQuery,
 		Name:       r.sessionName,
 		CreatedAt:  now,
 		UpdatedAt:  now,
@@ -77,6 +80,35 @@ func (r *Recorder) ensureInitialized() error {
 
 // RecordMessage appends a message to the session
 func (r *Recorder) RecordMessage(ctx context.Context, sessionID string, msg *message.Msg) error {
+	// Generate session ID on first user message (lazy initialization)
+	if r.sessionID == "" && sessionID == "" && msg.Role == types.RoleUser {
+		// Extract content for session ID generation
+		content := msg.GetTextContent()
+		if content == "" {
+			// For non-text messages, serialize to JSON
+			if msg.Content != nil {
+				if bytes, err := json.Marshal(msg.Content); err == nil {
+					content = string(bytes)
+				} else {
+					content = fmt.Sprintf("%v", msg.Content)
+				}
+			}
+		}
+
+		// Generate session ID from agent name and first query
+		r.sessionID = GenerateSessionID(r.agentName, content)
+		r.firstQuery = content
+		r.sessionName = "" // Will be set by caller if needed
+
+		// Write header now that we have an ID
+		if err := r.ensureInitialized(); err != nil {
+			return fmt.Errorf("failed to initialize session: %w", err)
+		}
+
+		// Use the generated session ID for recording
+		sessionID = r.sessionID
+	}
+
 	// Ensure session header is written on first message
 	if !r.initialized {
 		if err := r.ensureInitialized(); err != nil {

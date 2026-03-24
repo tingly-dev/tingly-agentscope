@@ -153,6 +153,7 @@ func (s *JSONLStore) Save(session *Session) error {
 	header := map[string]interface{}{
 		"_type":        "header",
 		"id":           session.ID,
+		"first_query":  session.FirstQuery,
 		"name":         session.Name,
 		"created_at":   session.CreatedAt.Format(time.RFC3339),
 		"updated_at":   session.UpdatedAt.Format(time.RFC3339),
@@ -254,6 +255,9 @@ func (s *JSONLStore) loadFromPath(path string, id string) (*Session, error) {
 					}
 					if lastMessage, ok := header["last_message"].(string); ok {
 						session.LastMessage = lastMessage
+					}
+					if firstQuery, ok := header["first_query"].(string); ok {
+						session.FirstQuery = firstQuery
 					}
 
 					// Load queries if present

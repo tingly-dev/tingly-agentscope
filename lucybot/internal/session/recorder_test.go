@@ -103,3 +103,51 @@ func TestRecorderNoDuplicateQueries(t *testing.T) {
 		t.Errorf("Duplicate query should not be added, got %d", len(sess.Queries))
 	}
 }
+
+func TestRecorderLazySessionIDGeneration(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir, "lucybot")
+	recorder := NewRecorder(store, "lucybot", "/tmp/test", "")
+
+	// Before first message, no session should be created
+	sessions, _ := store.List()
+	initialCount := len(sessions)
+
+	// Record first user message with empty sessionID
+	// This should trigger lazy session ID generation
+	msg := message.NewMsg("", "Hello, this is my first query", types.RoleUser)
+	err := recorder.RecordMessage(context.Background(), "", msg)
+	if err != nil {
+		t.Fatalf("Failed to record message: %v", err)
+	}
+
+	// Verify session was created with 32-char ID
+	sessions, _ = store.List()
+	if len(sessions) != initialCount+1 {
+		t.Errorf("Expected %d sessions, got %d", initialCount+1, len(sessions))
+	}
+
+	newSessionInfo := sessions[0]
+	if len(newSessionInfo.ID) != 32 {
+		t.Errorf("Expected 32-char session ID, got %d chars: %s", len(newSessionInfo.ID), newSessionInfo.ID)
+	}
+
+	// Load full session to verify FirstQuery was stored
+	fullSession, err := store.Load(newSessionInfo.ID)
+	if err != nil {
+		t.Fatalf("Failed to load session: %v", err)
+	}
+
+	if fullSession.FirstQuery != "Hello, this is my first query" {
+		t.Errorf("Expected FirstQuery 'Hello, this is my first query', got '%s'", fullSession.FirstQuery)
+	}
+
+	// Verify message was recorded
+	messages, err := store.LoadMessages(newSessionInfo.ID)
+	if err != nil {
+		t.Fatalf("Failed to load messages: %v", err)
+	}
+	if len(messages) != 1 {
+		t.Errorf("Expected 1 message, got %d", len(messages))
+	}
+}
