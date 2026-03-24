@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/tingly-dev/lucybot/internal/config"
 	"github.com/tingly-dev/lucybot/internal/mcp"
@@ -160,14 +159,14 @@ func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 	reactAgent.SetFormatter(formatter.NewTeaFormatter())
 
 	lucyAgent := &LucyBotAgent{
-		ReActAgent:      reactAgent,
-		config:          cfg.Config,
-		toolkit:         toolkit,
-		workDir:         cfg.WorkDir,
-		registry:        registry,
-		mcpHelper:       mcpHelper,
-		memory:          mem,
-		skillsRegistry:  skillsRegistry,
+		ReActAgent:     reactAgent,
+		config:         cfg.Config,
+		toolkit:        toolkit,
+		workDir:        cfg.WorkDir,
+		registry:       registry,
+		mcpHelper:      mcpHelper,
+		memory:         mem,
+		skillsRegistry: skillsRegistry,
 	}
 
 	// Initialize session manager if enabled
@@ -182,15 +181,14 @@ func NewLucyBotAgent(cfg *LucyBotAgentConfig) (*LucyBotAgent, error) {
 		}
 		lucyAgent.sessionManager = mgr
 
-		// Generate or use provided session ID
+		// Use provided session ID, or empty string for lazy generation
 		sessionID := cfg.Config.Session.SessionID
-		if sessionID == "" {
-			sessionID = generateSessionID()
-		}
 
-		// Initialize session
-		if _, err := mgr.GetOrCreate(sessionID, cfg.Config.Agent.Name); err != nil {
-			return nil, fmt.Errorf("failed to initialize session: %w", err)
+		// Initialize session (only if sessionID is provided)
+		if sessionID != "" {
+			if _, err := mgr.GetOrCreate(sessionID, cfg.Config.Agent.Name); err != nil {
+				return nil, fmt.Errorf("failed to initialize session: %w", err)
+			}
 		}
 
 		lucyAgent.sessionID = sessionID
@@ -248,7 +246,13 @@ func (a *LucyBotAgent) GetSessionManager() *session.Manager {
 }
 
 // GetSessionID returns the current session ID
+// If using lazy generation, this returns the sessionID from the recorder after first message
 func (a *LucyBotAgent) GetSessionID() string {
+	// If memory is RecordingMemory, get the sessionID from it (handles lazy generation)
+	if recordingMem, ok := a.memory.(*session.RecordingMemory); ok {
+		return recordingMem.GetSessionID()
+	}
+	// Otherwise return the stored sessionID
 	return a.sessionID
 }
 
@@ -371,9 +375,4 @@ func (a *LucyBotAgent) Reply(ctx context.Context, msg *message.Msg) (*message.Ms
 	// Call underlying ReActAgent's Reply
 	// RecordingMemory wrapper will automatically record all messages to session
 	return a.ReActAgent.Reply(ctx, msg)
-}
-
-// generateSessionID generates a unique session ID based on timestamp
-func generateSessionID() string {
-	return fmt.Sprintf("%08x", time.Now().UnixNano())[:8]
 }

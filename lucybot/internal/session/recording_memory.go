@@ -158,3 +158,14 @@ func (r *RecordingMemory) GetCompressedSummary() string {
 func (r *RecordingMemory) GetUnderlyingMemory() memory.Memory {
 	return r.memory
 }
+
+// GetSessionID returns the current session ID
+// This returns the sessionID from the recorder, which may be lazily generated
+func (r *RecordingMemory) GetSessionID() string {
+	// If recorder has a sessionID (possibly lazily generated), use it
+	if r.recorder.GetSessionID() != "" {
+		return r.recorder.GetSessionID()
+	}
+	// Otherwise return the sessionID we were initialized with
+	return r.sessionID
+}

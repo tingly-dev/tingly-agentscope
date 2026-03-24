@@ -196,3 +196,9 @@ func (r *Recorder) RecordQuery(ctx context.Context, sessionID string, query stri
 	// Save updated session
 	return r.store.Save(sess)
 }
+
+// GetSessionID returns the current session ID
+// This is useful for lazy-generated session IDs to retrieve the generated value
+func (r *Recorder) GetSessionID() string {
+	return r.sessionID
+}
