@@ -39,7 +39,7 @@ func NewManager(cfg *config.SessionConfig, agentName, workingDir string) (*Manag
 	// Get project-specific session directory
 	projectDir := GetProjectSessionDir(basePath, workingDir)
 
-	store := NewJSONLStore(projectDir)
+	store := NewJSONLStore(projectDir, agentName)
 	recorder := NewRecorder(store, agentName, workingDir, "") // Model name set later
 	resumer := NewResumer(store)
 

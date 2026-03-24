@@ -36,16 +36,24 @@ type JSONLSessionMetadata struct {
 
 // JSONLStore implements Store using JSONL format (one JSON object per line)
 type JSONLStore struct {
-	baseDir string
+	baseDir   string
+	agentName string // Agent name for filename prefix
 }
 
 // NewJSONLStore creates a new JSONL-based session store
-func NewJSONLStore(basePath string) *JSONLStore {
-	return &JSONLStore{baseDir: basePath}
+func NewJSONLStore(basePath string, agentName string) *JSONLStore {
+	return &JSONLStore{
+		baseDir:   basePath,
+		agentName: agentName,
+	}
 }
 
 // sessionPath returns the file path for a session
 func (s *JSONLStore) sessionPath(id string) string {
+	if s.agentName != "" {
+		return filepath.Join(s.baseDir, fmt.Sprintf("%s_%s.jsonl", s.agentName, id))
+	}
+	// Fallback for backward compatibility
 	return filepath.Join(s.baseDir, id+".jsonl")
 }
 
@@ -77,12 +85,18 @@ func (s *JSONLStore) SaveMessage(sessionID string, msg JSONLMessage) error {
 
 // LoadMessages loads all messages from a session (skips header line)
 func (s *JSONLStore) LoadMessages(sessionID string) ([]JSONLMessage, error) {
+	// First try with agent prefix
 	path := s.sessionPath(sessionID)
-	file, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
+	if _, err := os.Stat(path); err != nil {
+		// Fallback: try without agent prefix (old format)
+		path = filepath.Join(s.baseDir, sessionID+".jsonl")
+		if _, err := os.Stat(path); err != nil {
 			return nil, fmt.Errorf("session not found: %s", sessionID)
 		}
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
 		return nil, fmt.Errorf("failed to open session file: %w", err)
 	}
 	defer file.Close()
@@ -176,12 +190,25 @@ func (s *JSONLStore) Save(session *Session) error {
 
 // Load retrieves a session from disk
 func (s *JSONLStore) Load(id string) (*Session, error) {
+	// First try with agent prefix
 	path := s.sessionPath(id)
+	if _, err := os.Stat(path); err == nil {
+		return s.loadFromPath(path, id)
+	}
+
+	// Fallback: try without agent prefix (old format)
+	oldPath := filepath.Join(s.baseDir, id+".jsonl")
+	if _, err := os.Stat(oldPath); err == nil {
+		return s.loadFromPath(oldPath, id)
+	}
+
+	return nil, fmt.Errorf("session not found: %s", id)
+}
+
+// loadFromPath loads a session from a specific path
+func (s *JSONLStore) loadFromPath(path string, id string) (*Session, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("session not found: %s", id)
-		}
 		return nil, fmt.Errorf("failed to open session file: %w", err)
 	}
 	defer file.Close()
@@ -229,16 +256,16 @@ func (s *JSONLStore) Load(id string) (*Session, error) {
 						session.LastMessage = lastMessage
 					}
 
-				// Load queries if present
-				if queriesRaw, ok := header["queries"].([]interface{}); ok {
-					queries := make([]string, 0, len(queriesRaw))
-					for _, q := range queriesRaw {
-						if queryStr, ok := q.(string); ok {
-							queries = append(queries, queryStr)
+					// Load queries if present
+					if queriesRaw, ok := header["queries"].([]interface{}); ok {
+						queries := make([]string, 0, len(queriesRaw))
+						for _, q := range queriesRaw {
+							if queryStr, ok := q.(string); ok {
+								queries = append(queries, queryStr)
+							}
 						}
+						session.Queries = queries
 					}
-					session.Queries = queries
-				}
 
 					continue
 				}
@@ -354,31 +381,51 @@ func (s *JSONLStore) List() ([]*SessionInfo, error) {
 			continue
 		}
 
-		id := entry.Name()[:len(entry.Name())-6] // Remove .jsonl
+		filename := entry.Name()[:len(entry.Name())-6] // Remove .jsonl
+
+		// Parse filename to detect format
+		// New format: agent_sessionid
+		// Old format: sessionid
+		var sessionID string
+		var agentFromFilename string
+
+		if s.agentName != "" && strings.HasPrefix(filename, s.agentName+"_") {
+			// New format: agent_sessionid
+			sessionID = strings.TrimPrefix(filename, s.agentName+"_")
+			agentFromFilename = s.agentName
+		} else {
+			// Old format or different agent: sessionid
+			sessionID = filename
+		}
 
 		info := &SessionInfo{
-			ID: id,
+			ID: sessionID,
 		}
 
 		// Try to read header
-		header, err := s.loadHeader(id)
+		header, err := s.loadHeaderWithPath(filename)
 		if err == nil {
 			info.Name = header.Name
 			info.CreatedAt = header.CreatedAt
 			info.UpdatedAt = header.UpdatedAt
-			info.AgentName = header.AgentName
+			// Use agent_name from header if available, otherwise use from filename
+			if header.AgentName != "" {
+				info.AgentName = header.AgentName
+			} else if agentFromFilename != "" {
+				info.AgentName = agentFromFilename
+			}
 			info.WorkingDir = header.WorkingDir
 			info.ModelName = header.ModelName
 		}
 
-		// Count messages (LoadMessages skips header)
-		messages, err := s.LoadMessages(id)
+		// Count messages (LoadMessagesWithPath skips header)
+		messages, err := s.LoadMessagesWithPath(filename)
 		if err == nil {
 			info.MessageCount = len(messages)
 		}
 
 		// Get file size
-		if fileInfo, err := os.Stat(s.sessionPath(id)); err == nil {
+		if fileInfo, err := os.Stat(s.sessionPathByFilename(filename)); err == nil {
 			info.FileSize = fileInfo.Size()
 		}
 
@@ -395,8 +442,15 @@ func (s *JSONLStore) List() ([]*SessionInfo, error) {
 
 // Delete removes a session from disk
 func (s *JSONLStore) Delete(id string) error {
+	// First try with agent prefix
 	path := s.sessionPath(id)
-	if err := os.Remove(path); err != nil {
+	if err := os.Remove(path); err == nil {
+		return nil
+	}
+
+	// Fallback: try without agent prefix (old format)
+	oldPath := filepath.Join(s.baseDir, id+".jsonl")
+	if err := os.Remove(oldPath); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("session not found: %s", id)
 		}
@@ -407,14 +461,121 @@ func (s *JSONLStore) Delete(id string) error {
 
 // Exists checks if a session exists
 func (s *JSONLStore) Exists(id string) bool {
-	_, err := os.Stat(s.sessionPath(id))
+	// First try with agent prefix
+	newPath := s.sessionPath(id)
+	if _, err := os.Stat(newPath); err == nil {
+		return true
+	}
+
+	// Fallback: try without agent prefix (old format)
+	oldPath := filepath.Join(s.baseDir, id+".jsonl")
+	_, err := os.Stat(oldPath)
 	return err == nil
+}
+
+// sessionPathByFilename returns path using the filename directly (for backward compatibility)
+func (s *JSONLStore) sessionPathByFilename(filename string) string {
+	return filepath.Join(s.baseDir, filename+".jsonl")
+}
+
+// loadHeaderWithPath loads header using filename instead of ID
+func (s *JSONLStore) loadHeaderWithPath(filename string) (*JSONLSessionMetadata, error) {
+	path := s.sessionPathByFilename(filename)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	if scanner.Scan() {
+		var header map[string]interface{}
+		if err := json.Unmarshal(scanner.Bytes(), &header); err == nil {
+			if headerType, ok := header["_type"].(string); ok && headerType == "header" {
+				metadata := &JSONLSessionMetadata{Type: headerType}
+				if name, ok := header["name"].(string); ok {
+					metadata.Name = name
+				}
+				if id, ok := header["id"].(string); ok {
+					metadata.ID = id
+				}
+				if created, ok := header["created_at"].(string); ok {
+					if t, err := time.Parse(time.RFC3339, created); err == nil {
+						metadata.CreatedAt = t
+					}
+				}
+				if updated, ok := header["updated_at"].(string); ok {
+					if t, err := time.Parse(time.RFC3339, updated); err == nil {
+						metadata.UpdatedAt = t
+					}
+				}
+				if agentName, ok := header["agent_name"].(string); ok {
+					metadata.AgentName = agentName
+				}
+				if workingDir, ok := header["working_dir"].(string); ok {
+					metadata.WorkingDir = workingDir
+				}
+				if modelName, ok := header["model_name"].(string); ok {
+					metadata.ModelName = modelName
+				}
+				return metadata, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no header found in session file")
+}
+
+// LoadMessagesWithPath loads messages using filename instead of ID
+func (s *JSONLStore) LoadMessagesWithPath(filename string) ([]JSONLMessage, error) {
+	path := s.sessionPathByFilename(filename)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var messages []JSONLMessage
+	scanner := bufio.NewScanner(file)
+	var isFirstLine bool = true
+
+	for scanner.Scan() {
+		if isFirstLine {
+			isFirstLine = false
+			var firstLine map[string]interface{}
+			if err := json.Unmarshal(scanner.Bytes(), &firstLine); err == nil {
+				if headerType, ok := firstLine["_type"].(string); ok && headerType == "header" {
+					continue
+				}
+			}
+		}
+
+		var msg JSONLMessage
+		if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
+			continue
+		}
+		messages = append(messages, msg)
+	}
+
+	return messages, scanner.Err()
 }
 
 // Compress compresses a session file using gzip
 func (s *JSONLStore) Compress(id string) error {
 	sourcePath := s.sessionPath(id)
 	targetPath := sourcePath + ".gz"
+
+	// Check if new format exists
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		// Try old format
+		oldPath := filepath.Join(s.baseDir, id+".jsonl")
+		if _, err := os.Stat(oldPath); err == nil {
+			sourcePath = oldPath
+			targetPath = oldPath + ".gz"
+		} else {
+			return fmt.Errorf("session not found: %s", id)
+		}
+	}
 
 	source, err := os.Open(sourcePath)
 	if err != nil {
@@ -458,11 +619,20 @@ func (s *JSONLStore) Decompress(id string) error {
 	sourcePath := s.sessionPath(id) + ".gz"
 	targetPath := s.sessionPath(id)
 
-	source, err := os.Open(sourcePath)
-	if err != nil {
-		if os.IsNotExist(err) {
+	// Check if new format exists
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		// Try old format
+		oldPath := filepath.Join(s.baseDir, id+".jsonl.gz")
+		if _, err := os.Stat(oldPath); err == nil {
+			sourcePath = oldPath
+			targetPath = filepath.Join(s.baseDir, id+".jsonl")
+		} else {
 			return fmt.Errorf("compressed session not found: %s", id)
 		}
+	}
+
+	source, err := os.Open(sourcePath)
+	if err != nil {
 		return fmt.Errorf("failed to open compressed file: %w", err)
 	}
 	defer source.Close()

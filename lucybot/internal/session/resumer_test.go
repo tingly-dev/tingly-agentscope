@@ -10,7 +10,7 @@ import (
 
 func TestResumer(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	// Create a test session
 	sessionID := "resume-test"

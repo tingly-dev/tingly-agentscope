@@ -12,7 +12,7 @@ import (
 
 func TestTrajectoryAnalyzer_AnalyzeSession(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	// Create a session with messages
@@ -47,7 +47,7 @@ func TestTrajectoryAnalyzer_AnalyzeSession(t *testing.T) {
 
 func TestTrajectoryAnalyzer_AnalyzeSession_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	_, err := analyzer.AnalyzeSession("nonexistent")
@@ -57,7 +57,7 @@ func TestTrajectoryAnalyzer_AnalyzeSession_NotFound(t *testing.T) {
 
 func TestTrajectoryAnalyzer_AnalyzeAllSessions(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	now := time.Now()
@@ -110,7 +110,7 @@ func TestTrajectoryAnalyzer_AnalyzeAllSessions(t *testing.T) {
 
 func TestTrajectoryAnalyzer_AnalyzeAllSessions_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	metrics, err := analyzer.AnalyzeAllSessions()
@@ -124,7 +124,7 @@ func TestTrajectoryAnalyzer_AnalyzeAllSessions_Empty(t *testing.T) {
 
 func TestTrajectoryAnalyzer_ExportSession(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	now := time.Now()
@@ -157,7 +157,7 @@ func TestTrajectoryAnalyzer_ExportSession(t *testing.T) {
 
 func TestTrajectoryAnalyzer_ExportSession_WithExtension(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	now := time.Now()
@@ -183,7 +183,7 @@ func TestTrajectoryAnalyzer_ExportSession_WithExtension(t *testing.T) {
 
 func TestTrajectoryAnalyzer_ExportSession_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	err := analyzer.ExportSession("nonexistent", filepath.Join(tmpDir, "output.json"))
@@ -192,7 +192,7 @@ func TestTrajectoryAnalyzer_ExportSession_NotFound(t *testing.T) {
 
 func TestTrajectoryAnalyzer_CompareSessions(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	now := time.Now()
@@ -238,7 +238,7 @@ func TestTrajectoryAnalyzer_CompareSessions(t *testing.T) {
 
 func TestTrajectoryAnalyzer_CompareSessions_Session1NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	now := time.Now()
@@ -257,7 +257,7 @@ func TestTrajectoryAnalyzer_CompareSessions_Session1NotFound(t *testing.T) {
 
 func TestTrajectoryAnalyzer_CompareSessions_Session2NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	now := time.Now()
@@ -276,7 +276,7 @@ func TestTrajectoryAnalyzer_CompareSessions_Session2NotFound(t *testing.T) {
 
 func TestTrajectoryAnalyzer_DetectPatterns(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	now := time.Now()
@@ -339,7 +339,7 @@ func TestExtractToolName(t *testing.T) {
 
 func TestTrajectoryAnalyzer_ToolUsageRanking(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 	analyzer := NewTrajectoryAnalyzer(store)
 
 	now := time.Now()

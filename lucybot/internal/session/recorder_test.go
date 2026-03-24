@@ -12,7 +12,7 @@ import (
 
 func TestRecorder(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "test-agent")
 
 	recorder := NewRecorder(store, "test-agent", "/work/dir", "gpt-4o")
 	sessionID := "test-session"
@@ -23,8 +23,8 @@ func TestRecorder(t *testing.T) {
 	}
 
 	// Verify session file does NOT exist after just Initialize
-	// JSONLStore saves directly to baseDir/sessionID.jsonl
-	sessionPath := fmt.Sprintf("%s/%s.jsonl", tmpDir, sessionID)
+	// JSONLStore saves to baseDir/test-agent_sessionID.jsonl
+	sessionPath := fmt.Sprintf("%s/test-agent_%s.jsonl", tmpDir, sessionID)
 	if _, err := os.Stat(sessionPath); !os.IsNotExist(err) {
 		t.Fatal("Session file should not exist after Initialize (only after first message)")
 	}
@@ -63,7 +63,7 @@ func TestRecorder(t *testing.T) {
 
 func TestRecorderRecordsQueries(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "test-agent")
 	recorder := NewRecorder(store, "test-agent", "/tmp", "test-model")
 
 	recorder.Initialize("test-session", "Test Session")
@@ -89,7 +89,7 @@ func TestRecorderRecordsQueries(t *testing.T) {
 
 func TestRecorderNoDuplicateQueries(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "test-agent")
 	recorder := NewRecorder(store, "test-agent", "/tmp", "test-model")
 
 	recorder.Initialize("test-session", "Test Session")

@@ -13,7 +13,7 @@ import (
 
 func TestJSONLStore_SaveMessage(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	err := store.SaveMessage("test-session", JSONLMessage{
 		Role:      "user",
@@ -29,7 +29,7 @@ func TestJSONLStore_SaveMessage(t *testing.T) {
 
 func TestJSONLStore_LoadMessages(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	// Save multiple messages
 	timestamp := time.Now()
@@ -54,7 +54,7 @@ func TestJSONLStore_LoadMessages(t *testing.T) {
 
 func TestJSONLStore_LoadMessages_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	_, err := store.LoadMessages("nonexistent")
 	require.Error(t, err)
@@ -63,7 +63,7 @@ func TestJSONLStore_LoadMessages_NotFound(t *testing.T) {
 
 func TestJSONLStore_Save(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	session := &Session{
 		ID:        "test-session",
@@ -86,7 +86,7 @@ func TestJSONLStore_Save(t *testing.T) {
 
 func TestJSONLStore_Load(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	session := &Session{
 		ID:        "test-session",
@@ -111,7 +111,7 @@ func TestJSONLStore_Load(t *testing.T) {
 
 func TestJSONLStore_Load_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	_, err := store.Load("nonexistent")
 	require.Error(t, err)
@@ -120,7 +120,7 @@ func TestJSONLStore_Load_NotFound(t *testing.T) {
 
 func TestJSONLStore_List(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	// Create multiple sessions
 	sessions := []*Session{
@@ -151,7 +151,7 @@ func TestJSONLStore_List(t *testing.T) {
 
 func TestJSONLStore_List_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	list, err := store.List()
 	require.NoError(t, err)
@@ -160,7 +160,7 @@ func TestJSONLStore_List_Empty(t *testing.T) {
 
 func TestJSONLStore_Delete(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	// Create session
 	session := &Session{
@@ -184,7 +184,7 @@ func TestJSONLStore_Delete(t *testing.T) {
 
 func TestJSONLStore_Delete_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	err := store.Delete("nonexistent")
 	require.Error(t, err)
@@ -193,7 +193,7 @@ func TestJSONLStore_Delete_NotFound(t *testing.T) {
 
 func TestJSONLStore_Exists(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	// Non-existent
 	assert.False(t, store.Exists("nonexistent"))
@@ -212,7 +212,7 @@ func TestJSONLStore_Exists(t *testing.T) {
 
 func TestJSONLStore_Compress_Decompress(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	// Create session with messages
 	session := &Session{
@@ -255,7 +255,7 @@ func TestJSONLStore_Compress_Decompress(t *testing.T) {
 
 func TestJSONLStore_Decompress_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	err := store.Decompress("nonexistent")
 	require.Error(t, err)
@@ -264,7 +264,7 @@ func TestJSONLStore_Decompress_NotFound(t *testing.T) {
 
 func TestJSONLStoreWithHeader(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	// Create a session with metadata
 	session := &Session{
@@ -307,7 +307,7 @@ func TestJSONLStoreWithHeader(t *testing.T) {
 
 func TestJSONLStoreAppendMessage(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	sessionID := "append-test"
 	msg := JSONLMessage{
@@ -337,7 +337,7 @@ func TestJSONLStoreAppendMessage(t *testing.T) {
 
 func TestSaveAndLoadQueries(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	session := &Session{
 		ID:      "test-session",
@@ -366,7 +366,7 @@ func TestSaveAndLoadQueries(t *testing.T) {
 
 func TestSaveQueriesToJSONL(t *testing.T) {
 	tmpDir := t.TempDir()
-	store := NewJSONLStore(tmpDir)
+	store := NewJSONLStore(tmpDir, "")
 
 	session := &Session{
 		ID:      "test-session",
@@ -389,4 +389,98 @@ func TestSaveQueriesToJSONL(t *testing.T) {
 	if !strings.Contains(fileContent, `"queries":["first query","second query"]`) {
 		t.Errorf("Queries not properly saved to JSONL. Got: %s", fileContent)
 	}
+}
+
+func TestJSONLStorePathWithAgentPrefix(t *testing.T) {
+	store := NewJSONLStore(t.TempDir(), "lucybot")
+
+	// Test sessionPath includes agent name
+	path := store.sessionPath("abc123")
+	expected := "lucybot_abc123.jsonl"
+
+	if !strings.Contains(path, expected) {
+		t.Errorf("Expected path to contain %s, got %s", expected, path)
+	}
+}
+
+func TestJSONLStoreBackwardCompatibility(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Step 1: Create an old-format file (without agent prefix)
+	oldStore := NewJSONLStore(tmpDir, "") // No agent name = old format
+	oldSession := &Session{
+		ID:        "old-session",
+		Name:      "Old Format Session",
+		CreatedAt: time.Now().Truncate(time.Second),
+		UpdatedAt: time.Now().Truncate(time.Second),
+		AgentName: "old-agent",
+		Messages: []Message{
+			{Role: "user", Content: "Hello from old format", Timestamp: time.Now()},
+		},
+	}
+
+	err := oldStore.Save(oldSession)
+	require.NoError(t, err)
+
+	// Verify old format file exists
+	oldPath := filepath.Join(tmpDir, "old-session.jsonl")
+	_, err = os.Stat(oldPath)
+	require.NoError(t, err, "Old format file should exist")
+
+	// Step 2: Create a new store with agent name and try to load the old file
+	newStore := NewJSONLStore(tmpDir, "lucybot") // New store with agent name
+
+	// Should be able to load old format session
+	loaded, err := newStore.Load("old-session")
+	require.NoError(t, err, "Should be able to load old format session")
+	assert.Equal(t, "old-session", loaded.ID)
+	assert.Equal(t, "Old Format Session", loaded.Name)
+	assert.Equal(t, "old-agent", loaded.AgentName)
+	assert.Len(t, loaded.Messages, 1)
+
+	// Step 3: Create a new format session and verify both can coexist
+	newSession := &Session{
+		ID:        "new-session",
+		Name:      "New Format Session",
+		CreatedAt: time.Now().Truncate(time.Second),
+		UpdatedAt: time.Now().Truncate(time.Second),
+		AgentName: "lucybot",
+		Messages: []Message{
+			{Role: "user", Content: "Hello from new format", Timestamp: time.Now()},
+		},
+	}
+
+	err = newStore.Save(newSession)
+	require.NoError(t, err)
+
+	// Verify new format file exists with agent prefix
+	newPath := filepath.Join(tmpDir, "lucybot_new-session.jsonl")
+	_, err = os.Stat(newPath)
+	require.NoError(t, err, "New format file should exist with agent prefix")
+
+	// Step 4: List should return both sessions
+	sessions, err := newStore.List()
+	require.NoError(t, err)
+	assert.Len(t, sessions, 2, "Should list both old and new format sessions")
+
+	// Verify both sessions are in the list
+	sessionIDs := make(map[string]bool)
+	for _, sess := range sessions {
+		sessionIDs[sess.ID] = true
+	}
+	assert.True(t, sessionIDs["old-session"], "Old session should be in list")
+	assert.True(t, sessionIDs["new-session"], "New session should be in list")
+
+	// Step 5: LoadMessages should work for both formats
+	oldMessages, err := newStore.LoadMessages("old-session")
+	require.NoError(t, err)
+	assert.Len(t, oldMessages, 1)
+
+	newMessages, err := newStore.LoadMessages("new-session")
+	require.NoError(t, err)
+	assert.Len(t, newMessages, 1)
+
+	// Step 6: Exists should work for both formats
+	assert.True(t, newStore.Exists("old-session"), "Old session should exist")
+	assert.True(t, newStore.Exists("new-session"), "New session should exist")
 }
