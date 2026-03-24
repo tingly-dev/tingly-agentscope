@@ -838,7 +838,7 @@ func (a *App) handleSkillCommand(skill *skills.Skill, args string) tea.Cmd {
 		resp, err := a.agent.Reply(a.ctx, userMsg)
 		if err != nil {
 			return ResponseMsg{
-				Content:   fmt.Sprintf("Error: %v", err),
+				Blocks:    []message.ContentBlock{message.Error(message.ErrorTypeSystem, fmt.Sprintf("%v", err))},
 				AgentName: a.config.Agent.Name,
 			}
 		}
