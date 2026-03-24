@@ -28,6 +28,7 @@ const (
 	BlockTypeImage      ContentBlockType = "image"
 	BlockTypeAudio      ContentBlockType = "audio"
 	BlockTypeVideo      ContentBlockType = "video"
+	BlockTypeError      ContentBlockType = "error"
 )
 
 // MediaType represents the media type for content sources
