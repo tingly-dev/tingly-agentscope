@@ -739,7 +739,7 @@ func (a *App) handleAgentMention(agentName, remaining string) tea.Cmd {
 		})
 		if err != nil {
 			return ResponseMsg{
-				Content:   fmt.Sprintf("Error creating agent '%s': %v", agentName, err),
+				Blocks:    []message.ContentBlock{message.Error(message.ErrorTypeAPI, fmt.Sprintf("unable to create agent '%s': %v", agentName, err))},
 				AgentName: agentName,
 			}
 		}
@@ -753,8 +753,9 @@ func (a *App) handleAgentMention(agentName, remaining string) tea.Cmd {
 
 		resp, err := subAgent.Reply(a.ctx, msg)
 		if err != nil {
+			errType := DetectErrorType(err)
 			return ResponseMsg{
-				Content:   fmt.Sprintf("Error: %v", err),
+				Blocks:    []message.ContentBlock{message.Error(errType, fmt.Sprintf("%v", err))},
 				AgentName: agentName,
 			}
 		}
