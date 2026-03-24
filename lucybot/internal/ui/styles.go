@@ -65,6 +65,19 @@ var (
 
 	// Agent indicator
 	AgentEmojiStyle = lipgloss.NewStyle()
+
+	// Error formatting
+	ErrorIconStyle = lipgloss.NewStyle().
+			Foreground(ColorRed).
+			Bold(true)
+
+	ErrorLabelStyle = lipgloss.NewStyle().
+			Foreground(ColorRed).
+			Bold(true)
+
+	ErrorWarningStyle = lipgloss.NewStyle().
+			Foreground(ColorYellow).
+			Bold(true)
 )
 
 // Rendering constants
