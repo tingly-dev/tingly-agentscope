@@ -151,3 +151,99 @@ func TestRecorderLazySessionIDGeneration(t *testing.T) {
 		t.Errorf("Expected 1 message, got %d", len(messages))
 	}
 }
+
+func TestRecorderSetSessionIDForExistingSession(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir, "test-agent")
+	recorder := NewRecorder(store, "test-agent", "/tmp", "test-model")
+
+	// Create a session with one message
+	sessionID := "existing-session"
+	recorder.Initialize(sessionID, "Existing Session")
+
+	msg1 := message.NewMsg("", "First message", types.RoleUser)
+	if err := recorder.RecordMessage(context.Background(), sessionID, msg1); err != nil {
+		t.Fatalf("Failed to record first message: %v", err)
+	}
+
+	// Verify first message was recorded
+	messages, _ := store.LoadMessages(sessionID)
+	if len(messages) != 1 {
+		t.Fatalf("Expected 1 message, got %d", len(messages))
+	}
+
+	// Now simulate session resumption by calling SetSessionID
+	// This should NOT create a new session file
+	recorder.SetSessionID(sessionID, "Existing Session")
+
+	// Record a second message
+	msg2 := message.NewMsg("", "Second message after resume", types.RoleUser)
+	if err := recorder.RecordMessage(context.Background(), sessionID, msg2); err != nil {
+		t.Fatalf("Failed to record second message: %v", err)
+	}
+
+	// Verify both messages are in the SAME session file
+	messages, _ = store.LoadMessages(sessionID)
+	if len(messages) != 2 {
+		t.Errorf("Expected 2 messages in same session, got %d", len(messages))
+	}
+
+	if messages[0].Content != "First message" {
+		t.Errorf("Expected first message 'First message', got '%s'", messages[0].Content)
+	}
+	if messages[1].Content != "Second message after resume" {
+		t.Errorf("Expected second message 'Second message after resume', got '%s'", messages[1].Content)
+	}
+
+	// Verify no duplicate session files were created
+	sessions, _ := store.List()
+	sessionCount := 0
+	for _, sess := range sessions {
+		if sess.ID == sessionID {
+			sessionCount++
+		}
+	}
+	if sessionCount != 1 {
+		t.Errorf("Expected 1 session file, found %d", sessionCount)
+	}
+}
+
+func TestRecorderSetSessionIDForNewSession(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir, "test-agent")
+	recorder := NewRecorder(store, "test-agent", "/tmp", "test-model")
+
+	// Initialize with first session
+	session1 := "session-1"
+	recorder.Initialize(session1, "Session 1")
+	msg1 := message.NewMsg("", "Message in session 1", types.RoleUser)
+	recorder.RecordMessage(context.Background(), session1, msg1)
+
+	// Switch to a NEW session (doesn't exist yet)
+	session2 := "session-2"
+	recorder.SetSessionID(session2, "Session 2")
+
+	// Record to the new session
+	msg2 := message.NewMsg("", "Message in session 2", types.RoleUser)
+	if err := recorder.RecordMessage(context.Background(), session2, msg2); err != nil {
+		t.Fatalf("Failed to record to new session: %v", err)
+	}
+
+	// Verify both sessions exist separately
+	messages1, _ := store.LoadMessages(session1)
+	messages2, _ := store.LoadMessages(session2)
+
+	if len(messages1) != 1 {
+		t.Errorf("Expected 1 message in session 1, got %d", len(messages1))
+	}
+	if len(messages2) != 1 {
+		t.Errorf("Expected 1 message in session 2, got %d", len(messages2))
+	}
+
+	if messages1[0].Content != "Message in session 1" {
+		t.Errorf("Session 1 has wrong content: %s", messages1[0].Content)
+	}
+	if messages2[0].Content != "Message in session 2" {
+		t.Errorf("Session 2 has wrong content: %s", messages2[0].Content)
+	}
+}

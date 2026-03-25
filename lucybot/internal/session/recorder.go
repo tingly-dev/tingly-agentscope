@@ -48,7 +48,17 @@ func (r *Recorder) Initialize(sessionID, name string) error {
 func (r *Recorder) SetSessionID(sessionID, name string) {
 	r.sessionID = sessionID
 	r.sessionName = name
-	r.initialized = false // Reset so new session file is created on next message
+
+	// Only reset initialization if this is a new session that doesn't exist yet
+	// If the session file already exists, we should mark it as initialized
+	// to prevent creating a duplicate session file
+	if r.store.Exists(sessionID) {
+		// Session exists on disk - mark as initialized to prevent re-creating
+		r.initialized = true
+	} else {
+		// New session - reset so new session file is created on next message
+		r.initialized = false
+	}
 }
 
 // ensureInitialized writes the session header if not already done
