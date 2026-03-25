@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/formatter"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
@@ -16,6 +17,39 @@ type HookFunc func(ctx context.Context, agent Agent, kwargs map[string]any) (map
 
 // PostHookFunc represents a post-hook function
 type PostHookFunc func(ctx context.Context, agent Agent, kwargs map[string]any, msg *message.Msg) (*message.Msg, error)
+
+// LoopMessageHookFunc is called when a message is generated in the ReAct loop
+type LoopMessageHookFunc func(ctx context.Context, agent Agent, msg *message.Msg, kwargs map[string]any) error
+
+// LoopModelResponseContext contains context for loop_model_response hook
+type LoopModelResponseContext struct {
+	Iteration       int // Current iteration number (0-based)
+	MaxIterations   int // Maximum iterations allowed
+	ToolBlocksCount int // Number of tool use blocks in response
+}
+
+// LoopToolResultContext contains context for loop_tool_result hook
+type LoopToolResultContext struct {
+	Iteration int    // Current iteration number (0-based)
+	ToolID    string // Tool call ID
+	ToolName  string // Tool name
+	Error     error  // Error from tool execution (nil if success)
+}
+
+// LoopCompleteContext contains context for loop_complete hook
+type LoopCompleteContext struct {
+	IterationsUsed       int  // Number of iterations used
+	MaxIterationsReached bool // Whether max iterations was reached
+}
+
+// LoopModelResponseHookFunc is called after model response in ReAct loop
+type LoopModelResponseHookFunc func(ctx context.Context, agent Agent, msg *message.Msg, hookCtx *LoopModelResponseContext) error
+
+// LoopToolResultHookFunc is called after tool execution in ReAct loop
+type LoopToolResultHookFunc func(ctx context.Context, agent Agent, msg *message.Msg, hookCtx *LoopToolResultContext) error
+
+// LoopCompleteHookFunc is called when ReAct loop completes
+type LoopCompleteHookFunc func(ctx context.Context, agent Agent, msg *message.Msg, hookCtx *LoopCompleteContext) error
 
 // Agent is the base interface that all agents must implement
 type Agent interface {
@@ -62,25 +96,33 @@ type AgentBase struct {
 	preObserveHooks  map[string]HookFunc
 	postObserveHooks map[string]PostHookFunc
 
+	// Loop hooks for ReAct agent (strong-typed)
+	loopModelResponseHooks map[string]LoopModelResponseHookFunc
+	loopToolResultHooks    map[string]LoopToolResultHookFunc
+	loopCompleteHooks      map[string]LoopCompleteHookFunc
+
 	subscribers map[string][]Agent // msghub name -> list of subscribers
 }
 
 // NewAgentBase creates a new agent base
 func NewAgentBase(name string, systemPrompt string) *AgentBase {
 	return &AgentBase{
-		StateModuleBase:      module.NewStateModuleBase(),
-		id:                   types.GenerateID(),
-		name:                 name,
-		systemPrompt:         systemPrompt,
-		disableConsoleOutput: false,
-		formatter:            formatter.NewConsoleFormatter(),
-		preReplyHooks:        make(map[string]HookFunc),
-		postReplyHooks:       make(map[string]PostHookFunc),
-		prePrintHooks:        make(map[string]HookFunc),
-		postPrintHooks:       make(map[string]PostHookFunc),
-		preObserveHooks:      make(map[string]HookFunc),
-		postObserveHooks:     make(map[string]PostHookFunc),
-		subscribers:          make(map[string][]Agent),
+		StateModuleBase:        module.NewStateModuleBase(),
+		id:                     types.GenerateID(),
+		name:                   name,
+		systemPrompt:           systemPrompt,
+		disableConsoleOutput:   false,
+		formatter:              formatter.NewConsoleFormatter(),
+		preReplyHooks:          make(map[string]HookFunc),
+		postReplyHooks:         make(map[string]PostHookFunc),
+		prePrintHooks:          make(map[string]HookFunc),
+		postPrintHooks:         make(map[string]PostHookFunc),
+		preObserveHooks:        make(map[string]HookFunc),
+		postObserveHooks:       make(map[string]PostHookFunc),
+		loopModelResponseHooks: make(map[string]LoopModelResponseHookFunc),
+		loopToolResultHooks:    make(map[string]LoopToolResultHookFunc),
+		loopCompleteHooks:      make(map[string]LoopCompleteHookFunc),
+		subscribers:            make(map[string][]Agent),
 	}
 }
 
@@ -220,6 +262,24 @@ func (a *AgentBase) RegisterHook(hookType types.HookType, name string, fn any) e
 		} else {
 			return fmt.Errorf("invalid hook function type for post_observe")
 		}
+	case types.HookTypeLoopModelResponse:
+		if fn, ok := fn.(LoopModelResponseHookFunc); ok {
+			a.loopModelResponseHooks[name] = fn
+		} else {
+			return fmt.Errorf("invalid hook function type for loop_model_response")
+		}
+	case types.HookTypeLoopToolResult:
+		if fn, ok := fn.(LoopToolResultHookFunc); ok {
+			a.loopToolResultHooks[name] = fn
+		} else {
+			return fmt.Errorf("invalid hook function type for loop_tool_result")
+		}
+	case types.HookTypeLoopComplete:
+		if fn, ok := fn.(LoopCompleteHookFunc); ok {
+			a.loopCompleteHooks[name] = fn
+		} else {
+			return fmt.Errorf("invalid hook function type for loop_complete")
+		}
 	default:
 		return fmt.Errorf("unknown hook type: %s", hookType)
 	}
@@ -245,6 +305,12 @@ func (a *AgentBase) RemoveHook(hookType types.HookType, name string) error {
 		delete(a.preObserveHooks, name)
 	case types.HookTypePostObserve:
 		delete(a.postObserveHooks, name)
+	case types.HookTypeLoopModelResponse:
+		delete(a.loopModelResponseHooks, name)
+	case types.HookTypeLoopToolResult:
+		delete(a.loopToolResultHooks, name)
+	case types.HookTypeLoopComplete:
+		delete(a.loopCompleteHooks, name)
 	default:
 		return fmt.Errorf("unknown hook type: %s", hookType)
 	}
@@ -348,6 +414,12 @@ func (a *AgentBase) ClearHooks(hookType types.HookType) error {
 		a.preObserveHooks = make(map[string]HookFunc)
 	case types.HookTypePostObserve:
 		a.postObserveHooks = make(map[string]PostHookFunc)
+	case types.HookTypeLoopModelResponse:
+		a.loopModelResponseHooks = make(map[string]LoopModelResponseHookFunc)
+	case types.HookTypeLoopToolResult:
+		a.loopToolResultHooks = make(map[string]LoopToolResultHookFunc)
+	case types.HookTypeLoopComplete:
+		a.loopCompleteHooks = make(map[string]LoopCompleteHookFunc)
 	case "":
 		// Clear all hooks
 		a.preReplyHooks = make(map[string]HookFunc)
@@ -356,6 +428,9 @@ func (a *AgentBase) ClearHooks(hookType types.HookType) error {
 		a.postPrintHooks = make(map[string]PostHookFunc)
 		a.preObserveHooks = make(map[string]HookFunc)
 		a.postObserveHooks = make(map[string]PostHookFunc)
+		a.loopModelResponseHooks = make(map[string]LoopModelResponseHookFunc)
+		a.loopToolResultHooks = make(map[string]LoopToolResultHookFunc)
+		a.loopCompleteHooks = make(map[string]LoopCompleteHookFunc)
 	default:
 		return fmt.Errorf("unknown hook type: %s", hookType)
 	}
@@ -393,6 +468,18 @@ func (a *AgentBase) GetHooks(hookType types.HookType) (map[string]any, error) {
 		}
 	case types.HookTypePostObserve:
 		for k, v := range a.postObserveHooks {
+			result[k] = v
+		}
+	case types.HookTypeLoopModelResponse:
+		for k, v := range a.loopModelResponseHooks {
+			result[k] = v
+		}
+	case types.HookTypeLoopToolResult:
+		for k, v := range a.loopToolResultHooks {
+			result[k] = v
+		}
+	case types.HookTypeLoopComplete:
+		for k, v := range a.loopCompleteHooks {
 			result[k] = v
 		}
 	default:
@@ -535,4 +622,148 @@ func (a *AgentBase) runPostHooks(ctx context.Context, hookType types.HookType, m
 	}
 
 	return nil
+}
+
+// runLoopModelResponseHooks runs loop_model_response hooks
+func (a *AgentBase) runLoopModelResponseHooks(ctx context.Context, msg *message.Msg, hookCtx *LoopModelResponseContext) error {
+	a.mu.RLock()
+	hookList := make([]struct {
+		name string
+		fn   LoopModelResponseHookFunc
+	}, 0, len(a.loopModelResponseHooks))
+	for name, hook := range a.loopModelResponseHooks {
+		hookList = append(hookList, struct {
+			name string
+			fn   LoopModelResponseHookFunc
+		}{name, hook})
+	}
+	a.mu.RUnlock()
+
+	for _, entry := range hookList {
+		if err := a.executeLoopModelResponseHook(ctx, entry.name, entry.fn, msg, hookCtx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// runLoopToolResultHooks runs loop_tool_result hooks
+func (a *AgentBase) runLoopToolResultHooks(ctx context.Context, msg *message.Msg, hookCtx *LoopToolResultContext) error {
+	a.mu.RLock()
+	hookList := make([]struct {
+		name string
+		fn   LoopToolResultHookFunc
+	}, 0, len(a.loopToolResultHooks))
+	for name, hook := range a.loopToolResultHooks {
+		hookList = append(hookList, struct {
+			name string
+			fn   LoopToolResultHookFunc
+		}{name, hook})
+	}
+	a.mu.RUnlock()
+
+	for _, entry := range hookList {
+		if err := a.executeLoopToolResultHook(ctx, entry.name, entry.fn, msg, hookCtx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// runLoopCompleteHooks runs loop_complete hooks
+func (a *AgentBase) runLoopCompleteHooks(ctx context.Context, msg *message.Msg, hookCtx *LoopCompleteContext) error {
+	a.mu.RLock()
+	hookList := make([]struct {
+		name string
+		fn   LoopCompleteHookFunc
+	}, 0, len(a.loopCompleteHooks))
+	for name, hook := range a.loopCompleteHooks {
+		hookList = append(hookList, struct {
+			name string
+			fn   LoopCompleteHookFunc
+		}{name, hook})
+	}
+	a.mu.RUnlock()
+
+	for _, entry := range hookList {
+		if err := a.executeLoopCompleteHook(ctx, entry.name, entry.fn, msg, hookCtx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// executeLoopModelResponseHook executes a single loop_model_response hook with panic recovery and timeout
+func (a *AgentBase) executeLoopModelResponseHook(ctx context.Context, name string,
+	fn LoopModelResponseHookFunc, msg *message.Msg, hookCtx *LoopModelResponseContext) error {
+
+	var hookErr error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				hookErr = fmt.Errorf("hook %s/%s panicked: %v", types.HookTypeLoopModelResponse, name, r)
+				fmt.Printf("[ERROR] Hook panic in %s/%s: %v\n", types.HookTypeLoopModelResponse, name, r)
+			}
+		}()
+
+		timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		if err := fn(timeoutCtx, nil, msg, hookCtx); err != nil {
+			hookErr = err
+			fmt.Printf("[ERROR] Hook %s/%s failed: %v\n", types.HookTypeLoopModelResponse, name, err)
+		}
+	}()
+
+	return hookErr
+}
+
+// executeLoopToolResultHook executes a single loop_tool_result hook with panic recovery and timeout
+func (a *AgentBase) executeLoopToolResultHook(ctx context.Context, name string,
+	fn LoopToolResultHookFunc, msg *message.Msg, hookCtx *LoopToolResultContext) error {
+
+	var hookErr error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				hookErr = fmt.Errorf("hook %s/%s panicked: %v", types.HookTypeLoopToolResult, name, r)
+				fmt.Printf("[ERROR] Hook panic in %s/%s: %v\n", types.HookTypeLoopToolResult, name, r)
+			}
+		}()
+
+		timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		if err := fn(timeoutCtx, nil, msg, hookCtx); err != nil {
+			hookErr = err
+			fmt.Printf("[ERROR] Hook %s/%s failed: %v\n", types.HookTypeLoopToolResult, name, err)
+		}
+	}()
+
+	return hookErr
+}
+
+// executeLoopCompleteHook executes a single loop_complete hook with panic recovery and timeout
+func (a *AgentBase) executeLoopCompleteHook(ctx context.Context, name string,
+	fn LoopCompleteHookFunc, msg *message.Msg, hookCtx *LoopCompleteContext) error {
+
+	var hookErr error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				hookErr = fmt.Errorf("hook %s/%s panicked: %v", types.HookTypeLoopComplete, name, r)
+				fmt.Printf("[ERROR] Hook panic in %s/%s: %v\n", types.HookTypeLoopComplete, name, r)
+			}
+		}()
+
+		timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		if err := fn(timeoutCtx, nil, msg, hookCtx); err != nil {
+			hookErr = err
+			fmt.Printf("[ERROR] Hook %s/%s failed: %v\n", types.HookTypeLoopComplete, name, err)
+		}
+	}()
+
+	return hookErr
 }

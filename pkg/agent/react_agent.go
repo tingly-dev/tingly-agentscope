@@ -157,12 +157,39 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 
 		r.lastResponse = resp
 
+		// Create assistant message
+		asstMsg := message.NewMsg(
+			r.Name(),
+			resp.Content,
+			types.RoleAssistant,
+		)
+
+		// HOOK POINT 1: After model response
+		hookCtx := &LoopModelResponseContext{
+			Iteration:       i,
+			MaxIterations:   r.config.MaxIterations,
+			ToolBlocksCount: len(resp.GetToolUseBlocks()),
+		}
+		if err := r.runLoopModelResponseHooks(ctx, asstMsg, hookCtx); err != nil {
+			return nil, err
+		}
+
 		// Check for tool use blocks
 		toolBlocks := resp.GetToolUseBlocks()
 		if len(toolBlocks) == 0 {
 			// No more tools to use, return the final response
 			thoughtContent = append(thoughtContent, resp.Content...)
 			finalMsg := r.createResponseMessage(resp)
+
+			// HOOK POINT 3: Loop complete
+			completeCtx := &LoopCompleteContext{
+				IterationsUsed:       i + 1,
+				MaxIterationsReached: false,
+			}
+			if err := r.runLoopCompleteHooks(ctx, finalMsg, completeCtx); err != nil {
+				return nil, err
+			}
+
 			return finalMsg, nil
 		}
 
@@ -174,17 +201,14 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 			f.NextStep()
 		}
 
-		// Create and print assistant message with tool uses for streaming output
-		asstMsg := message.NewMsg(
-			r.Name(),
-			resp.Content,
-			types.RoleAssistant,
-		)
+		// Print assistant message
 		if err := r.Print(ctx, asstMsg); err != nil {
 			return nil, fmt.Errorf("failed to print assistant message: %w", err)
 		}
 
-		// Add assistant message to memory for session persistence
+		// IMPORTANT: Add assistant message to memory for session persistence
+		// This message contains both text content AND tool use blocks
+		// Regression test: pkg/agent/react_memory_test.go::TestReActAgent_ToolCallMemoryPersistence
 		if r.config.Memory != nil {
 			if err := r.config.Memory.Add(ctx, asstMsg); err != nil {
 				return nil, fmt.Errorf("failed to add assistant message to memory: %w", err)
@@ -203,13 +227,17 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 			messages = append(messages, toolMsg)
 
 			// NOTE: toolMsg is NOT added to memory separately because it's already
-			// part of asstMsg (resp.Content) which was saved above
+			// part of asstMsg (resp.Content) which was saved above.
+			// Adding it again would create duplicate content in memory.
 
 			// Execute tool
 			toolResp, err := r.config.Toolkit.Call(ctx, toolBlock)
+
+			// Create result message
+			var resultMsg *message.Msg
 			if err != nil {
 				// Tool execution failed, create error result message
-				errorResultMsg := message.NewMsg(
+				resultMsg = message.NewMsg(
 					toolBlock.Name,
 					[]message.ContentBlock{
 						&message.ToolResultBlock{
@@ -220,45 +248,33 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 					},
 					types.RoleUser,
 				)
-				// Increment step counter for tool result
-				if f, ok := r.AgentBase.formatter.(interface{ NextStep() }); ok {
-					f.NextStep()
-				}
-				// Print error result for streaming output
-				if err := r.Print(ctx, errorResultMsg); err != nil {
-					return nil, fmt.Errorf("failed to print tool error: %w", err)
-				}
-				messages = append(messages, errorResultMsg)
-
-				// Add error result to memory for session persistence
-				if r.config.Memory != nil {
-					if err := r.config.Memory.Add(ctx, errorResultMsg); err != nil {
-						return nil, fmt.Errorf("failed to add error result to memory: %w", err)
-					}
-				}
-				continue
-			}
-
-			// Add tool result to messages (wrapping in ToolResultBlock with tool call ID)
-			resultMsg := message.NewMsg(
-				toolBlock.Name,
-				[]message.ContentBlock{
-					&message.ToolResultBlock{
-						ID:     toolBlock.ID,
-						Name:   toolBlock.Name,
-						Output: toolResp.Content,
+			} else {
+				// Tool execution succeeded
+				resultMsg = message.NewMsg(
+					toolBlock.Name,
+					[]message.ContentBlock{
+						&message.ToolResultBlock{
+							ID:     toolBlock.ID,
+							Name:   toolBlock.Name,
+							Output: toolResp.Content,
+						},
 					},
-				},
-				types.RoleUser,
-			)
-			messages = append(messages, resultMsg)
-
-			// Add tool result to memory for session persistence
-			if r.config.Memory != nil {
-				if err := r.config.Memory.Add(ctx, resultMsg); err != nil {
-					return nil, fmt.Errorf("failed to add tool result to memory: %w", err)
-				}
+					types.RoleUser,
+				)
 			}
+
+			// HOOK POINT 2: After tool result
+			toolResultCtx := &LoopToolResultContext{
+				Iteration: i,
+				ToolID:    toolBlock.ID,
+				ToolName:  toolBlock.Name,
+				Error:     err,
+			}
+			if hookErr := r.runLoopToolResultHooks(ctx, resultMsg, toolResultCtx); hookErr != nil {
+				return nil, hookErr
+			}
+
+			messages = append(messages, resultMsg)
 
 			// Increment step counter for tool result
 			if f, ok := r.AgentBase.formatter.(interface{ NextStep() }); ok {
@@ -269,15 +285,33 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 			if err := r.Print(ctx, resultMsg); err != nil {
 				return nil, fmt.Errorf("failed to print tool result: %w", err)
 			}
+
+			// Add tool result to memory for session persistence
+			if r.config.Memory != nil {
+				if err := r.config.Memory.Add(ctx, resultMsg); err != nil {
+					return nil, fmt.Errorf("failed to add tool result to memory: %w", err)
+				}
+			}
 		}
 	}
 
 	// Max iterations reached, return accumulated content
-	return message.NewMsg(
+	finalMsg := message.NewMsg(
 		r.Name(),
 		thoughtContent,
 		types.RoleAssistant,
-	), nil
+	)
+
+	// HOOK POINT 3: Loop complete (max iterations)
+	completeCtx := &LoopCompleteContext{
+		IterationsUsed:       r.config.MaxIterations,
+		MaxIterationsReached: true,
+	}
+	if err := r.runLoopCompleteHooks(ctx, finalMsg, completeCtx); err != nil {
+		return nil, err
+	}
+
+	return finalMsg, nil
 }
 
 // callModel calls the model with the given messages

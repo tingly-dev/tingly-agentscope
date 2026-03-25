@@ -76,6 +76,11 @@ const (
 	HookTypePostPrint   HookType = "post_print"
 	HookTypePreObserve  HookType = "pre_observe"
 	HookTypePostObserve HookType = "post_observe"
+
+	// Loop-level hooks for ReAct agent
+	HookTypeLoopModelResponse HookType = "loop_model_response" // After model response with text + tool blocks
+	HookTypeLoopToolResult    HookType = "loop_tool_result"    // After tool execution result
+	HookTypeLoopComplete      HookType = "loop_complete"       // Loop finished
 )
 
 // Timestamp returns a formatted timestamp string
