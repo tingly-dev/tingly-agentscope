@@ -68,10 +68,17 @@ func (r *Recorder) ensureInitialized() error {
 	}
 
 	now := time.Now()
+
+	// Use sessionName if provided, otherwise fall back to firstQuery
+	name := r.sessionName
+	if name == "" && r.firstQuery != "" {
+		name = r.firstQuery
+	}
+
 	session := &Session{
 		ID:         r.sessionID,
 		FirstQuery: r.firstQuery,
-		Name:       r.sessionName,
+		Name:       name,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 		AgentName:  r.agentName,

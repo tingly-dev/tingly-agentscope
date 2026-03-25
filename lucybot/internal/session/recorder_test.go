@@ -247,3 +247,71 @@ func TestRecorderSetSessionIDForNewSession(t *testing.T) {
 		t.Errorf("Session 2 has wrong content: %s", messages2[0].Content)
 	}
 }
+
+func TestRecorderSessionNameFallsBackToFirstQuery(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir, "lucybot")
+	recorder := NewRecorder(store, "lucybot", "/tmp/test", "")
+
+	// Don't call Initialize - simulate lazy session creation
+	// Record first user message - this should generate session ID and set name from query
+	firstQuery := "How do I implement a session picker in Go?"
+	msg := message.NewMsg("", firstQuery, types.RoleUser)
+	err := recorder.RecordMessage(context.Background(), "", msg)
+	if err != nil {
+		t.Fatalf("Failed to record message: %v", err)
+	}
+
+	// Get the generated session ID
+	sessionID := recorder.GetSessionID()
+	if sessionID == "" {
+		t.Fatal("Expected session ID to be generated")
+	}
+
+	// Load the session and verify Name is set from first query
+	sess, err := store.Load(sessionID)
+	if err != nil {
+		t.Fatalf("Failed to load session: %v", err)
+	}
+
+	if sess.Name != firstQuery {
+		t.Errorf("Expected session Name to be '%s', got '%s'", firstQuery, sess.Name)
+	}
+
+	if sess.FirstQuery != firstQuery {
+		t.Errorf("Expected session FirstQuery to be '%s', got '%s'", firstQuery, sess.FirstQuery)
+	}
+}
+
+func TestRecorderSessionNameWithExplicitName(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := NewJSONLStore(tmpDir, "lucybot")
+	recorder := NewRecorder(store, "lucybot", "/tmp/test", "")
+
+	// Initialize with explicit name
+	explicitName := "My Custom Session Name"
+	recorder.Initialize("test-session-id", explicitName)
+
+	// Record a message
+	msg := message.NewMsg("", "This is my first query", types.RoleUser)
+	err := recorder.RecordMessage(context.Background(), "test-session-id", msg)
+	if err != nil {
+		t.Fatalf("Failed to record message: %v", err)
+	}
+
+	// Load the session and verify Name is the explicit name, not the query
+	sess, err := store.Load("test-session-id")
+	if err != nil {
+		t.Fatalf("Failed to load session: %v", err)
+	}
+
+	if sess.Name != explicitName {
+		t.Errorf("Expected session Name to be '%s', got '%s'", explicitName, sess.Name)
+	}
+
+	// FirstQuery is only set during lazy initialization (when no sessionID is provided)
+	// In this case, we provided an explicit sessionID, so FirstQuery remains empty
+	if sess.FirstQuery != "" {
+		t.Errorf("Expected session FirstQuery to be empty (not lazy init), got '%s'", sess.FirstQuery)
+	}
+}
