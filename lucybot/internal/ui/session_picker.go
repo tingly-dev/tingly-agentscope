@@ -108,7 +108,9 @@ func (i sessionItem) Title() string {
 	if title == "" {
 		title = i.ID
 	}
-	return title
+	// Truncate title to fit within picker window
+	// Reserve space for agent name prefix and description
+	return truncate(title, 60)
 }
 
 func (i sessionItem) Description() string {

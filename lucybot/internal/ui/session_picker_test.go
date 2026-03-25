@@ -181,6 +181,24 @@ func TestSessionItem(t *testing.T) {
 			}},
 			wantTitle: "123",
 		},
+		{
+			name: "with very long name - should be truncated",
+			item: sessionItem{SessionInfo: session.SessionInfo{
+				AgentName: "test-agent",
+				Name:      "This is a very long session name that should be truncated to fit within the picker window because it exceeds the maximum length",
+				ID:        "123",
+			}},
+			wantTitle: "test-agent - This is a very long session name that should...",
+		},
+		{
+			name: "with exactly 60 chars in total (after truncation)",
+			item: sessionItem{SessionInfo: session.SessionInfo{
+				AgentName: "test-agent",
+				Name:      "1234567890123456789012345678901234567890123456789012345678",
+				ID:        "123",
+			}},
+			wantTitle: "test-agent - 12345678901234567890123456789012345678901234...",
+		},
 	}
 
 	for _, tt := range tests {
