@@ -82,15 +82,16 @@ var (
 
 // Rendering constants
 const (
-	ModelSymbol        = "◦" // White bullet for model output
-	ToolSymbol         = "●" // Black circle for tool calls
-	ResultSymbol       = "⎿" // Bottom left corner for tool results
-	TreeBranch         = "├─"
-	TreeVertical       = "│ "
-	TreeEnd            = "└─"
-	ModelIndent        = "  "
-	ResultIndent       = "    "
-	MaxParamLength     = 128
-	DefaultResultLines = 3
-	MaxLineLength      = 256
+	ModelSymbol             = "◦" // White bullet for model output
+	ToolSymbol              = "●" // Black circle for tool calls
+	ResultSymbol            = "⎿" // Bottom left corner for tool results
+	TreeBranch              = "├─"
+	TreeVertical            = "│ "
+	TreeEnd                 = "└─"
+	ModelIndent             = "  "
+	ResultIndent            = "    "
+	ErrorContinuationIndent = "    " // 4 spaces for error message continuation lines
+	MaxParamLength          = 128
+	DefaultResultLines      = 3
+	MaxLineLength           = 256
 )

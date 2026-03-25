@@ -716,7 +716,7 @@ func (r *MessageRenderer) renderErrorBlock(sb *strings.Builder, block *message.E
 	}
 
 	// Render continuation lines with additional indentation
-	continuationIndent := ResultIndent + "    " // ResultIndent + 4 spaces
+	continuationIndent := ResultIndent + ErrorContinuationIndent
 	for i := 1; i < len(lines); i++ {
 		sb.WriteString("\n")
 		sb.WriteString(continuationIndent)
