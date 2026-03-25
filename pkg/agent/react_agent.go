@@ -184,10 +184,17 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 			return nil, fmt.Errorf("failed to print assistant message: %w", err)
 		}
 
+		// Add assistant message to memory for session persistence
+		if r.config.Memory != nil {
+			if err := r.config.Memory.Add(ctx, asstMsg); err != nil {
+				return nil, fmt.Errorf("failed to add assistant message to memory: %w", err)
+			}
+		}
+
 		// Execute each tool
 		for _, toolBlock := range toolBlocks {
 			// toolBlock is already *message.ToolUseBlock, no conversion needed
-			// Add tool use to messages
+			// Add tool use to messages for the next model call
 			toolMsg := message.NewMsg(
 				r.Name(),
 				[]message.ContentBlock{toolBlock},
@@ -195,12 +202,8 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 			)
 			messages = append(messages, toolMsg)
 
-			// Add tool message to memory for session persistence
-			if r.config.Memory != nil {
-				if err := r.config.Memory.Add(ctx, toolMsg); err != nil {
-					return nil, fmt.Errorf("failed to add tool message to memory: %w", err)
-				}
-			}
+			// NOTE: toolMsg is NOT added to memory separately because it's already
+			// part of asstMsg (resp.Content) which was saved above
 
 			// Execute tool
 			toolResp, err := r.config.Toolkit.Call(ctx, toolBlock)
