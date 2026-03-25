@@ -697,6 +697,31 @@ func (r *MessageRenderer) renderErrorBlock(sb *strings.Builder, block *message.E
 	sb.WriteString(" ")
 	sb.WriteString(style.Render(label))
 	sb.WriteString(" ")
-	sb.WriteString(ContentStyle.Render(block.Message))
+
+	// Calculate available width for error message
+	// Account for tree structure indentation: ResultIndent (4) + TreeEnd (2) + spaces (2) + icon (1-2) + label (5-12) + space (1)
+	// Using 20 as a safe approximation
+	availableWidth := r.width - 20
+	if availableWidth < 20 {
+		availableWidth = 20 // Minimum width to prevent breaking
+	}
+
+	// Wrap the error message
+	wrappedMessage := wrapText(block.Message, availableWidth)
+	lines := strings.Split(wrappedMessage, "\n")
+
+	// Render first line
+	if len(lines) > 0 {
+		sb.WriteString(ContentStyle.Render(lines[0]))
+	}
+
+	// Render continuation lines with additional indentation
+	continuationIndent := ResultIndent + "    " // ResultIndent + 4 spaces
+	for i := 1; i < len(lines); i++ {
+		sb.WriteString("\n")
+		sb.WriteString(continuationIndent)
+		sb.WriteString(ContentStyle.Render(lines[i]))
+	}
+
 	sb.WriteString("\n")
 }

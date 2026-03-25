@@ -1,12 +1,20 @@
 package ui
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
+
+// stripAnsiCodes removes ANSI escape codes from a string
+func stripAnsiCodes(s string) string {
+	// ANSI escape code pattern
+	ansi := regexp.MustCompile("\x1b\\[[0-9;]*[a-zA-Z]")
+	return ansi.ReplaceAllString(s, "")
+}
 
 func TestMessageRendererCreation(t *testing.T) {
 	renderer := NewMessageRenderer(80)
@@ -274,5 +282,107 @@ func TestRenderTurnMultipleErrors(t *testing.T) {
 	count := strings.Count(result, "└─")
 	if count < 2 {
 		t.Errorf("Multiple errors should each have tree structure, got %d", count)
+	}
+}
+
+func TestRenderErrorBlockWithLongMessage(t *testing.T) {
+	// Create a renderer with limited width to trigger wrapping
+	renderer := NewMessageRenderer(40) // Very narrow to ensure wrapping
+
+	// Create a long error message that will need to wrap
+	longMessage := "This is a very long error message that exceeds the available width and should be wrapped across multiple lines in the output"
+	block := message.Error(message.ErrorTypeAPI, longMessage)
+
+	var sb strings.Builder
+	renderer.renderErrorBlock(&sb, block)
+
+	result := sb.String()
+
+	// Should contain parts of the error message
+	if !strings.Contains(result, "This is a very long") {
+		t.Errorf("Error output should contain start of error message")
+	}
+
+	// Should be wrapped (multiple lines)
+	lines := strings.Split(strings.TrimRight(result, "\n"), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("Long error message should wrap to multiple lines, got %d lines: %q", len(lines), result)
+	}
+
+	// Verify continuation lines have proper indentation
+	continuationIndent := ResultIndent + "    " // ResultIndent + 4 spaces
+	for i, line := range lines {
+		cleanLine := stripAnsiCodes(line)
+		if i > 0 && strings.TrimSpace(cleanLine) != "" {
+			// Check that continuation lines start with proper indentation
+			if !strings.HasPrefix(cleanLine, continuationIndent) {
+				t.Errorf("Continuation line %d should start with %q, got: %q", i, continuationIndent, cleanLine)
+			}
+		}
+	}
+
+	// Verify that the message is actually wrapped (more than one line of content)
+	contentLines := 0
+	for _, line := range lines {
+		if strings.TrimSpace(stripAnsiCodes(line)) != "" {
+			contentLines++
+		}
+	}
+	if contentLines < 2 {
+		t.Errorf("Long error message should wrap to multiple content lines, got %d", contentLines)
+	}
+}
+
+func TestRenderErrorBlockWithShortMessage(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+
+	// Create a short error message that fits on one line
+	shortMessage := "rate limit exceeded"
+	block := message.Error(message.ErrorTypeAPI, shortMessage)
+
+	var sb strings.Builder
+	renderer.renderErrorBlock(&sb, block)
+
+	result := sb.String()
+
+	// Should contain the error message
+	if !strings.Contains(result, "rate limit exceeded") {
+		t.Errorf("Error output should contain error message")
+	}
+
+	// Should be on a single line (no newlines except the trailing one)
+	lines := strings.Split(strings.TrimRight(result, "\n"), "\n")
+	if len(lines) != 1 {
+		t.Errorf("Short error message should fit on one line, got %d lines", len(lines))
+	}
+}
+
+func TestRenderErrorBlockWithNewlines(t *testing.T) {
+	renderer := NewMessageRenderer(80)
+
+	// Create an error message with existing newlines
+	messageWithNewlines := "First error line\nSecond error line\nThird error line"
+	block := message.Error(message.ErrorTypeAPI, messageWithNewlines)
+
+	var sb strings.Builder
+	renderer.renderErrorBlock(&sb, block)
+
+	result := sb.String()
+
+	// Should contain all lines
+	if !strings.Contains(result, "First error line") {
+		t.Errorf("Error output should contain first line")
+	}
+	if !strings.Contains(result, "Second error line") {
+		t.Errorf("Error output should contain second line")
+	}
+	if !strings.Contains(result, "Third error line") {
+		t.Errorf("Error output should contain third line")
+	}
+
+	// Should have multiple lines (preserving newlines)
+	lines := strings.Split(strings.TrimRight(result, "\n"), "\n")
+	if len(lines) < 3 {
+		t.Errorf("Error with newlines should preserve them, got %d lines", len(lines))
 	}
 }
