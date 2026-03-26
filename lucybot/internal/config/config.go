@@ -74,7 +74,7 @@ type Config struct {
 
 const (
 	// DefaultMaxIters is the default maximum number of ReAct iterations
-	DefaultMaxIters = 20
+	DefaultMaxIters = 150
 	// DefaultTemperature is the default temperature for LLM
 	DefaultTemperature = 0.3
 	// DefaultMaxTokens is the default max tokens for LLM
@@ -126,6 +126,19 @@ You have access to various tools to help with software engineering tasks. Use th
 
 5. **Provide code references** in the format "path/to/file.go:42" for easy navigation.
 
+## Important: Always End with a Summary
+
+**CRITICAL**: Your final response to the user must be a complete summary of the conversation, NOT a tool call.
+- After using the finish tool, you must provide one final message with a comprehensive summary
+- The summary should include: what was done, what changed, and any important next steps
+- Do NOT end your conversation with just a tool call - always add a final text message
+- If you complete the task without using finish, still ensure your last message is a complete summary
+
+Example of correct ending:
+1. Use tools to complete the task
+2. Call finish tool with summary
+3. Provide a final assistant message with the complete summary
+
 Always respond in English.
 Always respond with exactly one tool call.`
 
@@ -152,7 +165,7 @@ func GetDefaultConfig() *Config {
 			Compression: CompressionConfig{
 				Enabled:                 true,
 				Threshold:               0,
-				ContextWindow:           8192,
+				ContextWindow:           200000,
 				TriggerThresholdPercent: 92,
 				KeepRecent:              3,
 			},
@@ -320,7 +333,7 @@ func applyDefaults(cfg *Config) {
 
 	// Compression defaults
 	if cfg.Agent.Compression.ContextWindow == 0 {
-		cfg.Agent.Compression.ContextWindow = 8192
+		cfg.Agent.Compression.ContextWindow = 200000
 	}
 	if cfg.Agent.Compression.TriggerThresholdPercent == 0 {
 		cfg.Agent.Compression.TriggerThresholdPercent = 92
