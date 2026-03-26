@@ -157,6 +157,13 @@ func (i *Input) Value() string {
 	return i.textarea.Value()
 }
 
+// GetValueForSubmit returns the input value with all placeholder tokens resolved
+// This should be called when submitting the query to ensure pasteboard content is included
+func (i *Input) GetValueForSubmit() string {
+	value := i.textarea.Value()
+	return i.resolvePlaceholders(value)
+}
+
 // SetValue sets the input value
 func (i *Input) SetValue(value string) {
 	i.textarea.SetValue(value)
@@ -724,6 +731,35 @@ func (i *Input) expandPlaceholders(text string) string {
 			return fmt.Sprintf(placeholderDisplayLarge, id, maxLinesForExactDisplay)
 		}
 		return fmt.Sprintf(placeholderDisplayFormat, id, lines)
+	})
+}
+
+// resolvePlaceholders replaces placeholder tokens with actual pasteboard content
+// This is used when submitting the query to get the full content
+func (i *Input) resolvePlaceholders(text string) string {
+	return placeholderTokenPattern.ReplaceAllStringFunc(text, func(match string) string {
+		// Extract ID from token
+		matches := placeholderTokenPattern.FindStringSubmatch(match)
+		if len(matches) < 2 {
+			return match // Malformed token, return as-is
+		}
+
+		idStr := matches[1]
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return match // Invalid ID, return as-is
+		}
+
+		// Get content from pasteboard
+		content, ok := i.pasteboard.Get(id)
+		if !ok {
+			// Missing entry - leave token as-is (user will see it in the response)
+			// This could happen if pasteboard was cleared or entry expired
+			return match
+		}
+
+		// Return actual content for submission
+		return content
 	})
 }
 

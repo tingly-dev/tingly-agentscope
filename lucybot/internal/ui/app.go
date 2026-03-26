@@ -284,7 +284,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, inputCmd)
 			} else if !a.thinking {
 				// Submit message if input focused and no popup visible
-				value := a.input.Value()
+				value := a.input.GetValueForSubmit()
 				if value != "" {
 					cmd := a.handleSubmit(value)
 					cmds = append(cmds, cmd)
