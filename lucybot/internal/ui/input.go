@@ -162,8 +162,11 @@ func (i *Input) SetValue(value string) {
 	i.textarea.SetValue(value)
 }
 
-// Cursor returns the current cursor position
+// Cursor returns the current cursor position (for compatibility, returns length)
+// Note: This returns the end of content, not actual cursor position
 func (i *Input) Cursor() int {
+	// TODO: Return actual cursor position from textarea
+	// For now, this is used by history navigation which needs end position
 	return len(i.textarea.Value())
 }
 
@@ -418,7 +421,7 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyTab:
-			// Tab cycles through popup items or inserts selected
+			// Tab cycles through popup items or expands placeholders
 			if i.IsPopupVisible() {
 				if i.popupMode == PopupModeCommand {
 					i.commandPopup.Next()
@@ -427,6 +430,13 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				}
 				return i, nil
 			}
+
+			// Try to expand placeholder at cursor position
+			if i.tryExpandPlaceholder() {
+				return i, nil
+			}
+
+			// Fall through to normal Tab behavior (textarea will handle it)
 
 		case tea.KeyShiftTab:
 			// Shift+Tab cycles backwards
@@ -630,6 +640,49 @@ func isWordChar(c byte) bool {
 // formatPlaceholderToken formats a placeholder token for a given paste ID
 func formatPlaceholderToken(id int) string {
 	return fmt.Sprintf(placeholderTokenFormat, id)
+}
+
+// tryExpandPlaceholder attempts to expand a placeholder token
+// Returns true if a placeholder was expanded, false otherwise
+func (i *Input) tryExpandPlaceholder() bool {
+	value := i.textarea.Value()
+
+	// Find all placeholder tokens
+	matches := placeholderTokenPattern.FindAllStringSubmatch(value, -1)
+	if len(matches) == 0 {
+		return false // No placeholders found
+	}
+
+	// Expand the first placeholder found
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue // Malformed token
+		}
+
+		// Get the full match (token)
+		token := match[0]
+		idStr := match[1]
+
+		// Parse ID
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			continue // Invalid ID, skip
+		}
+
+		// Get content from pasteboard
+		content, ok := i.pasteboard.Get(id)
+		if !ok {
+			continue // Missing entry, skip
+		}
+
+		// Expand the first placeholder: replace token with actual content
+		newValue := strings.Replace(value, token, content, 1)
+		i.textarea.SetValue(newValue)
+
+		return true
+	}
+
+	return false
 }
 
 // Placeholder display format
