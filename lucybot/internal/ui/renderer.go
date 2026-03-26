@@ -180,6 +180,11 @@ func (r *MessageRenderer) tryRenderStructuredThought(sb *strings.Builder, text s
 
 // renderToolUseBlock renders a tool use block
 func (r *MessageRenderer) renderToolUseBlock(sb *strings.Builder, block *message.ToolUseBlock) {
+	// Skip rendering the finish tool - it's used internally and shouldn't be shown
+	if block.Name == "finish" {
+		return
+	}
+
 	sb.WriteString("\n")
 	sb.WriteString(ToolSymbolStyle.Render(ToolSymbol))
 	sb.WriteString(" ")
@@ -584,6 +589,11 @@ func (r *MessageRenderer) renderTextBlockInTurn(sb *strings.Builder, block *mess
 
 // renderToolUseBlockInTurn renders a tool use within a turn
 func (r *MessageRenderer) renderToolUseBlockInTurn(sb *strings.Builder, block *message.ToolUseBlock) {
+	// Skip rendering the finish tool - it's used internally and shouldn't be shown
+	if block.Name == "finish" {
+		return
+	}
+
 	// Tool symbol and call
 	sb.WriteString(ToolSymbolStyle.Render(ToolSymbol))
 	sb.WriteString(" ")
