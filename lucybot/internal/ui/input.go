@@ -558,13 +558,14 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 						// Reset detector after handling paste
 						i.pasteDetector.Reset()
-					} else {
-						// Not a placeholder-worthy paste, insert normally
-						// Let textarea handle it
+						return i, nil // Don't let textarea process this message again
 					}
-					break // Only process first paste detection
+					// Not a placeholder-worthy paste (e.g., single space, short text)
+					// Fall through to let textarea handle it normally via the main Update call below
 				}
 			}
+			// For normal typing (including spaces), let the main Update() call handle it
+			// This ensures characters are inserted and cursor tracking works correctly
 
 			// Check for trigger characters (only if no paste was handled)
 			if len(msg.Runes) == 1 {
