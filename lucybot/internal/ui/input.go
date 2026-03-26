@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -31,7 +32,16 @@ type Input struct {
 
 	// Query history
 	history *History
+
+	// Pasteboard for large text pastes
+	pasteboard    *Pasteboard
+	pasteDetector *PasteDetector
 }
+
+// Placeholder token format
+const (
+	placeholderTokenFormat = "<<PASTE:%d>>"
+)
 
 // AgentInfo holds information about an agent
 type AgentInfo struct {
@@ -73,16 +83,32 @@ func NewInput() Input {
 	ta.KeyMap.LineStart = key.NewBinding(key.WithKeys("ctrl+a"))
 	ta.KeyMap.LineEnd = key.NewBinding(key.WithKeys("ctrl+e", "end"))
 
+	// Add word navigation key bindings
+	// Alt+Left/Alt+B or Ctrl+Left: Move to previous word (Emacs-style)
+	// Alt+Right/Alt+F or Ctrl+Right: Move to next word (Emacs-style)
+	// Note: Ctrl+Left/Right work in some terminals (e.g., iTerm2, Windows Terminal)
+	ta.KeyMap.WordBackward = key.NewBinding(key.WithKeys("alt+left", "alt+b", "ctrl+left"))
+	ta.KeyMap.WordForward = key.NewBinding(key.WithKeys("alt+right", "alt+f", "ctrl+right"))
+
+	// Add word deletion key bindings
+	// Ctrl+W or Alt+Backspace or Ctrl+Backspace: Delete previous word (Emacs-style)
+	// Alt+D or Alt+Delete or Ctrl+Delete: Delete next word (Emacs-style)
+	// Note: Ctrl+Backspace works in some terminals (e.g., iTerm2, Windows Terminal)
+	ta.KeyMap.DeleteWordBackward = key.NewBinding(key.WithKeys("ctrl+w", "alt+backspace", "ctrl+backspace"))
+	ta.KeyMap.DeleteWordForward = key.NewBinding(key.WithKeys("alt+d", "alt+delete", "ctrl+delete"))
+
 	ta.Focus()
 
 	return Input{
-		textarea:     ta,
-		placeholder:  ta.Placeholder,
-		commandPopup: CommandPopup(),
-		agentPopup:   AgentPopup(),
-		popupMode:    PopupModeNone,
-		agents:       []AgentInfo{},
-		history:      NewHistory(),
+		textarea:      ta,
+		placeholder:   ta.Placeholder,
+		commandPopup:  CommandPopup(),
+		agentPopup:    AgentPopup(),
+		popupMode:     PopupModeNone,
+		agents:        []AgentInfo{},
+		history:       NewHistory(),
+		pasteboard:    NewPasteboard(),
+		pasteDetector: NewPasteDetector(),
 	}
 }
 
@@ -169,6 +195,10 @@ func (i *Input) isCursorOnFirstLine() bool {
 	// For bash-style history navigation:
 	// - Allow Up to navigate history when input is empty (no matter what)
 	// - Also allow when on the first line (no newlines before cursor)
+	// - IMPORTANT: If already browsing history, always allow navigation
+	if i.history.IsBrowsing() {
+		return true
+	}
 	value := i.textarea.Value()
 	if value == "" {
 		return true
@@ -181,6 +211,10 @@ func (i *Input) isCursorOnLastLine() bool {
 	// For bash-style history navigation:
 	// - Allow Down to navigate history when input is empty (no matter what)
 	// - Also allow when on the last line (no newlines after cursor)
+	// - IMPORTANT: If already browsing history, always allow navigation
+	if i.history.IsBrowsing() {
+		return true
+	}
 	value := i.textarea.Value()
 	if value == "" {
 		return true
@@ -483,7 +517,38 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			if i.history.IsBrowsing() {
 				i.history.Reset()
 			}
-			// Check for trigger characters
+
+			// Check for paste detection (each rune individually)
+			for _, r := range msg.Runes {
+				if pasteContent := i.pasteDetector.OnKeyRune(r); pasteContent != "" {
+					// Paste detected - check if it should create a placeholder
+					if i.pasteDetector.IsPaste(pasteContent) {
+						// Create placeholder
+						entry := i.pasteboard.Add(pasteContent)
+						token := formatPlaceholderToken(entry.ID)
+
+						// Insert token at cursor position
+						currentValue := i.textarea.Value()
+						cursorPos := i.Cursor()
+						before := currentValue[:cursorPos]
+						after := currentValue[cursorPos:]
+						i.textarea.SetValue(before + token + after)
+
+						// Move cursor after token
+						newCursorPos := cursorPos + len(token)
+						i.textarea.SetCursor(newCursorPos)
+
+						// Reset detector after handling paste
+						i.pasteDetector.Reset()
+					} else {
+						// Not a placeholder-worthy paste, insert normally
+						// Let textarea handle it
+					}
+					break // Only process first paste detection
+				}
+			}
+
+			// Check for trigger characters (only if no paste was handled)
 			if len(msg.Runes) == 1 {
 				switch msg.Runes[0] {
 				case '/':
@@ -548,6 +613,11 @@ func isWordChar(c byte) bool {
 		(c >= 'A' && c <= 'Z') ||
 		(c >= '0' && c <= '9') ||
 		c == '_'
+}
+
+// formatPlaceholderToken formats a placeholder token for a given paste ID
+func formatPlaceholderToken(id int) string {
+	return fmt.Sprintf(placeholderTokenFormat, id)
 }
 
 // isTerminalEscapeSequence checks if the input string contains terminal escape sequence fragments
