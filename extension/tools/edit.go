@@ -37,9 +37,9 @@ func NewEditTool(options ...func(*EditTool)) *EditTool {
 
 // EditParams defines the parameters for the edit tool
 type EditParams struct {
-	Path    string `json:"path" description:"Path to the file to edit (relative or absolute)"`
-	OldText string `json:"oldText" description:"Exact text to find and replace (must match exactly including whitespace)"`
-	NewText string `json:"newText" description:"New text to replace the old text with"`
+	Path    string `json:"path" required:"true" description:"Path to the file to edit (relative or absolute)"`
+	OldText string `json:"oldText" required:"true" description:"Exact text to find and replace (must match exactly including whitespace)"`
+	NewText string `json:"newText" required:"true" description:"New text to replace the old text with"`
 }
 
 // Name implements DescriptiveTool interface

@@ -40,7 +40,7 @@ func NewReadTool(options ...func(*ReadTool)) *ReadTool {
 
 // ReadParams defines the parameters for the read tool
 type ReadParams struct {
-	Path   string `json:"path" description:"Path to the file to read (relative or absolute)"`
+	Path   string `json:"path" required:"true" description:"Path to the file to read (relative or absolute)"`
 	Offset int    `json:"offset,omitempty" description:"Line number to start reading from (1-indexed)"`
 	Limit  int    `json:"limit,omitempty" description:"Maximum number of lines to read"`
 }

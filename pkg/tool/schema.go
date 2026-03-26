@@ -52,8 +52,13 @@ func StructToSchema(v any) map[string]any {
 			}
 		}
 
-		// Check if required
-		isRequired := !strings.Contains(jsonTag, "omitempty")
+		// Check if required: explicit `required` tag takes priority, then fall back to omitempty inference
+		isRequired := false
+		if reqTag := field.Tag.Get("required"); reqTag != "" {
+			isRequired = reqTag == "true"
+		} else {
+			isRequired = !strings.Contains(jsonTag, "omitempty")
+		}
 
 		prop := make(map[string]any)
 

@@ -48,8 +48,8 @@ func NewWriteTool(options ...func(*WriteTool)) *WriteTool {
 
 // WriteParams defines the parameters for the write tool
 type WriteParams struct {
-	Path    string `json:"path" description:"Path to the file to write (relative or absolute)"`
-	Content string `json:"content" description:"Content to write to the file"`
+	Path    string `json:"path" required:"true" description:"Path to the file to write (relative or absolute)"`
+	Content string `json:"content" required:"true" description:"Content to write to the file"`
 }
 
 // Name implements DescriptiveTool interface

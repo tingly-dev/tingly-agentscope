@@ -598,6 +598,66 @@ func TestExtensionToolkit(t *testing.T) {
 		}
 	})
 
+	t.Run("schemas have correct required fields", func(t *testing.T) {
+		et, err := NewExtensionToolkit(nil)
+		if err != nil {
+			t.Fatalf("failed to create extension toolkit: %v", err)
+		}
+
+		schemas := et.GetSchemas()
+
+		// Build lookup by tool name
+		schemaMap := make(map[string]map[string]any)
+		for _, s := range schemas {
+			schemaMap[s.Function.Name] = s.Function.Parameters
+		}
+
+		tests := []struct {
+			tool     string
+			required []string
+		}{
+			{"read", []string{"path"}},
+			{"write", []string{"path", "content"}},
+			{"edit", []string{"path", "oldText", "newText"}},
+			{"bash", []string{"command"}},
+		}
+
+		for _, tc := range tests {
+			params, ok := schemaMap[tc.tool]
+			if !ok {
+				t.Errorf("tool %q not found in schemas", tc.tool)
+				continue
+			}
+
+			reqRaw, ok := params["required"]
+			if !ok {
+				t.Errorf("tool %q: missing required field in schema", tc.tool)
+				continue
+			}
+
+			reqSlice, ok := reqRaw.([]string)
+			if !ok {
+				t.Errorf("tool %q: required field is not []string, got %T", tc.tool, reqRaw)
+				continue
+			}
+
+			reqSet := make(map[string]bool, len(reqSlice))
+			for _, r := range reqSlice {
+				reqSet[r] = true
+			}
+
+			for _, expected := range tc.required {
+				if !reqSet[expected] {
+					t.Errorf("tool %q: expected %q in required, got %v", tc.tool, expected, reqSlice)
+				}
+			}
+
+			if len(reqSlice) != len(tc.required) {
+				t.Errorf("tool %q: expected %d required fields, got %d: %v", tc.tool, len(tc.required), len(reqSlice), reqSlice)
+			}
+		}
+	})
+
 	t.Run("use direct methods", func(t *testing.T) {
 		et, err := NewExtensionToolkit(&ExtensionOptions{
 			ReadOptions:  ReadOptions([]string{tempDir}, 1024*1024),

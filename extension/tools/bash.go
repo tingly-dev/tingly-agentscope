@@ -55,7 +55,7 @@ func NewBashTool(options ...func(*BashTool)) *BashTool {
 
 // BashParams defines the parameters for the bash tool
 type BashParams struct {
-	Command string `json:"command" description:"Bash command to execute"`
+	Command string `json:"command" required:"true" description:"Bash command to execute"`
 	Timeout int    `json:"timeout,omitempty" description:"Timeout in seconds (optional, no default timeout)"`
 }
 
