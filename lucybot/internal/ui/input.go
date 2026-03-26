@@ -37,6 +37,9 @@ type Input struct {
 	// Pasteboard for large text pastes
 	pasteboard    *Pasteboard
 	pasteDetector *PasteDetector
+
+	// Cursor position tracking (needed because SetValue() resets cursor position)
+	cursorPos int
 }
 
 // Placeholder token format
@@ -169,12 +172,9 @@ func (i *Input) SetValue(value string) {
 	i.textarea.SetValue(value)
 }
 
-// Cursor returns the current cursor position (for compatibility, returns length)
-// Note: This returns the end of content, not actual cursor position
+// Cursor returns the current cursor position
 func (i *Input) Cursor() int {
-	// TODO: Return actual cursor position from textarea
-	// For now, this is used by history navigation which needs end position
-	return len(i.textarea.Value())
+	return i.cursorPos
 }
 
 // Reset clears the input
@@ -590,6 +590,43 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 	// Update textarea
 	i.textarea, cmd = i.textarea.Update(msg)
 
+	// Track cursor position for later restoration
+	// We need to track this because SetValue() in View() resets cursor position
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.Type {
+		case tea.KeyRunes:
+			// User typed characters - move cursor forward
+			i.cursorPos += len(keyMsg.Runes)
+		case tea.KeyBackspace:
+			// User deleted a character - move cursor backward
+			if i.cursorPos > 0 {
+				i.cursorPos--
+			}
+		case tea.KeyDelete:
+			// Delete key doesn't move cursor
+		case tea.KeyLeft:
+			// Left arrow - move cursor backward
+			if i.cursorPos > 0 {
+				i.cursorPos--
+			}
+		case tea.KeyRight:
+			// Right arrow - move cursor forward
+			valueLen := len(i.textarea.Value())
+			if i.cursorPos < valueLen {
+				i.cursorPos++
+			}
+		case tea.KeyUp:
+			// Up arrow - move to beginning of line or value
+			i.cursorPos = 0
+		case tea.KeyDown:
+			// Down arrow - move to end of value
+			i.cursorPos = len(i.textarea.Value())
+		case tea.KeyEnter:
+			// Enter key - move to end of value (after newline)
+			i.cursorPos = len(i.textarea.Value())
+		}
+	}
+
 	// Update popup visibility based on new input
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		// Only update popups on character changes, not navigation
@@ -619,6 +656,10 @@ func (i Input) View() string {
 		views = append(views, i.agentPopup.View())
 	}
 
+	// Save current cursor position BEFORE any modifications
+	// We use our tracked position which is updated in Update()
+	cursorPos := i.cursorPos
+
 	// Get raw textarea value
 	rawValue := i.textarea.Value()
 
@@ -628,8 +669,20 @@ func (i Input) View() string {
 	// Temporarily set display value for rendering
 	originalValue := i.textarea.Value()
 	i.textarea.SetValue(displayValue)
+
+	// Restore cursor position that was saved before SetValue()
+	// This ensures the view captures the correct cursor position
+	i.textarea.SetCursor(cursorPos)
+
+	// Capture the view with correct cursor position
 	textareaView := i.textarea.View()
-	i.textarea.SetValue(originalValue) // Restore raw value
+
+	// Restore original value for next frame
+	i.textarea.SetValue(originalValue)
+
+	// Set cursor position for next frame
+	// This ensures the next View() call will have the correct position
+	i.textarea.SetCursor(cursorPos)
 
 	views = append(views, textareaView)
 
