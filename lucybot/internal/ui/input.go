@@ -625,14 +625,6 @@ func (i Input) View() string {
 	// Expand placeholder tokens for display
 	displayValue := i.expandPlaceholders(rawValue)
 
-	// Apply word wrapping for consistent display with message window
-	// Account for prompt string "> " (2 chars) on first line and "  " (2 chars) on subsequent lines
-	// Leave some margin for visual comfort
-	wrapWidth := i.width - 4
-	if wrapWidth > 0 {
-		displayValue = wrapText(displayValue, wrapWidth)
-	}
-
 	// Temporarily set display value for rendering
 	originalValue := i.textarea.Value()
 	i.textarea.SetValue(displayValue)
