@@ -52,7 +52,9 @@ func (r *Recorder) SetSessionID(sessionID, name string) {
 	// Only reset initialization if this is a new session that doesn't exist yet
 	// If the session file already exists, we should mark it as initialized
 	// to prevent creating a duplicate session file
-	if r.store.Exists(sessionID) {
+	exists := r.store.Exists(sessionID)
+
+	if exists {
 		// Session exists on disk - mark as initialized to prevent re-creating
 		r.initialized = true
 	} else {
