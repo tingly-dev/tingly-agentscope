@@ -125,29 +125,44 @@ func (r *ToolRegistry) RegisterFunction(name string, fn any, opts *RegisterOptio
 		}
 	}
 
+	// Get function value
+	fnValue := reflect.ValueOf(fn)
+	if fnValue.Kind() != reflect.Func {
+		return fmt.Errorf("expected a function, got %T", fn)
+	}
+
 	// Generate or use provided schema
 	var schema model.ToolDefinition
 	if opts.JSONSchema != nil {
 		schema = *opts.JSONSchema
 	} else {
-		// Create basic schema
+		// Try to infer schema from function signature
+		fnType := fnValue.Type()
+		var paramSchema map[string]any
+		if fnType.NumIn() >= 2 {
+			argType := fnType.In(1)
+			if argType.Kind() == reflect.Ptr {
+				argType = argType.Elem()
+			}
+			if argType.Kind() == reflect.Struct {
+				paramSchema = StructToSchema(reflect.New(argType).Elem().Interface())
+			}
+		}
+		if paramSchema == nil {
+			paramSchema = map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+				"required":   []string{},
+			}
+		}
 		schema = model.ToolDefinition{
 			Type: "function",
 			Function: model.FunctionDefinition{
 				Name:        name,
 				Description: opts.FuncDescription,
-				Parameters: map[string]any{
-					"type":       "object",
-					"properties": map[string]any{},
-				},
+				Parameters:  paramSchema,
 			},
 		}
-	}
-
-	// Get function value
-	fnValue := reflect.ValueOf(fn)
-	if fnValue.Kind() != reflect.Func {
-		return fmt.Errorf("expected a function, got %T", fn)
 	}
 
 	// Handle name conflict
@@ -499,6 +514,21 @@ func (r *ToolRegistry) GetGroups() map[string]*ToolGroup {
 		result[k] = v
 	}
 	return result
+}
+
+// SetGroupStates deactivates all groups, then activates the specified ones
+func (r *ToolRegistry) SetGroupStates(activeGroups map[string]bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, group := range r.groups {
+		group.Active = false
+	}
+	for name, active := range activeGroups {
+		if group, exists := r.groups[name]; exists {
+			group.Active = active
+		}
+	}
 }
 
 // Clear removes all tools and groups

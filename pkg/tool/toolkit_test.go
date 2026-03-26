@@ -607,3 +607,166 @@ func TestGetToolInfo(t *testing.T) {
 		t.Errorf("expected active_groups to be ['test_group'], got %v", activeGroups)
 	}
 }
+
+// TestSchemaConsistency_Register verifies that Register() without JSONSchema
+// generates correct schema with required/properties from struct tags.
+func TestSchemaConsistency_Register(t *testing.T) {
+	type SearchArgs struct {
+		Query   string `json:"query" required:"true" description:"Search query"`
+		Limit   int    `json:"limit,omitempty" description:"Max results"`
+		Verbose bool   `json:"verbose" required:"true" description:"Verbose output"`
+	}
+
+	searchTool := func(ctx context.Context, args SearchArgs) (*ToolResponse, error) {
+		return TextResponse("ok"), nil
+	}
+
+	tk := NewToolkit()
+	err := tk.Register(searchTool, &RegisterOptions{
+		GroupName:       "basic",
+		FuncName:        "search",
+		FuncDescription: "Search for items",
+	})
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	schemas := tk.GetSchemas()
+	if len(schemas) != 1 {
+		t.Fatalf("expected 1 schema, got %d", len(schemas))
+	}
+
+	s := schemas[0]
+	if s.Function.Name != "search" {
+		t.Errorf("expected name 'search', got %q", s.Function.Name)
+	}
+	if s.Function.Description != "Search for items" {
+		t.Errorf("expected description 'Search for items', got %q", s.Function.Description)
+	}
+
+	params := s.Function.Parameters
+
+	// Check properties
+	props, ok := params["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected properties map, got %T", params["properties"])
+	}
+	for _, field := range []string{"query", "limit", "verbose"} {
+		if _, exists := props[field]; !exists {
+			t.Errorf("expected property %q in schema", field)
+		}
+	}
+
+	// Check required
+	reqRaw, ok := params["required"]
+	if !ok {
+		t.Fatal("expected required field in schema")
+	}
+	reqSlice, ok := reqRaw.([]string)
+	if !ok {
+		t.Fatalf("expected required to be []string, got %T", reqRaw)
+	}
+
+	reqSet := make(map[string]bool)
+	for _, r := range reqSlice {
+		reqSet[r] = true
+	}
+
+	// query and verbose have required:"true", limit has omitempty
+	if !reqSet["query"] {
+		t.Error("expected 'query' in required")
+	}
+	if !reqSet["verbose"] {
+		t.Error("expected 'verbose' in required")
+	}
+	if reqSet["limit"] {
+		t.Error("'limit' should NOT be in required (has omitempty)")
+	}
+	if len(reqSlice) != 2 {
+		t.Errorf("expected 2 required fields, got %d: %v", len(reqSlice), reqSlice)
+	}
+}
+
+// TestSchemaConsistency_RegisterWithArgType verifies Register() with explicit ArgType
+func TestSchemaConsistency_RegisterWithArgType(t *testing.T) {
+	type CalcArgs struct {
+		A int `json:"a" required:"true" description:"First number"`
+		B int `json:"b" required:"true" description:"Second number"`
+	}
+
+	tk := NewToolkit()
+	err := tk.Register(&mockToolFunction{}, &RegisterOptions{
+		GroupName:       "basic",
+		FuncName:        "calc",
+		FuncDescription: "Calculate",
+		ArgType:         CalcArgs{},
+	})
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	schemas := tk.GetSchemas()
+	if len(schemas) != 1 {
+		t.Fatalf("expected 1 schema, got %d", len(schemas))
+	}
+
+	params := schemas[0].Function.Parameters
+	reqSlice, ok := params["required"].([]string)
+	if !ok {
+		t.Fatalf("expected required []string, got %T", params["required"])
+	}
+
+	reqSet := make(map[string]bool)
+	for _, r := range reqSlice {
+		reqSet[r] = true
+	}
+	if !reqSet["a"] || !reqSet["b"] {
+		t.Errorf("expected required [a, b], got %v", reqSlice)
+	}
+}
+
+// TestSchemaConsistency_RegisterFunction verifies RegisterFunction infers schema from signature
+func TestSchemaConsistency_RegisterFunction(t *testing.T) {
+	type WriteArgs struct {
+		Path    string `json:"path" required:"true" description:"File path"`
+		Content string `json:"content" required:"true" description:"File content"`
+	}
+
+	writeFn := func(ctx context.Context, args WriteArgs) (*ToolResponse, error) {
+		return TextResponse("ok"), nil
+	}
+
+	tk := NewToolkit()
+	err := tk.RegisterFunction("write_file", writeFn, &RegisterOptions{
+		GroupName:       "basic",
+		FuncDescription: "Write a file",
+	})
+	if err != nil {
+		t.Fatalf("RegisterFunction failed: %v", err)
+	}
+
+	schemas := tk.GetSchemas()
+	if len(schemas) != 1 {
+		t.Fatalf("expected 1 schema, got %d", len(schemas))
+	}
+
+	params := schemas[0].Function.Parameters
+	props, ok := params["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected properties map, got %T", params["properties"])
+	}
+	if _, exists := props["path"]; !exists {
+		t.Error("expected 'path' in properties")
+	}
+	if _, exists := props["content"]; !exists {
+		t.Error("expected 'content' in properties")
+	}
+
+	reqSlice, ok := params["required"].([]string)
+	if !ok {
+		t.Fatalf("expected required []string, got %T", params["required"])
+	}
+	if len(reqSlice) != 2 {
+		t.Errorf("expected 2 required fields, got %d: %v", len(reqSlice), reqSlice)
+	}
+}

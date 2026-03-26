@@ -94,6 +94,16 @@ func (c *ToolCaller) callTyped(ctx context.Context, tool *ToolDescriptor, args a
 		}
 	}
 
+	// Fast path: ToolCallable tools accept any args directly
+	if callable, ok := handle.Tool.(ToolCallable); ok {
+		return callable.Call(ctx, inputMap)
+	}
+
+	// ArgType is required for non-ToolCallable tools
+	if handle.ArgType == nil {
+		return TextResponse(fmt.Sprintf("Error: tool '%s' has no argument type defined", tool.Name)), nil
+	}
+
 	// Create a pointer instance of the argument type
 	argPtr := reflect.New(handle.ArgType)
 
