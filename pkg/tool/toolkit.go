@@ -868,6 +868,27 @@ func parseFunctionSchema(fn ToolFunction, options *RegisterOptions) (*model.Tool
 		return options.JSONSchema, nil
 	}
 
+	// If ArgType is provided, use StructToSchema for proper required field generation
+	if options.ArgType != nil {
+		paramSchema := StructToSchema(options.ArgType)
+		name := options.FuncName
+		if name == "" {
+			name = "unknown_function"
+		}
+		description := options.FuncDescription
+		if description == "" {
+			description = "A tool function"
+		}
+		return &model.ToolDefinition{
+			Type: "function",
+			Function: model.FunctionDefinition{
+				Name:        name,
+				Description: description,
+				Parameters:  paramSchema,
+			},
+		}, nil
+	}
+
 	// Try to parse schema using utility functions
 	schema, err := utils.ParseFunctionSchema(fn)
 	if err != nil {
