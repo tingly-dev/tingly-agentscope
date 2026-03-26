@@ -113,6 +113,7 @@ func NewInput() Input {
 		history:       NewHistory(),
 		pasteboard:    NewPasteboard(),
 		pasteDetector: NewPasteDetector(),
+		cursorPos:     0, // Initialize cursor position
 	}
 }
 
@@ -537,6 +538,7 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			}
 
 			// Check for paste detection (each rune individually)
+			pasteDetected := false
 			for _, r := range msg.Runes {
 				if pasteContent := i.pasteDetector.OnKeyRune(r); pasteContent != "" {
 					// Paste detected - check if it should create a placeholder
@@ -547,7 +549,8 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 						// Insert token at cursor position
 						currentValue := i.textarea.Value()
-						cursorPos := i.Cursor()
+						// Use tracked cursorPos directly, not i.Cursor()
+						cursorPos := i.cursorPos
 						before := currentValue[:cursorPos]
 						after := currentValue[cursorPos:]
 						i.textarea.SetValue(before + token + after)
@@ -555,17 +558,25 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 						// Move cursor after token
 						newCursorPos := cursorPos + len(token)
 						i.textarea.SetCursor(newCursorPos)
+						i.cursorPos = newCursorPos // Update our tracking
 
 						// Reset detector after handling paste
 						i.pasteDetector.Reset()
-						return i, nil // Don't let textarea process this message again
+						pasteDetected = true
+						break // Only process first paste detection
+					} else {
+						// Paste content detected but not paste-worthy
+						// Reset detector so input is processed normally
+						i.pasteDetector.Reset()
 					}
-					// Not a placeholder-worthy paste (e.g., single space, short text)
-					// Fall through to let textarea handle it normally via the main Update call below
 				}
 			}
-			// For normal typing (including spaces), let the main Update() call handle it
-			// This ensures characters are inserted and cursor tracking works correctly
+
+			// If we didn't create a paste placeholder, fall through to let textarea handle input
+			if pasteDetected {
+				return i, nil // Don't process again
+			}
+			// Fall through to let textarea.Update() handle normal input
 
 			// Check for trigger characters (only if no paste was handled)
 			if len(msg.Runes) == 1 {
