@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -601,8 +602,19 @@ func (i Input) View() string {
 		views = append(views, i.agentPopup.View())
 	}
 
-	// Add textarea
-	views = append(views, i.textarea.View())
+	// Get raw textarea value
+	rawValue := i.textarea.Value()
+
+	// Expand placeholder tokens for display
+	displayValue := i.expandPlaceholders(rawValue)
+
+	// Temporarily set display value for rendering
+	originalValue := i.textarea.Value()
+	i.textarea.SetValue(displayValue)
+	textareaView := i.textarea.View()
+	i.textarea.SetValue(originalValue) // Restore raw value
+
+	views = append(views, textareaView)
 
 	return strings.Join(views, "\n")
 }
@@ -618,6 +630,48 @@ func isWordChar(c byte) bool {
 // formatPlaceholderToken formats a placeholder token for a given paste ID
 func formatPlaceholderToken(id int) string {
 	return fmt.Sprintf(placeholderTokenFormat, id)
+}
+
+// Placeholder display format
+const (
+	placeholderDisplayFormat = "[Pasted text #%d - %d Lines]"
+	placeholderDisplayLarge  = "[Pasted text #%d - %d+ Lines]"
+	maxLinesForExactDisplay  = 9999
+)
+
+// placeholderTokenPattern is the regex pattern to find placeholder tokens
+var placeholderTokenPattern = regexp.MustCompile(`<<PASTE:(\d+)>>`)
+
+// expandPlaceholders replaces placeholder tokens with display text
+func (i *Input) expandPlaceholders(text string) string {
+	return placeholderTokenPattern.ReplaceAllStringFunc(text, func(match string) string {
+		// Extract ID from token
+		matches := placeholderTokenPattern.FindStringSubmatch(match)
+		if len(matches) < 2 {
+			return match // Malformed token, return as-is
+		}
+
+		idStr := matches[1]
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return match // Invalid ID, return as-is
+		}
+
+		// Get entry from pasteboard
+		content, ok := i.pasteboard.Get(id)
+		if !ok {
+			return match // Missing entry, return token as-is
+		}
+
+		// Count lines for display
+		lines := countLines(content)
+
+		// Format display text
+		if lines > maxLinesForExactDisplay {
+			return fmt.Sprintf(placeholderDisplayLarge, id, maxLinesForExactDisplay)
+		}
+		return fmt.Sprintf(placeholderDisplayFormat, id, lines)
+	})
 }
 
 // isTerminalEscapeSequence checks if the input string contains terminal escape sequence fragments
