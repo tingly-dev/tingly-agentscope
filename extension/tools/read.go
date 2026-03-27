@@ -55,8 +55,8 @@ func (r *ReadTool) Description() string {
 	return "Read the contents of a file. Supports text files. Defaults to first 2000 lines. Use offset/limit for large files."
 }
 
-// Read reads the contents of a file
-func (r *ReadTool) Read(ctx context.Context, params ReadParams) (*tool.ToolResponse, error) {
+// Call reads the contents of a file
+func (r *ReadTool) Call(ctx context.Context, params ReadParams) (*tool.ToolResponse, error) {
 	// Validate offset and limit
 	if params.Offset < 0 {
 		params.Offset = 0
@@ -139,26 +139,6 @@ func RegisterReadTool(tk *tool.Toolkit, options ...func(*ReadTool)) error {
 	rt := NewReadTool(options...)
 	// RegisterAll uses the DescriptiveTool interface for name/description
 	return tk.RegisterAll(rt)
-}
-
-// Call implements the ToolCallable interface for programmatic use
-func (r *ReadTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	params := ReadParams{}
-	if path, ok := kwargs["path"].(string); ok {
-		params.Path = path
-	}
-	// Handle both int and float64 for numeric parameters
-	if offset, ok := kwargs["offset"].(int); ok {
-		params.Offset = offset
-	} else if offset, ok := kwargs["offset"].(float64); ok {
-		params.Offset = int(offset)
-	}
-	if limit, ok := kwargs["limit"].(int); ok {
-		params.Limit = limit
-	} else if limit, ok := kwargs["limit"].(float64); ok {
-		params.Limit = int(limit)
-	}
-	return r.Read(ctx, params)
 }
 
 // ToToolUseBlock converts parameters to a ToolUseBlock for agent use

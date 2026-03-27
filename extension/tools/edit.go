@@ -52,8 +52,8 @@ func (e *EditTool) Description() string {
 	return "Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits."
 }
 
-// Edit edits a file by replacing exact text
-func (e *EditTool) Edit(ctx context.Context, params EditParams) (*tool.ToolResponse, error) {
+// Call edits a file by replacing exact text
+func (e *EditTool) Call(ctx context.Context, params EditParams) (*tool.ToolResponse, error) {
 	// Validate path
 	if err := validatePath(params.Path, e.allowedDirs); err != nil {
 		return tool.TextResponse(fmt.Sprintf("Error: %v", err)), nil
@@ -113,21 +113,6 @@ func RegisterEditTool(tk *tool.Toolkit, options ...func(*EditTool)) error {
 	et := NewEditTool(options...)
 	// RegisterAll uses the DescriptiveTool interface for name/description
 	return tk.RegisterAll(et)
-}
-
-// Call implements the ToolCallable interface for programmatic use
-func (e *EditTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	params := EditParams{}
-	if path, ok := kwargs["path"].(string); ok {
-		params.Path = path
-	}
-	if oldText, ok := kwargs["oldText"].(string); ok {
-		params.OldText = oldText
-	}
-	if newText, ok := kwargs["newText"].(string); ok {
-		params.NewText = newText
-	}
-	return e.Edit(ctx, params)
 }
 
 // ToToolUseBlock converts parameters to a ToolUseBlock for agent use

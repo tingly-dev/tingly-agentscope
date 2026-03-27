@@ -62,8 +62,8 @@ func (w *WriteTool) Description() string {
 	return "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories."
 }
 
-// Write writes content to a file. Creates the file if it doesn't exist, overwrites if it does.
-func (w *WriteTool) Write(ctx context.Context, params WriteParams) (*tool.ToolResponse, error) {
+// Call writes content to a file. Creates the file if it doesn't exist, overwrites if it does.
+func (w *WriteTool) Call(ctx context.Context, params WriteParams) (*tool.ToolResponse, error) {
 	// Check write size
 	contentSize := int64(len(params.Content))
 	if contentSize > w.maxWriteSize {
@@ -115,18 +115,6 @@ func RegisterWriteTool(tk *tool.Toolkit, options ...func(*WriteTool)) error {
 	wt := NewWriteTool(options...)
 	// RegisterAll uses the DescriptiveTool interface for name/description
 	return tk.RegisterAll(wt)
-}
-
-// Call implements the ToolCallable interface for programmatic use
-func (w *WriteTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	params := WriteParams{}
-	if path, ok := kwargs["path"].(string); ok {
-		params.Path = path
-	}
-	if content, ok := kwargs["content"].(string); ok {
-		params.Content = content
-	}
-	return w.Write(ctx, params)
 }
 
 // ToToolUseBlock converts parameters to a ToolUseBlock for agent use

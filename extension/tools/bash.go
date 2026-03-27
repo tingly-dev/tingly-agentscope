@@ -69,8 +69,8 @@ func (b *BashTool) Description() string {
 	return "Execute a bash command in the current working directory. Returns stdout and stderr. Optionally provide a timeout in seconds."
 }
 
-// Bash executes a bash command in the current working directory
-func (b *BashTool) Bash(ctx context.Context, params BashParams) (*tool.ToolResponse, error) {
+// Call executes a bash command in the current working directory
+func (b *BashTool) Call(ctx context.Context, params BashParams) (*tool.ToolResponse, error) {
 	// Validate command
 	if err := b.validateCommand(params.Command); err != nil {
 		return tool.TextResponse(fmt.Sprintf("Error: %v", err)), nil
@@ -158,18 +158,6 @@ func RegisterBashTool(tk *tool.Toolkit, options ...func(*BashTool)) error {
 	bt := NewBashTool(options...)
 	// RegisterAll uses the DescriptiveTool interface for name/description
 	return tk.RegisterAll(bt)
-}
-
-// Call implements the ToolCallable interface for programmatic use
-func (b *BashTool) Call(ctx context.Context, kwargs map[string]any) (*tool.ToolResponse, error) {
-	params := BashParams{}
-	if command, ok := kwargs["command"].(string); ok {
-		params.Command = command
-	}
-	if timeout, ok := kwargs["timeout"].(float64); ok {
-		params.Timeout = int(timeout)
-	}
-	return b.Bash(ctx, params)
 }
 
 // ToToolUseBlock converts parameters to a ToolUseBlock for agent use

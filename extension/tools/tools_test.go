@@ -24,7 +24,7 @@ func TestReadTool(t *testing.T) {
 		}
 
 		rt := NewReadTool()
-		resp, err := rt.Read(context.Background(), ReadParams{Path: testFile})
+		resp, err := rt.Call(context.Background(), ReadParams{Path: testFile})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -52,7 +52,7 @@ func TestReadTool(t *testing.T) {
 		}
 
 		rt := NewReadTool()
-		resp, err := rt.Read(context.Background(), ReadParams{
+		resp, err := rt.Call(context.Background(), ReadParams{
 			Path:   testFile,
 			Offset: 2,
 			Limit:  2,
@@ -74,7 +74,7 @@ func TestReadTool(t *testing.T) {
 
 	t.Run("read non-existent file", func(t *testing.T) {
 		rt := NewReadTool()
-		resp, err := rt.Read(context.Background(), ReadParams{Path: "/nonexistent/file.txt"})
+		resp, err := rt.Call(context.Background(), ReadParams{Path: "/nonexistent/file.txt"})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -91,7 +91,7 @@ func TestReadTool(t *testing.T) {
 
 	t.Run("read with allowed dirs restriction", func(t *testing.T) {
 		rt := NewReadTool(ReadOptions([]string{"/allowed"}, 0))
-		resp, err := rt.Read(context.Background(), ReadParams{Path: "/other/file.txt"})
+		resp, err := rt.Call(context.Background(), ReadParams{Path: "/other/file.txt"})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -120,7 +120,7 @@ func TestReadTool(t *testing.T) {
 		rt := NewReadTool(ReadOptions([]string{allowedDir}, 0))
 
 		// Test: ../ traversal should be blocked
-		resp, err := rt.Read(context.Background(), ReadParams{Path: allowedDir + "/../other.txt"})
+		resp, err := rt.Call(context.Background(), ReadParams{Path: allowedDir + "/../other.txt"})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -136,7 +136,7 @@ func TestReadTool(t *testing.T) {
 
 		// Test: similar prefix path should be blocked
 		allowedDir2 := allowedDir + "2"
-		resp2, err := rt.Read(context.Background(), ReadParams{Path: filepath.Join(allowedDir2, "file.txt")})
+		resp2, err := rt.Call(context.Background(), ReadParams{Path: filepath.Join(allowedDir2, "file.txt")})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -158,7 +158,7 @@ func TestReadTool(t *testing.T) {
 		}
 
 		rt := NewReadTool()
-		resp, err := rt.Read(context.Background(), ReadParams{
+		resp, err := rt.Call(context.Background(), ReadParams{
 			Path:  testFile,
 			Limit: -1,
 		})
@@ -183,7 +183,7 @@ func TestWriteTool(t *testing.T) {
 	t.Run("write new file", func(t *testing.T) {
 		testFile := filepath.Join(tempDir, "newfile.txt")
 		wt := NewWriteTool()
-		resp, err := wt.Write(context.Background(), WriteParams{
+		resp, err := wt.Call(context.Background(), WriteParams{
 			Path:    testFile,
 			Content: "hello world",
 		})
@@ -217,7 +217,7 @@ func TestWriteTool(t *testing.T) {
 		}
 
 		wt := NewWriteTool()
-		resp, err := wt.Write(context.Background(), WriteParams{
+		resp, err := wt.Call(context.Background(), WriteParams{
 			Path:    testFile,
 			Content: "new content",
 		})
@@ -247,7 +247,7 @@ func TestWriteTool(t *testing.T) {
 	t.Run("create nested directories", func(t *testing.T) {
 		testFile := filepath.Join(tempDir, "nested", "dirs", "file.txt")
 		wt := NewWriteTool()
-		resp, err := wt.Write(context.Background(), WriteParams{
+		resp, err := wt.Call(context.Background(), WriteParams{
 			Path:    testFile,
 			Content: "nested content",
 		})
@@ -277,7 +277,7 @@ func TestWriteTool(t *testing.T) {
 		}
 
 		wt := NewWriteTool(WriteOptions(nil, false))
-		resp, err := wt.Write(context.Background(), WriteParams{
+		resp, err := wt.Call(context.Background(), WriteParams{
 			Path:    testFile,
 			Content: "new content",
 		})
@@ -300,7 +300,7 @@ func TestWriteTool(t *testing.T) {
 		wt := NewWriteTool(WriteMaxSize(100))
 
 		largeContent := strings.Repeat("x", 200)
-		resp, err := wt.Write(context.Background(), WriteParams{
+		resp, err := wt.Call(context.Background(), WriteParams{
 			Path:    testFile,
 			Content: largeContent,
 		})
@@ -330,7 +330,7 @@ func TestEditTool(t *testing.T) {
 		}
 
 		et := NewEditTool()
-		resp, err := et.Edit(context.Background(), EditParams{
+		resp, err := et.Call(context.Background(), EditParams{
 			Path:    testFile,
 			OldText: "foo bar",
 			NewText: "baz qux",
@@ -361,7 +361,7 @@ func TestEditTool(t *testing.T) {
 
 	t.Run("edit non-existent file", func(t *testing.T) {
 		et := NewEditTool()
-		resp, err := et.Edit(context.Background(), EditParams{
+		resp, err := et.Call(context.Background(), EditParams{
 			Path:    "/nonexistent/file.txt",
 			OldText: "old",
 			NewText: "new",
@@ -387,7 +387,7 @@ func TestEditTool(t *testing.T) {
 		}
 
 		et := NewEditTool()
-		resp, err := et.Edit(context.Background(), EditParams{
+		resp, err := et.Call(context.Background(), EditParams{
 			Path:    testFile,
 			OldText: "nonexistent",
 			NewText: "replacement",
@@ -413,7 +413,7 @@ func TestEditTool(t *testing.T) {
 		}
 
 		et := NewEditTool()
-		resp, err := et.Edit(context.Background(), EditParams{
+		resp, err := et.Call(context.Background(), EditParams{
 			Path:    testFile,
 			OldText: "foo",
 			NewText: "baz",
@@ -436,7 +436,7 @@ func TestEditTool(t *testing.T) {
 func TestBashTool(t *testing.T) {
 	t.Run("execute simple command", func(t *testing.T) {
 		bt := NewBashTool()
-		resp, err := bt.Bash(context.Background(), BashParams{
+		resp, err := bt.Call(context.Background(), BashParams{
 			Command: "echo hello",
 		})
 		if err != nil {
@@ -455,7 +455,7 @@ func TestBashTool(t *testing.T) {
 
 	t.Run("execute command with error", func(t *testing.T) {
 		bt := NewBashTool()
-		resp, err := bt.Bash(context.Background(), BashParams{
+		resp, err := bt.Call(context.Background(), BashParams{
 			Command: "exit 1",
 		})
 		if err != nil {
@@ -474,7 +474,7 @@ func TestBashTool(t *testing.T) {
 
 	t.Run("execute with timeout", func(t *testing.T) {
 		bt := NewBashTool()
-		resp, err := bt.Bash(context.Background(), BashParams{
+		resp, err := bt.Call(context.Background(), BashParams{
 			Command: "sleep 10",
 			Timeout: 1,
 		})
@@ -494,7 +494,7 @@ func TestBashTool(t *testing.T) {
 
 	t.Run("blocked command", func(t *testing.T) {
 		bt := NewBashTool()
-		resp, err := bt.Bash(context.Background(), BashParams{
+		resp, err := bt.Call(context.Background(), BashParams{
 			Command: "rm -rf /",
 		})
 		if err != nil {
@@ -514,7 +514,7 @@ func TestBashTool(t *testing.T) {
 	t.Run("working directory", func(t *testing.T) {
 		tempDir := t.TempDir()
 		bt := NewBashTool(BashOptions(nil, nil, 30*time.Second, tempDir))
-		resp, err := bt.Bash(context.Background(), BashParams{
+		resp, err := bt.Call(context.Background(), BashParams{
 			Command: "pwd",
 		})
 		if err != nil {
@@ -533,7 +533,7 @@ func TestBashTool(t *testing.T) {
 
 	t.Run("command chaining blocked by default", func(t *testing.T) {
 		bt := NewBashTool()
-		resp, err := bt.Bash(context.Background(), BashParams{
+		resp, err := bt.Call(context.Background(), BashParams{
 			Command: "echo test && rm -rf /",
 		})
 		if err != nil {
@@ -552,7 +552,7 @@ func TestBashTool(t *testing.T) {
 
 	t.Run("command chaining allowed when enabled", func(t *testing.T) {
 		bt := NewBashTool(BashAllowChaining(true))
-		resp, err := bt.Bash(context.Background(), BashParams{
+		resp, err := bt.Call(context.Background(), BashParams{
 			Command: "echo test && echo success",
 		})
 		if err != nil {
@@ -666,7 +666,7 @@ func TestNewToolkit(t *testing.T) {
 
 		// Test write
 		testFile := filepath.Join(tempDir, "direct.txt")
-		resp, err := writeTool.Write(context.Background(), WriteParams{
+		resp, err := writeTool.Call(context.Background(), WriteParams{
 			Path:    testFile,
 			Content: "test content",
 		})
@@ -678,7 +678,7 @@ func TestNewToolkit(t *testing.T) {
 		}
 
 		// Test read
-		resp, err = readTool.Read(context.Background(), ReadParams{
+		resp, err = readTool.Call(context.Background(), ReadParams{
 			Path: testFile,
 		})
 		if err != nil {
@@ -693,7 +693,7 @@ func TestNewToolkit(t *testing.T) {
 		}
 
 		// Test edit
-		_, err = editTool.Edit(context.Background(), EditParams{
+		_, err = editTool.Call(context.Background(), EditParams{
 			Path:    testFile,
 			OldText: "test",
 			NewText: "modified",
@@ -703,7 +703,7 @@ func TestNewToolkit(t *testing.T) {
 		}
 
 		// Test bash
-		resp, err = bashTool.Bash(context.Background(), BashParams{
+		resp, err = bashTool.Call(context.Background(), BashParams{
 			Command: "echo hello",
 		})
 		if err != nil {
