@@ -427,6 +427,14 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Reset timing-based paste detector on navigation and special keys
+		// This prevents false positives from fast typing + navigation
+		switch msg.Type {
+		case tea.KeyUp, tea.KeyDown, tea.KeyLeft, tea.KeyRight, tea.KeyHome, tea.KeyEnd,
+			tea.KeyEnter, tea.KeyTab, tea.KeyShiftTab, tea.KeyEsc, tea.KeyBackspace, tea.KeyDelete:
+			i.pasteDetector.Reset()
+		}
+
 		switch msg.Type {
 		case tea.KeyTab:
 			// Tab cycles through popup items or expands placeholders
@@ -537,7 +545,7 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				i.history.Reset()
 			}
 
-			// Check if this is a paste event (bracketed paste mode)
+			// Method 1: Check if this is a paste event via bracketed paste mode (primary)
 			if msg.Paste {
 				// User pasted content - create placeholder for multi-line content
 				pasteContent := string(msg.Runes)
@@ -561,6 +569,38 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 					return i, nil
 				}
 				// For small pastes without newlines, fall through to normal processing
+			}
+
+			// Method 2: Timing-based paste detection (fallback for when bracketed paste is not available)
+			// This is useful for:
+			// - Terminals that don't support bracketed paste mode
+			// - Remote sessions over SSH with limited terminal support
+			// - Cases where bracketed paste mode got disabled
+			if pasteContent := i.pasteDetector.OnKeyRunes(msg.Runes); pasteContent != "" {
+				if i.pasteDetector.IsPaste(pasteContent) {
+					// Create placeholder for the paste
+					entry := i.pasteboard.Add(pasteContent)
+					token := formatPlaceholderToken(entry.ID)
+
+					// Insert token at cursor position
+					currentValue := i.textarea.Value()
+					cursorPos := i.Cursor()
+					before := currentValue[:cursorPos]
+					after := currentValue[cursorPos:]
+					i.textarea.SetValue(before + token + after)
+
+					// Move cursor after token
+					newCursorPos := cursorPos + len(token)
+					i.textarea.SetCursor(newCursorPos)
+
+					// Reset detector after handling paste
+					i.pasteDetector.Reset()
+
+					// Don't fall through to normal processing
+					return i, nil
+				}
+				// Paste detected but not paste-worthy, reset for next input
+				i.pasteDetector.Reset()
 			}
 
 			// Check for trigger characters (only for single-character, non-paste input)

@@ -7,7 +7,7 @@ import (
 
 // PasteDetector detects when user pastes text vs types normally
 type PasteDetector struct {
-	// Rate-based detection state
+	// Timing-based detection state
 	charBuffer []rune
 	lastTime   time.Time
 }
@@ -20,26 +20,27 @@ func NewPasteDetector() *PasteDetector {
 	}
 }
 
-// maxPasteInterval is the maximum time between characters for rate-based paste detection
-const maxPasteInterval = 100 * time.Millisecond
+// maxPasteInterval is the maximum time between characters for timing-based paste detection
+const maxPasteInterval = 50 * time.Millisecond
 
-// minPasteChars is the minimum character count for rate-based paste detection
-const minPasteChars = 50
+// minPasteChars is the minimum character count for timing-based paste detection
+const minPasteChars = 3
 
-// OnKeyRune handles KeyRunes messages and detects paste
+// OnKeyRunes handles KeyRunes messages and detects paste using timing
 // Returns the paste content if a paste is detected, otherwise returns ""
-func (pd *PasteDetector) OnKeyRune(r rune) string {
+// This is used as a fallback when bracketed paste mode is not available
+func (pd *PasteDetector) OnKeyRunes(runes []rune) string {
 	now := time.Now()
 
 	// If this is the first character or too much time has passed, reset
 	if pd.lastTime.IsZero() || now.Sub(pd.lastTime) > maxPasteInterval {
-		pd.charBuffer = []rune{r}
+		pd.charBuffer = append([]rune{}, runes...)
 		pd.lastTime = now
 		return ""
 	}
 
 	// Add to buffer
-	pd.charBuffer = append(pd.charBuffer, r)
+	pd.charBuffer = append(pd.charBuffer, runes...)
 	pd.lastTime = now
 
 	// Check if we have enough characters fast enough to be a paste
