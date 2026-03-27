@@ -38,6 +38,9 @@ type Input struct {
 	// Pasteboard for large text pastes
 	pasteboard    *Pasteboard
 	pasteDetector *PasteDetector
+
+	// Flag to suppress remaining paste input after placeholder was inserted
+	suppressingPasteInput bool
 }
 
 // Placeholder token format
@@ -429,6 +432,11 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Reset paste suppression flag on non-Runes keys
+		if msg.Type != tea.KeyRunes && i.suppressingPasteInput {
+			i.suppressingPasteInput = false
+		}
+
 		switch msg.Type {
 		case tea.KeyTab:
 			// Tab cycles through popup items or expands placeholders
@@ -539,7 +547,36 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				i.history.Reset()
 			}
 
-			// Check for paste detection (each rune individually)
+			// If we're suppressing paste input, skip this KeyRunes message
+			if i.suppressingPasteInput {
+				// Keep suppressing until we see a different key type
+				return i, nil
+			}
+
+			// Simple paste detection: if this KeyRunes message has many characters with newlines,
+			// it's likely a paste (vs normal typing which is typically 1-2 chars per message)
+			pasteContent := string(msg.Runes)
+			if i.pasteDetector.IsPaste(pasteContent) {
+				// Create placeholder for the paste
+				entry := i.pasteboard.Add(pasteContent)
+				token := formatPlaceholderToken(entry.ID)
+
+				// Insert token at cursor position
+				currentValue := i.textarea.Value()
+				cursorPos := i.Cursor()
+				before := currentValue[:cursorPos]
+				after := currentValue[cursorPos:]
+				i.textarea.SetValue(before + token + after)
+
+				// Move cursor after token
+				newCursorPos := cursorPos + len(token)
+				i.textarea.SetCursor(newCursorPos)
+
+				// Don't fall through to normal processing
+				return i, nil
+			}
+
+			// Not a paste, check for rate-based paste detection (for slower pastes)
 			pasteDetected := false
 			for _, r := range msg.Runes {
 				if pasteContent := i.pasteDetector.OnKeyRune(r); pasteContent != "" {
@@ -563,6 +600,7 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 						// Reset detector after handling paste
 						i.pasteDetector.Reset()
 						pasteDetected = true
+						i.suppressingPasteInput = true // Start suppressing remaining paste input
 						break // Only process first paste detection
 					} else {
 						// Paste content detected but not paste-worthy

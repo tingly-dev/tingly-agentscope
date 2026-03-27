@@ -59,8 +59,9 @@ func (pd *PasteDetector) IsPaste(content string) bool {
 		return false
 	}
 
-	// Must be longer than threshold
-	if len(content) <= 100 {
+	// Multi-line content is likely a paste even if shorter
+	// Lower threshold for multi-line content (20 chars vs 100 for single-line)
+	if len(content) <= 20 {
 		return false
 	}
 
