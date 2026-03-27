@@ -90,7 +90,10 @@ func (d *Discovery) discoverInPath(searchPath string) ([]*Skill, error) {
 		if isSkillFile(path) {
 			skill, err := LoadFromFile(path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to load skill from %s: %v\n", path, err)
+				// Only log actual errors, not "missing frontmatter" which is expected for docs
+				if !strings.Contains(err.Error(), "missing YAML frontmatter") {
+					fmt.Fprintf(os.Stderr, "Warning: failed to load skill from %s: %v\n", path, err)
+				}
 				return nil
 			}
 			skills = append(skills, skill)
@@ -106,18 +109,41 @@ func (d *Discovery) discoverInPath(searchPath string) ([]*Skill, error) {
 func isSkillFile(path string) bool {
 	name := strings.ToLower(filepath.Base(path))
 
-	// SKILL.md or skill.md
+	// Skip common documentation files that don't contain skill definitions
+	docFiles := map[string]bool{
+		"readme.md":        true,
+		"examples.md":      true,
+		"workflows.md":     true,
+		"templates.md":     true,
+		"checklists.md":    true,
+		"changelog.md":     true,
+		"contributing.md":  true,
+		"license.md":       true,
+		"installation.md":  true,
+		"getting-started.md": true,
+	}
+	if docFiles[name] {
+		return false
+	}
+
+	// SKILL.md or skill.md (explicit skill definition)
 	if name == "skill.md" {
 		return true
 	}
 
-	// .skill.toml files
+	// .skill.toml files (explicit skill definition)
 	if strings.HasSuffix(name, ".skill.toml") {
 		return true
 	}
 
-	// Any .md file in a skills directory that has frontmatter
+	// Any .md file in a skills directory EXCEPT documentation files
+	// These will be checked for YAML frontmatter during loading
 	if strings.HasSuffix(name, ".md") && strings.Contains(path, "skills") {
+		// Only accept if it's not in a docs/ or examples/ subdirectory
+		if strings.Contains(filepath.Dir(path), "docs") ||
+		   strings.Contains(filepath.Dir(path), "examples") {
+			return false
+		}
 		return true
 	}
 
