@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -173,9 +174,10 @@ func (i *Input) SetValue(value string) {
 func (i *Input) Cursor() int {
 	// LineInfo gives us the cursor position information
 	info := i.textarea.LineInfo()
-	// StartColumn is the byte offset of the line start
-	// CharOffset is the cursor offset from the line start
-	return info.StartColumn + info.CharOffset
+	pos := info.StartColumn + info.CharOffset
+	// Debug logging
+	fmt.Fprintf(os.Stderr, "[DEBUG] Cursor() returning %d (StartColumn=%d, CharOffset=%d)\n", pos, info.StartColumn, info.CharOffset)
+	return pos
 }
 
 // Reset clears the input
@@ -634,6 +636,8 @@ func (i Input) View() string {
 
 	// Save cursor position before modifying value
 	cursorPos := i.Cursor()
+
+	fmt.Fprintf(os.Stderr, "[DEBUG] View(): rawValue=%q, cursorPos=%d\n", rawValue, cursorPos)
 
 	// Expand placeholder tokens for display
 	displayValue := i.expandPlaceholders(rawValue)
