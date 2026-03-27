@@ -110,6 +110,7 @@ func NewInput() Input {
 		history:       NewHistory(),
 		pasteboard:    NewPasteboard(),
 		pasteDetector: NewPasteDetector(),
+		rawCursorPos:  0, // Initialize cursor position
 	}
 }
 
@@ -171,10 +172,7 @@ func (i *Input) SetValue(value string) {
 
 // Cursor returns the current cursor position
 func (i *Input) Cursor() int {
-	// LineInfo gives us the cursor position information
 	info := i.textarea.LineInfo()
-	// StartColumn is the byte offset of the line start
-	// CharOffset is the cursor offset from the line start
 	return info.StartColumn + info.CharOffset
 }
 
@@ -550,19 +548,19 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				// User pasted content - create placeholder for multi-line content
 				pasteContent := string(msg.Runes)
 				if i.pasteDetector.IsPaste(pasteContent) {
-					// Create placeholder for the paste
+					// Store content in pasteboard and get display text
 					entry := i.pasteboard.Add(pasteContent)
-					token := formatPlaceholderToken(entry.ID)
+					displayText := formatPlaceholderDisplay(entry.ID, entry.Lines)
 
-					// Insert token at cursor position
+					// Insert display text at cursor position
 					currentValue := i.textarea.Value()
 					cursorPos := i.Cursor()
 					before := currentValue[:cursorPos]
 					after := currentValue[cursorPos:]
-					i.textarea.SetValue(before + token + after)
+					i.textarea.SetValue(before + displayText + after)
 
-					// Move cursor after token
-					newCursorPos := cursorPos + len(token)
+					// Move cursor after display text
+					newCursorPos := cursorPos + len(displayText)
 					i.textarea.SetCursor(newCursorPos)
 
 					// Don't fall through to normal processing
@@ -578,19 +576,19 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			// - Cases where bracketed paste mode got disabled
 			if pasteContent := i.pasteDetector.OnKeyRunes(msg.Runes); pasteContent != "" {
 				if i.pasteDetector.IsPaste(pasteContent) {
-					// Create placeholder for the paste
+					// Store content in pasteboard and get display text
 					entry := i.pasteboard.Add(pasteContent)
-					token := formatPlaceholderToken(entry.ID)
+					displayText := formatPlaceholderDisplay(entry.ID, entry.Lines)
 
-					// Insert token at cursor position
+					// Insert display text at cursor position
 					currentValue := i.textarea.Value()
 					cursorPos := i.Cursor()
 					before := currentValue[:cursorPos]
 					after := currentValue[cursorPos:]
-					i.textarea.SetValue(before + token + after)
+					i.textarea.SetValue(before + displayText + after)
 
-					// Move cursor after token
-					newCursorPos := cursorPos + len(token)
+					// Move cursor after display text
+					newCursorPos := cursorPos + len(displayText)
 					i.textarea.SetCursor(newCursorPos)
 
 					// Reset detector after handling paste
@@ -656,32 +654,8 @@ func (i Input) View() string {
 		views = append(views, i.agentPopup.View())
 	}
 
-	// Get raw textarea value
-	rawValue := i.textarea.Value()
-
-	// Save cursor position before modifying value
-	cursorPos := i.Cursor()
-
-	// Expand placeholder tokens for display
-	displayValue := i.expandPlaceholders(rawValue)
-
-	// Map cursor position from raw value to display value
-	displayCursorPos := i.mapCursorPosition(rawValue, cursorPos)
-
-	// Temporarily set display value for rendering
-	originalValue := i.textarea.Value()
-	i.textarea.SetValue(displayValue)
-
-	// Restore cursor position (mapped to display value)
-	i.textarea.SetCursor(displayCursorPos)
-
-	textareaView := i.textarea.View()
-
-	// Restore raw value and cursor position for next frame
-	i.textarea.SetValue(originalValue)
-	i.textarea.SetCursor(cursorPos)
-
-	views = append(views, textareaView)
+	// Just render the textarea directly - placeholder display text is already in the value
+	views = append(views, i.textarea.View())
 
 	return strings.Join(views, "\n")
 }
@@ -694,49 +668,69 @@ func isWordChar(c byte) bool {
 		c == '_'
 }
 
+// formatPlaceholderDisplay formats the display text for a placeholder
+func formatPlaceholderDisplay(id int, lines int) string {
+	if lines > maxLinesForExactDisplay {
+		return fmt.Sprintf(placeholderDisplayLarge, id, maxLinesForExactDisplay)
+	}
+	return fmt.Sprintf(placeholderDisplayFormat, id, lines)
+}
+
 // formatPlaceholderToken formats a placeholder token for a given paste ID
 func formatPlaceholderToken(id int) string {
 	return fmt.Sprintf(placeholderTokenFormat, id)
 }
 
-// tryExpandPlaceholder attempts to expand a placeholder token
+// tryExpandPlaceholder attempts to expand a placeholder display text
 // Returns true if a placeholder was expanded, false otherwise
 func (i *Input) tryExpandPlaceholder() bool {
 	value := i.textarea.Value()
+	cursorPos := i.Cursor()
 
-	// Find all placeholder tokens
-	matches := placeholderTokenPattern.FindAllStringSubmatch(value, -1)
+	// Pattern to match placeholder display text: [Pasted text #N - X Lines] or [Pasted text #N - X+ Lines]
+	displayPattern := regexp.MustCompile(`\[Pasted text #(\d+) - (\d+)(\+)? Lines\]`)
+
+	// Find all placeholder display texts
+	matches := displayPattern.FindAllStringSubmatchIndex(value, -1)
 	if len(matches) == 0 {
 		return false // No placeholders found
 	}
 
-	// Expand the first placeholder found
+	// Check if cursor is within any placeholder display text
 	for _, match := range matches {
-		if len(match) < 2 {
-			continue // Malformed token
+		// match[0] is start, match[1] is end
+		placeholderStart := match[0]
+		placeholderEnd := match[1]
+
+		// Check if cursor is within this placeholder
+		if cursorPos >= placeholderStart && cursorPos <= placeholderEnd {
+			// Extract ID from the full match
+			fullMatch := value[placeholderStart:placeholderEnd]
+			submatches := displayPattern.FindStringSubmatch(fullMatch)
+			if len(submatches) < 2 {
+				continue
+			}
+
+			idStr := submatches[1]
+			id, err := strconv.Atoi(idStr)
+			if err != nil {
+				continue
+			}
+
+			// Get content from pasteboard
+			content, ok := i.pasteboard.Get(id)
+			if !ok {
+				continue // Missing entry, skip
+			}
+
+			// Replace placeholder display text with actual content
+			before := value[:placeholderStart]
+			after := value[placeholderEnd:]
+			newValue := before + content + after
+			i.textarea.SetValue(newValue)
+
+			return true
 		}
-
-		// Get the full match (token)
-		token := match[0]
-		idStr := match[1]
-
-		// Parse ID
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			continue // Invalid ID, skip
-		}
-
-		// Get content from pasteboard
-		content, ok := i.pasteboard.Get(id)
-		if !ok {
-			continue // Missing entry, skip
-		}
-
-		// Expand the first placeholder: replace token with actual content
-		newValue := strings.Replace(value, token, content, 1)
-		i.textarea.SetValue(newValue)
-
-		return true
 	}
 
 	return false
@@ -848,17 +842,20 @@ func (i *Input) expandPlaceholders(text string) string {
 	})
 }
 
-// resolvePlaceholders replaces placeholder tokens with actual pasteboard content
+// resolvePlaceholders replaces placeholder display text with actual pasteboard content
 // This is used when submitting the query to get the full content
 func (i *Input) resolvePlaceholders(text string) string {
-	return placeholderTokenPattern.ReplaceAllStringFunc(text, func(match string) string {
-		// Extract ID from token
-		matches := placeholderTokenPattern.FindStringSubmatch(match)
-		if len(matches) < 2 {
-			return match // Malformed token, return as-is
+	// Pattern to match placeholder display text: [Pasted text #N - X Lines] or [Pasted text #N - X+ Lines]
+	displayPattern := regexp.MustCompile(`\[Pasted text #(\d+) - (\d+)(\+)? Lines\]`)
+
+	return displayPattern.ReplaceAllStringFunc(text, func(match string) string {
+		// Extract ID from the match
+		submatches := displayPattern.FindStringSubmatch(match)
+		if len(submatches) < 2 {
+			return match // Malformed match, return as-is
 		}
 
-		idStr := matches[1]
+		idStr := submatches[1]
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
 			return match // Invalid ID, return as-is
@@ -867,7 +864,7 @@ func (i *Input) resolvePlaceholders(text string) string {
 		// Get content from pasteboard
 		content, ok := i.pasteboard.Get(id)
 		if !ok {
-			// Missing entry - leave token as-is (user will see it in the response)
+			// Missing entry - leave placeholder as-is (user will see it in the response)
 			// This could happen if pasteboard was cleared or entry expired
 			return match
 		}
