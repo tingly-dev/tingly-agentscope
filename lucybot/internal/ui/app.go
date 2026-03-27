@@ -177,7 +177,7 @@ func (a *App) Init() tea.Cmd {
 	return tea.Batch(
 		a.input.Init(),
 		tea.EnterAltScreen,
-		tea.EnableBracketedPaste(), // Enable bracketed paste mode for reliable paste detection
+		func() tea.Msg { return tea.EnableBracketedPaste() }, // Enable bracketed paste mode
 	)
 }
 
