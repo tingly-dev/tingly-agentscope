@@ -347,32 +347,46 @@ type MethodWrapper struct {
 // Call implements the tool calling interface for wrapped methods
 func (mw *MethodWrapper) Call(ctx context.Context, args any) (*ToolResponse, error) {
 	// Convert args from map[string]any to expected parameter struct
+	paramType := mw.method.Type.In(2)
 	var argValue reflect.Value
 
 	// args can be either a map[string]any or already the correct struct type
 	if m, ok := args.(map[string]any); ok {
-		// Create a new instance of the parameter type
-		// Get the parameter type from the method signature (2nd param, after receiver and context)
-		paramType := mw.method.Type.In(2)
-		argValue = reflect.New(paramType.Elem())
+		// Create a new pointer instance of the parameter type for MapToStruct
+		var argPtr reflect.Value
+		if paramType.Kind() == reflect.Ptr {
+			argPtr = reflect.New(paramType.Elem())
+		} else {
+			argPtr = reflect.New(paramType)
+		}
 
 		// Convert map to struct
-		if err := MapToStruct(m, argValue.Interface()); err != nil {
+		if err := MapToStruct(m, argPtr.Interface()); err != nil {
 			return nil, fmt.Errorf("failed to parse parameters: %w", err)
 		}
+		argValue = argPtr
 	} else {
-		// args is already a pointer to the struct, use it directly
+		// args is already a pointer to the struct or the struct itself, use it directly
 		argValue = reflect.ValueOf(args)
 	}
 
 	// Call the method via reflection
 	// For value methods, we need to pass Elem(); for pointer methods, pass as-is
-	paramType := mw.method.Type.In(2)
 	var paramVal reflect.Value
 	if paramType.Kind() == reflect.Ptr {
-		paramVal = argValue
+		// Method expects a pointer
+		if argValue.Kind() == reflect.Ptr {
+			paramVal = argValue
+		} else {
+			paramVal = argValue.Addr()
+		}
 	} else {
-		paramVal = argValue.Elem()
+		// Method expects a value
+		if argValue.Kind() == reflect.Ptr {
+			paramVal = argValue.Elem()
+		} else {
+			paramVal = argValue
+		}
 	}
 
 	results := mw.method.Func.Call([]reflect.Value{
