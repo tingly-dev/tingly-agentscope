@@ -153,10 +153,7 @@ func (b *BashTool) validateCommand(command string) error {
 	return fmt.Errorf("command not in allowed list")
 }
 
-// RegisterBashTool registers the bash tool with the toolkit
-// Note: This helper is provided for convenience, but NewExtensionToolkit
-// automatically registers all tools. Use this if you want to register
-// the bash tool separately.
+// RegisterBashTool registers the bash tool with the given toolkit.
 func RegisterBashTool(tk *tool.Toolkit, options ...func(*BashTool)) error {
 	bt := NewBashTool(options...)
 	// RegisterAll uses the DescriptiveTool interface for name/description

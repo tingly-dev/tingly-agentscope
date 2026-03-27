@@ -570,16 +570,16 @@ func TestBashTool(t *testing.T) {
 	})
 }
 
-func TestExtensionToolkit(t *testing.T) {
+func TestNewToolkit(t *testing.T) {
 	tempDir := t.TempDir()
 
 	t.Run("create toolkit with all tools", func(t *testing.T) {
-		et, err := NewExtensionToolkit(nil)
+		tk, err := NewToolkit(nil)
 		if err != nil {
-			t.Fatalf("failed to create extension toolkit: %v", err)
+			t.Fatalf("failed to create toolkit: %v", err)
 		}
 
-		schemas := et.GetSchemas()
+		schemas := tk.GetSchemas()
 		if len(schemas) != 4 {
 			t.Errorf("expected 4 tools, got %d", len(schemas))
 		}
@@ -599,12 +599,12 @@ func TestExtensionToolkit(t *testing.T) {
 	})
 
 	t.Run("schemas have correct required fields", func(t *testing.T) {
-		et, err := NewExtensionToolkit(nil)
+		tk, err := NewToolkit(nil)
 		if err != nil {
-			t.Fatalf("failed to create extension toolkit: %v", err)
+			t.Fatalf("failed to create toolkit: %v", err)
 		}
 
-		schemas := et.GetSchemas()
+		schemas := tk.GetSchemas()
 
 		// Build lookup by tool name
 		schemaMap := make(map[string]map[string]any)
@@ -658,19 +658,18 @@ func TestExtensionToolkit(t *testing.T) {
 		}
 	})
 
-	t.Run("use direct methods", func(t *testing.T) {
-		et, err := NewExtensionToolkit(&ExtensionOptions{
-			ReadOptions:  ReadOptions([]string{tempDir}, 1024*1024),
-			WriteOptions: WriteOptions([]string{tempDir}, true),
-			EditOptions:  EditOptions([]string{tempDir}),
-		})
-		if err != nil {
-			t.Fatalf("failed to create extension toolkit: %v", err)
-		}
+	t.Run("use tool instances directly", func(t *testing.T) {
+		readTool := NewReadTool(ReadOptions([]string{tempDir}, 1024*1024))
+		writeTool := NewWriteTool(WriteOptions([]string{tempDir}, true))
+		editTool := NewEditTool(EditOptions([]string{tempDir}))
+		bashTool := NewBashTool()
 
 		// Test write
 		testFile := filepath.Join(tempDir, "direct.txt")
-		resp, err := et.Write(context.Background(), testFile, "test content")
+		resp, err := writeTool.Write(context.Background(), WriteParams{
+			Path:    testFile,
+			Content: "test content",
+		})
 		if err != nil {
 			t.Fatalf("write failed: %v", err)
 		}
@@ -679,7 +678,9 @@ func TestExtensionToolkit(t *testing.T) {
 		}
 
 		// Test read
-		resp, err = et.Read(context.Background(), testFile, 0, 0)
+		resp, err = readTool.Read(context.Background(), ReadParams{
+			Path: testFile,
+		})
 		if err != nil {
 			t.Fatalf("read failed: %v", err)
 		}
@@ -692,13 +693,19 @@ func TestExtensionToolkit(t *testing.T) {
 		}
 
 		// Test edit
-		resp, err = et.Edit(context.Background(), testFile, "test", "modified")
+		_, err = editTool.Edit(context.Background(), EditParams{
+			Path:    testFile,
+			OldText: "test",
+			NewText: "modified",
+		})
 		if err != nil {
 			t.Fatalf("edit failed: %v", err)
 		}
 
 		// Test bash
-		resp, err = et.Bash(context.Background(), "echo hello", 0)
+		resp, err = bashTool.Bash(context.Background(), BashParams{
+			Command: "echo hello",
+		})
 		if err != nil {
 			t.Fatalf("bash failed: %v", err)
 		}

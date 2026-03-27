@@ -134,10 +134,7 @@ func applyLineRange(content string, offset, limit int) string {
 	return strings.Join(lines[start:end], "\n")
 }
 
-// RegisterReadTool registers the read tool with the toolkit
-// Note: This helper is provided for convenience, but NewExtensionToolkit
-// automatically registers all tools. Use this if you want to register
-// the read tool separately.
+// RegisterReadTool registers the read tool with the given toolkit.
 func RegisterReadTool(tk *tool.Toolkit, options ...func(*ReadTool)) error {
 	rt := NewReadTool(options...)
 	// RegisterAll uses the DescriptiveTool interface for name/description

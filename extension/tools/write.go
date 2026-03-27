@@ -110,10 +110,7 @@ func (w *WriteTool) Write(ctx context.Context, params WriteParams) (*tool.ToolRe
 	return tool.TextResponse(fmt.Sprintf("Successfully %s file: %s (%d bytes)", action, params.Path, len(params.Content))), nil
 }
 
-// RegisterWriteTool registers the write tool with the toolkit
-// Note: This helper is provided for convenience, but NewExtensionToolkit
-// automatically registers all tools. Use this if you want to register
-// the write tool separately.
+// RegisterWriteTool registers the write tool with the given toolkit.
 func RegisterWriteTool(tk *tool.Toolkit, options ...func(*WriteTool)) error {
 	wt := NewWriteTool(options...)
 	// RegisterAll uses the DescriptiveTool interface for name/description

@@ -108,10 +108,7 @@ func (e *EditTool) Edit(ctx context.Context, params EditParams) (*tool.ToolRespo
 	return tool.TextResponse(fmt.Sprintf("Successfully edited file: %s", params.Path)), nil
 }
 
-// RegisterEditTool registers the edit tool with the toolkit
-// Note: This helper is provided for convenience, but NewExtensionToolkit
-// automatically registers all tools. Use this if you want to register
-// the edit tool separately.
+// RegisterEditTool registers the edit tool with the given toolkit.
 func RegisterEditTool(tk *tool.Toolkit, options ...func(*EditTool)) error {
 	et := NewEditTool(options...)
 	// RegisterAll uses the DescriptiveTool interface for name/description

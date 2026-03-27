@@ -52,13 +52,13 @@ resp, err := bashTool.Bash(ctx, params)
 
 ## Usage
 
-### Method 1: Using ExtensionToolkit (Recommended)
+### Method 1: Using NewToolkit (Recommended)
 
 ```go
 import "github.com/tingly-dev/tingly-agentscope/extension/tools"
 
-// Create toolkit
-et, err := tools.NewExtensionToolkit(&tools.ExtensionOptions{
+// Create toolkit with all extension tools registered
+tk, err := tools.NewToolkit(&tools.ToolkitOptions{
     ReadOptions:  tools.ReadOptions([]string{"/allowed/path"}, 10*1024*1024),
     WriteOptions: tools.WriteOptions([]string{"/allowed/path"}, true),
     EditOptions:  tools.EditOptions([]string{"/allowed/path"}),
@@ -68,14 +68,7 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Get toolkit for agent
-tk := et.GetToolkit()
-
-// Or call tools directly
-resp, err := et.Read(ctx, "file.txt", 0, 0)
-resp, err := et.Write(ctx, "file.txt", "content")
-resp, err := et.Edit(ctx, "file.txt", "old", "new")
-resp, err := et.Bash(ctx, "ls -la", 0)
+// Use tk directly with agents — it's a *tool.Toolkit
 ```
 
 ### Method 2: Register Tools Individually
@@ -170,7 +163,7 @@ extension/
     ├── write.go      # File writing tool
     ├── edit.go       # File editing tool
     ├── bash.go       # Bash execution tool
-    ├── toolkit.go    # ExtensionToolkit wrapper
+    ├── toolkit.go    # NewToolkit factory function
     ├── util.go       # Shared utility functions
     └── tools_test.go # Tests
 ```
