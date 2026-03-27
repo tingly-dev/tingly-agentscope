@@ -291,14 +291,11 @@ func (a *SDKAdapter) parseContentBlocks(blocks []anthropic.ContentBlockUnion) []
 		case anthropic.TextBlock:
 			result = append(result, message.Text(b.Text))
 		case anthropic.ToolUseBlock:
-			// Input is json.RawMessage, need to unmarshal
-			var inputMap map[string]any
-			json.Unmarshal(b.Input, &inputMap)
-			input := make(map[string]types.JSONSerializable)
-			for k, v := range inputMap {
-				input[k] = v
+			inputMap, err := parseToolInput(b.Input)
+			if err != nil {
+				continue
 			}
-			result = append(result, message.ToolUse(b.ID, b.Name, input))
+			result = append(result, message.ToolUse(b.ID, b.Name, inputMap))
 		case anthropic.ThinkingBlock:
 			result = append(result, &message.ThinkingBlock{
 				Thinking: b.Thinking,
@@ -319,6 +316,29 @@ func (a *SDKAdapter) parseUsage(resp *anthropic.Message) *model.Usage {
 		CompletionTokens: int(resp.Usage.OutputTokens),
 		TotalTokens:      int(resp.Usage.InputTokens + resp.Usage.OutputTokens),
 	}
+}
+
+// parseToolInput handles json.RawMessage that may be double-encoded.
+// Some API responses return tool input as a JSON string (e.g., "{\"command\": \"ls\"}")
+// instead of a JSON object (e.g., {"command": "ls"}).
+func parseToolInput(raw json.RawMessage) (map[string]any, error) {
+	// Try direct unmarshal as object first
+	var inputMap map[string]any
+	if err := json.Unmarshal(raw, &inputMap); err == nil {
+		return inputMap, nil
+	}
+
+	// If that fails, it might be a double-encoded JSON string
+	var jsonStr string
+	if err := json.Unmarshal(raw, &jsonStr); err != nil {
+		return nil, fmt.Errorf("failed to parse tool input: %s", string(raw))
+	}
+
+	// Parse the inner JSON string
+	if err := json.Unmarshal([]byte(jsonStr), &inputMap); err != nil {
+		return nil, fmt.Errorf("failed to parse inner tool input: %w", err)
+	}
+	return inputMap, nil
 }
 
 // adaptStream adapts SDK stream to ChatResponseChunk channel.
@@ -417,11 +437,7 @@ func (a *SDKAdapter) buildStreamingResponse(content []message.ContentBlock, thin
 
 	for _, tc := range toolCalls {
 		if tc.id != "" {
-			input := make(map[string]types.JSONSerializable)
-			for k, v := range tc.input {
-				input[k] = v
-			}
-			resultContent = append(resultContent, message.ToolUse(tc.id, tc.name, input))
+			resultContent = append(resultContent, message.ToolUse(tc.id, tc.name, tc.input))
 		}
 	}
 
