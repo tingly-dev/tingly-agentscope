@@ -635,11 +635,21 @@ func (i Input) View() string {
 	// Expand placeholder tokens for display
 	displayValue := i.expandPlaceholders(rawValue)
 
+	// Save cursor position before modifying value
+	cursorPos := i.Cursor()
+
 	// Temporarily set display value for rendering
 	originalValue := i.textarea.Value()
 	i.textarea.SetValue(displayValue)
+
+	// Restore cursor position
+	i.textarea.SetCursor(cursorPos)
+
 	textareaView := i.textarea.View()
-	i.textarea.SetValue(originalValue) // Restore raw value
+
+	// Restore raw value and cursor position for next frame
+	i.textarea.SetValue(originalValue)
+	i.textarea.SetCursor(cursorPos)
 
 	views = append(views, textareaView)
 
