@@ -8,7 +8,6 @@ require (
 	github.com/fsouza/go-dockerclient v1.12.3
 	github.com/gomlx/go-huggingface v0.3.1
 	github.com/parquet-go/parquet-go v0.27.0
-	github.com/tingly-dev/tingly-agentscope v0.0.0
 	github.com/urfave/cli/v2 v2.27.7
 )
 
