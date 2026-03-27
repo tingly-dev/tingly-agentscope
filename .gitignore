@@ -42,3 +42,9 @@ coverage.html
 # Dependency directories
 vendor/
 .worktrees/
+
+# Serena project config
+.serena/
+
+# Superpowers plans
+docs/superpowers/plans/

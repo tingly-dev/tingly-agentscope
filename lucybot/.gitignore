@@ -38,4 +38,9 @@ build/
 # Local config
 .lucybot/config.toml
 .lucybot/agents/
+.lucybot/index.db
 .worktrees/
+
+# Debug logs
+debug.log
+*.log
