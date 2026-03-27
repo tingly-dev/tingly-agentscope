@@ -550,13 +550,10 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			if msg.Paste {
 				// User pasted content - create placeholder for multi-line content
 				pasteContent := string(msg.Runes)
-				fmt.Fprintf(os.Stderr, "[DEBUG] Bracketed paste detected: %d chars, hasNewlines: %v\n", len(pasteContent), strings.Contains(pasteContent, "\n"))
 				if i.pasteDetector.IsPaste(pasteContent) {
 					// Create placeholder for the paste
 					entry := i.pasteboard.Add(pasteContent)
 					token := formatPlaceholderToken(entry.ID)
-
-					fmt.Fprintf(os.Stderr, "[DEBUG] Creating placeholder: %s\n", token)
 
 					// Insert token at cursor position
 					currentValue := i.textarea.Value()
@@ -572,7 +569,6 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 					// Don't fall through to normal processing
 					return i, nil
 				}
-				fmt.Fprintf(os.Stderr, "[DEBUG] Paste detected but IsPaste returned false\n")
 				// For small pastes without newlines, fall through to normal processing
 			}
 
@@ -582,13 +578,10 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			// - Remote sessions over SSH with limited terminal support
 			// - Cases where bracketed paste mode got disabled
 			if pasteContent := i.pasteDetector.OnKeyRunes(msg.Runes); pasteContent != "" {
-				fmt.Fprintf(os.Stderr, "[DEBUG] Timing paste detected: %d chars, hasNewlines: %v\n", len(pasteContent), strings.Contains(pasteContent, "\n"))
 				if i.pasteDetector.IsPaste(pasteContent) {
 					// Create placeholder for the paste
 					entry := i.pasteboard.Add(pasteContent)
 					token := formatPlaceholderToken(entry.ID)
-
-					fmt.Fprintf(os.Stderr, "[DEBUG] Creating placeholder: %s\n", token)
 
 					// Insert token at cursor position
 					currentValue := i.textarea.Value()
