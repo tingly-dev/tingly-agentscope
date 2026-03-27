@@ -552,6 +552,11 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				// User pasted content - create placeholder for multi-line content
 				pasteContent := string(msg.Runes)
 				if i.pasteDetector.IsPaste(pasteContent) {
+					// Debug: check LineInfo values
+					info := i.textarea.LineInfo()
+					fmt.Fprintf(os.Stderr, "[DEBUG] LineInfo: StartColumn=%d, CharOffset=%d, cursorPos=%d\n",
+						info.StartColumn, info.CharOffset, info.StartColumn+info.CharOffset)
+
 					// Store content in pasteboard and get display text
 					entry := i.pasteboard.Add(pasteContent)
 					displayText := formatPlaceholderDisplay(entry.ID, entry.Lines)
