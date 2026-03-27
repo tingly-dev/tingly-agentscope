@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -38,9 +37,6 @@ type Input struct {
 	// Pasteboard for large text pastes
 	pasteboard    *Pasteboard
 	pasteDetector *PasteDetector
-
-	// Flag to suppress remaining paste input after placeholder was inserted
-	suppressingPasteInput bool
 }
 
 // Placeholder token format
@@ -177,10 +173,9 @@ func (i *Input) SetValue(value string) {
 func (i *Input) Cursor() int {
 	// LineInfo gives us the cursor position information
 	info := i.textarea.LineInfo()
-	pos := info.StartColumn + info.CharOffset
-	// Debug logging
-	fmt.Fprintf(os.Stderr, "[DEBUG] Cursor() returning %d (StartColumn=%d, CharOffset=%d)\n", pos, info.StartColumn, info.CharOffset)
-	return pos
+	// StartColumn is the byte offset of the line start
+	// CharOffset is the cursor offset from the line start
+	return info.StartColumn + info.CharOffset
 }
 
 // Reset clears the input
@@ -432,11 +427,6 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Reset paste suppression flag on non-Runes keys
-		if msg.Type != tea.KeyRunes && i.suppressingPasteInput {
-			i.suppressingPasteInput = false
-		}
-
 		switch msg.Type {
 		case tea.KeyTab:
 			// Tab cycles through popup items or expands placeholders
@@ -547,77 +537,34 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				i.history.Reset()
 			}
 
-			// If we're suppressing paste input, skip this KeyRunes message
-			if i.suppressingPasteInput {
-				// Keep suppressing until we see a different key type
-				return i, nil
-			}
+			// Check if this is a paste event (bracketed paste mode)
+			if msg.Paste {
+				// User pasted content - create placeholder for multi-line content
+				pasteContent := string(msg.Runes)
+				if i.pasteDetector.IsPaste(pasteContent) {
+					// Create placeholder for the paste
+					entry := i.pasteboard.Add(pasteContent)
+					token := formatPlaceholderToken(entry.ID)
 
-			// Simple paste detection: if this KeyRunes message has many characters with newlines,
-			// it's likely a paste (vs normal typing which is typically 1-2 chars per message)
-			pasteContent := string(msg.Runes)
-			if i.pasteDetector.IsPaste(pasteContent) {
-				// Create placeholder for the paste
-				entry := i.pasteboard.Add(pasteContent)
-				token := formatPlaceholderToken(entry.ID)
+					// Insert token at cursor position
+					currentValue := i.textarea.Value()
+					cursorPos := i.Cursor()
+					before := currentValue[:cursorPos]
+					after := currentValue[cursorPos:]
+					i.textarea.SetValue(before + token + after)
 
-				// Insert token at cursor position
-				currentValue := i.textarea.Value()
-				cursorPos := i.Cursor()
-				before := currentValue[:cursorPos]
-				after := currentValue[cursorPos:]
-				i.textarea.SetValue(before + token + after)
+					// Move cursor after token
+					newCursorPos := cursorPos + len(token)
+					i.textarea.SetCursor(newCursorPos)
 
-				// Move cursor after token
-				newCursorPos := cursorPos + len(token)
-				i.textarea.SetCursor(newCursorPos)
-
-				// Don't fall through to normal processing
-				return i, nil
-			}
-
-			// Not a paste, check for rate-based paste detection (for slower pastes)
-			pasteDetected := false
-			for _, r := range msg.Runes {
-				if pasteContent := i.pasteDetector.OnKeyRune(r); pasteContent != "" {
-					// Paste detected - check if it should create a placeholder
-					if i.pasteDetector.IsPaste(pasteContent) {
-						// Create placeholder
-						entry := i.pasteboard.Add(pasteContent)
-						token := formatPlaceholderToken(entry.ID)
-
-						// Insert token at cursor position
-						currentValue := i.textarea.Value()
-						cursorPos := i.Cursor()
-						before := currentValue[:cursorPos]
-						after := currentValue[cursorPos:]
-						i.textarea.SetValue(before + token + after)
-
-						// Move cursor after token
-						newCursorPos := cursorPos + len(token)
-						i.textarea.SetCursor(newCursorPos)
-
-						// Reset detector after handling paste
-						i.pasteDetector.Reset()
-						pasteDetected = true
-						i.suppressingPasteInput = true // Start suppressing remaining paste input
-						break // Only process first paste detection
-					} else {
-						// Paste content detected but not paste-worthy
-						// Reset detector so input is processed normally
-						i.pasteDetector.Reset()
-					}
+					// Don't fall through to normal processing
+					return i, nil
 				}
+				// For small pastes without newlines, fall through to normal processing
 			}
 
-			// If we didn't create a paste placeholder, fall through to let textarea handle input
-			if pasteDetected {
-				return i, nil // Don't process again
-			}
-			// Fall through to let textarea.Update() handle normal input
-
-			// Check for trigger characters (only if no paste was handled)
-			if len(msg.Runes) == 1 {
+			// Check for trigger characters (only for single-character, non-paste input)
+			if !msg.Paste && len(msg.Runes) == 1 {
 				switch msg.Runes[0] {
 				case '/':
 					// Show command popup when / is typed at start
@@ -674,8 +621,6 @@ func (i Input) View() string {
 
 	// Save cursor position before modifying value
 	cursorPos := i.Cursor()
-
-	fmt.Fprintf(os.Stderr, "[DEBUG] View(): rawValue=%q, cursorPos=%d\n", rawValue, cursorPos)
 
 	// Expand placeholder tokens for display
 	displayValue := i.expandPlaceholders(rawValue)

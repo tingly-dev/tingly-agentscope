@@ -177,6 +177,7 @@ func (a *App) Init() tea.Cmd {
 	return tea.Batch(
 		a.input.Init(),
 		tea.EnterAltScreen,
+		tea.EnableBracketedPaste(), // Enable bracketed paste mode for reliable paste detection
 	)
 }
 
@@ -1260,7 +1261,7 @@ func Run(cfg *AppConfig) error {
 	app := NewApp(cfg)
 	p := tea.NewProgram(app,
 		tea.WithAltScreen(),
-		tea.WithoutBracketedPaste(), // Disable bracketed paste to prevent OSC sequence leakage
+		// Bracketed paste mode is enabled via Init() command
 	)
 
 	_, err := p.Run()
