@@ -632,18 +632,21 @@ func (i Input) View() string {
 	// Get raw textarea value
 	rawValue := i.textarea.Value()
 
+	// Save cursor position before modifying value
+	cursorPos := i.Cursor()
+
 	// Expand placeholder tokens for display
 	displayValue := i.expandPlaceholders(rawValue)
 
-	// Save cursor position before modifying value
-	cursorPos := i.Cursor()
+	// Map cursor position from raw value to display value
+	displayCursorPos := i.mapCursorPosition(rawValue, cursorPos)
 
 	// Temporarily set display value for rendering
 	originalValue := i.textarea.Value()
 	i.textarea.SetValue(displayValue)
 
-	// Restore cursor position
-	i.textarea.SetCursor(cursorPos)
+	// Restore cursor position (mapped to display value)
+	i.textarea.SetCursor(displayCursorPos)
 
 	textareaView := i.textarea.View()
 
@@ -721,6 +724,70 @@ const (
 
 // placeholderTokenPattern is the regex pattern to find placeholder tokens
 var placeholderTokenPattern = regexp.MustCompile(`<<PASTE:(\d+)>>`)
+
+// mapCursorPosition maps a cursor position from raw value to display value
+// accounting for placeholder expansions
+func (i *Input) mapCursorPosition(rawValue string, cursorPos int) int {
+	matches := placeholderTokenPattern.FindAllStringSubmatchIndex(rawValue, -1)
+	offset := 0
+
+	for _, match := range matches {
+		// match[0] is start of placeholder, match[1] is end
+		placeholderStart := match[0]
+		placeholderEnd := match[1]
+
+		// Extract ID to get display length
+		placeholderText := rawValue[placeholderStart:placeholderEnd]
+		submatch := placeholderTokenPattern.FindStringSubmatch(placeholderText)
+		if len(submatch) < 2 {
+			continue
+		}
+
+		idStr := submatch[1]
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			continue
+		}
+
+		// Get the display text for this placeholder
+		content, ok := i.pasteboard.Get(id)
+		if !ok {
+			continue
+		}
+
+		// Calculate display text length
+		lines := countLines(content)
+		var displayText string
+		if lines > maxLinesForExactDisplay {
+			displayText = fmt.Sprintf(placeholderDisplayLarge, id, maxLinesForExactDisplay)
+		} else {
+			displayText = fmt.Sprintf(placeholderDisplayFormat, id, lines)
+		}
+
+		// If cursor is before this placeholder, no change needed
+		if cursorPos <= placeholderStart {
+			break
+		}
+
+		// Calculate length difference
+		rawLength := placeholderEnd - placeholderStart
+		displayLength := len(displayText)
+		lengthDiff := displayLength - rawLength
+
+		// If cursor is inside or after the placeholder
+		if cursorPos > placeholderStart {
+			// If cursor is inside placeholder, move to end of display
+			if cursorPos < placeholderEnd {
+				cursorPos = placeholderStart + displayLength
+			} else {
+				// Cursor is after placeholder, add the difference
+				offset += lengthDiff
+			}
+		}
+	}
+
+	return cursorPos + offset
+}
 
 // expandPlaceholders replaces placeholder tokens with display text
 func (i *Input) expandPlaceholders(text string) string {
