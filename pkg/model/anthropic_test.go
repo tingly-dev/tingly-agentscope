@@ -1,9 +1,10 @@
-package model
+package model_test
 
 import (
 	"testing"
 
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
+	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model/anthropic"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
@@ -115,10 +116,10 @@ func TestSDKAdapter_ConvertTools(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	tools := []ToolDefinition{
+	tools := []model.ToolDefinition{
 		{
 			Type: "function",
-			Function: FunctionDefinition{
+			Function: model.FunctionDefinition{
 				Name:        "test_tool",
 				Description: "A test tool",
 				Parameters: map[string]any{
