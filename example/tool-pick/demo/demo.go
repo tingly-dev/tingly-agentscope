@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/tingly-dev/tingly-agentscope/extension/toolpick"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
-	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick"
 )
 
 // Constants for configuration defaults

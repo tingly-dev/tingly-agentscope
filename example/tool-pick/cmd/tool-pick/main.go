@@ -8,12 +8,12 @@ import (
 	"log"
 	"os"
 
+	"github.com/tingly-dev/tingly-agentscope/extension/toolpick"
 	"github.com/tingly-dev/tingly-agentscope/pkg/agent"
 	"github.com/tingly-dev/tingly-agentscope/pkg/memory"
 	"github.com/tingly-dev/tingly-agentscope/pkg/message"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model/openai"
 	"github.com/tingly-dev/tingly-agentscope/pkg/tool"
-	"github.com/tingly-dev/tingly-agentscope/pkg/toolpick"
 	"github.com/tingly-dev/tingly-agentscope/pkg/types"
 )
 

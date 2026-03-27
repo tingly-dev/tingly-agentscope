@@ -1,10 +1,8 @@
 module github.com/tingly-dev/tingly-agentscope/example
 
-go 1.26.0
+go 1.25.6
 
-replace github.com/tingly-dev/tingly-agentscope => ../
-
-require github.com/tingly-dev/tingly-agentscope v0.0.0
+require github.com/tingly-dev/tingly-agentscope v0.260327.1030
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.25.0 // indirect
@@ -31,6 +29,9 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
+	go.opentelemetry.io/otel/metric v1.40.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.40.0 // indirect
+	go.opentelemetry.io/otel/trace v1.40.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
