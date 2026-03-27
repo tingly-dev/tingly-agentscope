@@ -55,23 +55,24 @@ func (pd *PasteDetector) OnKeyRunes(runes []rune) string {
 
 // IsPaste checks if content should be treated as a paste (and create placeholder)
 func (pd *PasteDetector) IsPaste(content string) bool {
-	// Must contain newlines to be a candidate for placeholder
-	if !strings.Contains(content, "\n") {
-		return false
-	}
-
-	// Multi-line content is likely a paste even if shorter
-	// Lower threshold for multi-line content (20 chars vs 100 for single-line)
-	if len(content) <= 20 {
-		return false
-	}
-
 	// Not just whitespace
 	if strings.TrimSpace(content) == "" {
 		return false
 	}
 
-	return true
+	// Check if content is multi-line
+	hasNewlines := strings.Contains(content, "\n")
+
+	// Multi-line content: lower threshold for creating placeholder
+	if hasNewlines {
+		// Multi-line content is likely a paste even if shorter
+		// Lower threshold for multi-line content (20 chars vs 100 for single-line)
+		return len(content) > 20
+	}
+
+	// Single-line content: must be quite long to warrant a placeholder
+	// This handles cases where user pastes a long line of code or text
+	return len(content) > 200
 }
 
 // reset clears all detector state
