@@ -290,11 +290,11 @@ func (a *SDKAdapter) parseChoiceContent(choice *openai.ChatCompletionChoice) []m
 
 	// Tool calls
 	for _, tc := range choice.Message.ToolCalls {
-		input := make(map[string]types.JSONSerializable)
+		var inputMap map[string]any
 		if tc.Function.Arguments != "" {
-			json.Unmarshal([]byte(tc.Function.Arguments), &input)
+			json.Unmarshal([]byte(tc.Function.Arguments), &inputMap)
 		}
-		content = append(content, message.ToolUse(tc.ID, tc.Function.Name, input))
+		content = append(content, message.ToolUse(tc.ID, tc.Function.Name, inputMap))
 	}
 
 	return content
@@ -361,12 +361,7 @@ func (a *SDKAdapter) adaptStream(stream *ssestream.Stream[openai.ChatCompletionC
 					currentDelta.Input[k] = v
 				}
 
-				// Add tool use block to content
-				serializedInput := make(map[string]types.JSONSerializable)
-				for k, v := range input {
-					serializedInput[k] = v
-				}
-				currentContent = append(currentContent, message.ToolUse(tc.ID, tc.Function.Name, serializedInput))
+				currentContent = append(currentContent, message.ToolUse(tc.ID, tc.Function.Name, input))
 			}
 		}
 
