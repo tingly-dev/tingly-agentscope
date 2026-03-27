@@ -110,7 +110,6 @@ func NewInput() Input {
 		history:       NewHistory(),
 		pasteboard:    NewPasteboard(),
 		pasteDetector: NewPasteDetector(),
-		rawCursorPos:  0, // Initialize cursor position
 	}
 }
 
