@@ -37,9 +37,6 @@ type Input struct {
 	// Pasteboard for large text pastes
 	pasteboard    *Pasteboard
 	pasteDetector *PasteDetector
-
-	// Cursor position tracking (needed because SetValue() resets cursor position)
-	cursorPos int
 }
 
 // Placeholder token format
@@ -113,7 +110,6 @@ func NewInput() Input {
 		history:       NewHistory(),
 		pasteboard:    NewPasteboard(),
 		pasteDetector: NewPasteDetector(),
-		cursorPos:     0, // Initialize cursor position
 	}
 }
 
@@ -175,7 +171,11 @@ func (i *Input) SetValue(value string) {
 
 // Cursor returns the current cursor position
 func (i *Input) Cursor() int {
-	return i.cursorPos
+	// LineInfo gives us the cursor position information
+	info := i.textarea.LineInfo()
+	// StartColumn is the byte offset of the line start
+	// CharOffset is the cursor offset from the line start
+	return info.StartColumn + info.CharOffset
 }
 
 // Reset clears the input
@@ -549,8 +549,7 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 						// Insert token at cursor position
 						currentValue := i.textarea.Value()
-						// Use tracked cursorPos directly, not i.Cursor()
-						cursorPos := i.cursorPos
+						cursorPos := i.Cursor()
 						before := currentValue[:cursorPos]
 						after := currentValue[cursorPos:]
 						i.textarea.SetValue(before + token + after)
@@ -558,7 +557,6 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 						// Move cursor after token
 						newCursorPos := cursorPos + len(token)
 						i.textarea.SetCursor(newCursorPos)
-						i.cursorPos = newCursorPos // Update our tracking
 
 						// Reset detector after handling paste
 						i.pasteDetector.Reset()
@@ -602,43 +600,6 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 	// Update textarea
 	i.textarea, cmd = i.textarea.Update(msg)
 
-	// Track cursor position for later restoration
-	// We need to track this because SetValue() in View() resets cursor position
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.Type {
-		case tea.KeyRunes:
-			// User typed characters - move cursor forward
-			i.cursorPos += len(keyMsg.Runes)
-		case tea.KeyBackspace:
-			// User deleted a character - move cursor backward
-			if i.cursorPos > 0 {
-				i.cursorPos--
-			}
-		case tea.KeyDelete:
-			// Delete key doesn't move cursor
-		case tea.KeyLeft:
-			// Left arrow - move cursor backward
-			if i.cursorPos > 0 {
-				i.cursorPos--
-			}
-		case tea.KeyRight:
-			// Right arrow - move cursor forward
-			valueLen := len(i.textarea.Value())
-			if i.cursorPos < valueLen {
-				i.cursorPos++
-			}
-		case tea.KeyUp:
-			// Up arrow - move to beginning of line or value
-			i.cursorPos = 0
-		case tea.KeyDown:
-			// Down arrow - move to end of value
-			i.cursorPos = len(i.textarea.Value())
-		case tea.KeyEnter:
-			// Enter key - move to end of value (after newline)
-			i.cursorPos = len(i.textarea.Value())
-		}
-	}
-
 	// Update popup visibility based on new input
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		// Only update popups on character changes, not navigation
@@ -668,10 +629,6 @@ func (i Input) View() string {
 		views = append(views, i.agentPopup.View())
 	}
 
-	// Save current cursor position BEFORE any modifications
-	// We use our tracked position which is updated in Update()
-	cursorPos := i.cursorPos
-
 	// Get raw textarea value
 	rawValue := i.textarea.Value()
 
@@ -681,20 +638,8 @@ func (i Input) View() string {
 	// Temporarily set display value for rendering
 	originalValue := i.textarea.Value()
 	i.textarea.SetValue(displayValue)
-
-	// Restore cursor position that was saved before SetValue()
-	// This ensures the view captures the correct cursor position
-	i.textarea.SetCursor(cursorPos)
-
-	// Capture the view with correct cursor position
 	textareaView := i.textarea.View()
-
-	// Restore original value for next frame
-	i.textarea.SetValue(originalValue)
-
-	// Set cursor position for next frame
-	// This ensures the next View() call will have the correct position
-	i.textarea.SetCursor(cursorPos)
+	i.textarea.SetValue(originalValue) // Restore raw value
 
 	views = append(views, textareaView)
 
