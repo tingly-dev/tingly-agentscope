@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -535,6 +536,10 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			return i, nil
 
 		case tea.KeyRunes:
+			// Debug: log cursor position before typing
+			currentCursorPos := i.Cursor()
+			fmt.Fprintf(os.Stderr, "[DEBUG] KeyRunes before: cursorPos=%d, runes=%q\n", currentCursorPos, msg.Runes)
+
 			// Reset ESC flag on any character input
 			i.escPressed = false
 			// Reset history browsing when user starts typing
@@ -554,6 +559,10 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 					// Insert display text at cursor position
 					currentValue := i.textarea.Value()
 					cursorPos := i.Cursor()
+
+					fmt.Fprintf(os.Stderr, "[DEBUG] Paste detected: currentValue=%q, cursorPos=%d, displayText=%q\n",
+						currentValue, cursorPos, displayText)
+
 					before := currentValue[:cursorPos]
 					after := currentValue[cursorPos:]
 					i.textarea.SetValue(before + displayText + after)
@@ -561,6 +570,9 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 					// Move cursor after display text
 					newCursorPos := cursorPos + len(displayText)
 					i.textarea.SetCursor(newCursorPos)
+
+					fmt.Fprintf(os.Stderr, "[DEBUG] After paste: newValue=%q, newCursorPos=%d\n",
+						before+displayText+after, newCursorPos)
 
 					// Don't fall through to normal processing
 					return i, nil
@@ -623,6 +635,14 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 
 	// Update textarea
 	i.textarea, cmd = i.textarea.Update(msg)
+
+	// Debug: log cursor position after update
+	if msg, ok := msg.(tea.KeyMsg); ok {
+		if msg.Type == tea.KeyRunes || msg.Type == tea.KeyLeft || msg.Type == tea.KeyRight {
+			afterCursorPos := i.Cursor()
+			fmt.Fprintf(os.Stderr, "[DEBUG] After Update: cursorPos=%d, msgType=%v\n", afterCursorPos, msg.Type)
+		}
+	}
 
 	// Update popup visibility based on new input
 	if msg, ok := msg.(tea.KeyMsg); ok {
