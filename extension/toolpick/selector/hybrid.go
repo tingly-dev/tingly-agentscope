@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tingly-dev/tingly-agentscope/extension/toolpick/cache"
 	"github.com/tingly-dev/tingly-agentscope/pkg/embedding"
 	"github.com/tingly-dev/tingly-agentscope/pkg/model"
-	"github.com/tingly-dev/tingly-agentscope/plugin/toolpick/cache"
 )
 
 // HybridSelector combines LLM filtering with semantic search.
