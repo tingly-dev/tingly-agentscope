@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -38,6 +37,9 @@ type Input struct {
 	// Pasteboard for large text pastes
 	pasteboard    *Pasteboard
 	pasteDetector *PasteDetector
+
+	// Manual cursor position tracking
+	cursorPos int
 }
 
 // Placeholder token format
@@ -111,6 +113,7 @@ func NewInput() Input {
 		history:       NewHistory(),
 		pasteboard:    NewPasteboard(),
 		pasteDetector: NewPasteDetector(),
+		cursorPos:     0, // Initialize cursor position
 	}
 }
 
@@ -168,17 +171,18 @@ func (i *Input) GetValueForSubmit() string {
 // SetValue sets the input value
 func (i *Input) SetValue(value string) {
 	i.textarea.SetValue(value)
+	i.cursorPos = len(value)
 }
 
 // Cursor returns the current cursor position
 func (i *Input) Cursor() int {
-	info := i.textarea.LineInfo()
-	return info.StartColumn + info.CharOffset
+	return i.cursorPos
 }
 
 // Reset clears the input
 func (i *Input) Reset() {
 	i.textarea.SetValue("")
+	i.cursorPos = 0
 	i.hidePopups()
 	// Ensure textarea remains focused after reset
 	i.textarea.Focus()
@@ -536,10 +540,6 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 			return i, nil
 
 		case tea.KeyRunes:
-			// Debug: log cursor position before typing
-			currentCursorPos := i.Cursor()
-			fmt.Fprintf(os.Stderr, "[DEBUG] KeyRunes before: cursorPos=%d, runes=%q\n", currentCursorPos, msg.Runes)
-
 			// Reset ESC flag on any character input
 			i.escPressed = false
 			// Reset history browsing when user starts typing
@@ -552,11 +552,6 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 				// User pasted content - create placeholder for multi-line content
 				pasteContent := string(msg.Runes)
 				if i.pasteDetector.IsPaste(pasteContent) {
-					// Debug: check LineInfo values
-					info := i.textarea.LineInfo()
-					fmt.Fprintf(os.Stderr, "[DEBUG] LineInfo: StartColumn=%d, CharOffset=%d, cursorPos=%d\n",
-						info.StartColumn, info.CharOffset, info.StartColumn+info.CharOffset)
-
 					// Store content in pasteboard and get display text
 					entry := i.pasteboard.Add(pasteContent)
 					displayText := formatPlaceholderDisplay(entry.ID, entry.Lines)
@@ -564,10 +559,6 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 					// Insert display text at cursor position
 					currentValue := i.textarea.Value()
 					cursorPos := i.Cursor()
-
-					fmt.Fprintf(os.Stderr, "[DEBUG] Paste detected: currentValue=%q, cursorPos=%d, displayText=%q\n",
-						currentValue, cursorPos, displayText)
-
 					before := currentValue[:cursorPos]
 					after := currentValue[cursorPos:]
 					i.textarea.SetValue(before + displayText + after)
@@ -575,9 +566,7 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 					// Move cursor after display text
 					newCursorPos := cursorPos + len(displayText)
 					i.textarea.SetCursor(newCursorPos)
-
-					fmt.Fprintf(os.Stderr, "[DEBUG] After paste: newValue=%q, newCursorPos=%d\n",
-						before+displayText+after, newCursorPos)
+					i.cursorPos = newCursorPos
 
 					// Don't fall through to normal processing
 					return i, nil
@@ -606,6 +595,7 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 					// Move cursor after display text
 					newCursorPos := cursorPos + len(displayText)
 					i.textarea.SetCursor(newCursorPos)
+					i.cursorPos = newCursorPos
 
 					// Reset detector after handling paste
 					i.pasteDetector.Reset()
@@ -641,11 +631,45 @@ func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 	// Update textarea
 	i.textarea, cmd = i.textarea.Update(msg)
 
-	// Debug: log cursor position after update
+	// Update our manual cursor position tracking based on the key pressed
 	if msg, ok := msg.(tea.KeyMsg); ok {
-		if msg.Type == tea.KeyRunes || msg.Type == tea.KeyLeft || msg.Type == tea.KeyRight {
-			afterCursorPos := i.Cursor()
-			fmt.Fprintf(os.Stderr, "[DEBUG] After Update: cursorPos=%d, msgType=%v\n", afterCursorPos, msg.Type)
+		valueLen := len(i.textarea.Value())
+		switch msg.Type {
+		case tea.KeyRunes:
+			// Characters inserted - move cursor forward
+			i.cursorPos += len(msg.Runes)
+		case tea.KeyBackspace:
+			// Character deleted - move cursor backward
+			if i.cursorPos > 0 {
+				i.cursorPos--
+			}
+		case tea.KeyDelete:
+			// Delete key - cursor stays in place
+		case tea.KeyLeft:
+			// Left arrow - move cursor backward
+			if i.cursorPos > 0 {
+				i.cursorPos--
+			}
+		case tea.KeyRight:
+			// Right arrow - move cursor forward
+			if i.cursorPos < valueLen {
+				i.cursorPos++
+			}
+		case tea.KeyUp:
+			// Up arrow - move to beginning
+			i.cursorPos = 0
+		case tea.KeyDown:
+			// Down arrow - move to end
+			i.cursorPos = valueLen
+		case tea.KeyHome:
+			// Home key - move to beginning
+			i.cursorPos = 0
+		case tea.KeyEnd:
+			// End key - move to end
+			i.cursorPos = valueLen
+		case tea.KeyEnter:
+			// Enter key - move to end (after newline)
+			i.cursorPos = valueLen
 		}
 	}
 
