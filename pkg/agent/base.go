@@ -516,7 +516,7 @@ func (a *AgentBase) getSubscriberIDs() map[string][]string {
 }
 
 // LoadStateDict loads state from serialized data
-func (a *AgentBase) LoadStateDict(state map[string]any) error {
+func (a *AgentBase) LoadStateDict(ctx context.Context, state map[string]any) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 

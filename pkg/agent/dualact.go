@@ -444,7 +444,7 @@ func (d *DualActAgent) StateDict() map[string]any {
 
 // LoadStateDict loads the agent's state
 func (d *DualActAgent) LoadStateDict(ctx context.Context, state map[string]any) error {
-	if err := d.AgentBase.LoadStateDict(state); err != nil {
+	if err := d.AgentBase.LoadStateDict(ctx, state); err != nil {
 		return err
 	}
 	return nil

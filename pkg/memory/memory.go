@@ -429,7 +429,7 @@ func (h *History) StateDict() map[string]any {
 }
 
 // LoadStateDict loads state from serialized data
-func (h *History) LoadStateDict(state map[string]any) error {
+func (h *History) LoadStateDict(ctx context.Context, state map[string]any) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
