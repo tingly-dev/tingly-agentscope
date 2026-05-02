@@ -237,7 +237,19 @@ func (a *SDKAdapter) ConvertTools(tools []model.ToolDefinition) []anthropic.Tool
 		schema := anthropic.ToolInputSchemaParam{
 			Type: "object",
 		}
-		schema.Properties = tool.Function.Parameters
+		// Extract the properties from the full parameter schema
+		// tool.Function.Parameters is the full schema: {"type": "object", "properties": {...}, "required": [...]}
+		// We need to extract just the "properties" and "required" fields
+		if params, ok := tool.Function.Parameters.(map[string]any); ok {
+			if props, ok := params["properties"]; ok {
+				schema.Properties = props
+			}
+			if required, ok := params["required"]; ok {
+				if reqArr, ok := required.([]string); ok {
+					schema.Required = reqArr
+				}
+			}
+		}
 		result[i] = anthropic.ToolUnionParam{
 			OfTool: &anthropic.ToolParam{
 				Name:        tool.Function.Name,
